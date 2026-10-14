@@ -1,0 +1,2297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Travian Oasis Raid Planner</title>
+<style>
+:root{
+  --bg:#11141a; --pan:#191d26; --pan2:#212734; --line:#2e3646;
+  --tx:#dfe5ef; --dim:#8a94a6; --acc:#ffb34d; --good:#4ade80; --bad:#f87171; --warn:#fbbf24;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",Roboto,system-ui,sans-serif}
+a{color:var(--acc)}
+h1{font-size:19px;margin:0}
+h2{font-size:14px;margin:0 0 10px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc)}
+h3{font-size:13px;margin:16px 0 6px;color:var(--tx)}
+.wrap{max-width:1500px;margin:0 auto;padding:18px}
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+header .sub{color:var(--dim);font-size:12px}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+label{display:block;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+input[type=number],input[type=text],select{
+  background:var(--pan2);border:1px solid var(--line);color:var(--tx);border-radius:6px;
+  padding:6px 8px;font:13px inherit;min-width:70px}
+input[type=text]{min-width:240px}
+label.cbx{display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;
+  font-size:13px;color:var(--tx);margin:0;padding:6px 8px;background:var(--pan2);
+  border:1px solid var(--line);border-radius:6px;cursor:pointer;white-space:nowrap}
+input[type=range]{width:150px;vertical-align:middle}
+textarea{width:100%;height:90px;background:var(--pan2);border:1px solid var(--line);color:var(--tx);
+  border-radius:6px;padding:8px;font:12px ui-monospace,Consolas,monospace;resize:vertical}
+button{background:var(--acc);color:#191d26;border:0;border-radius:6px;padding:8px 14px;
+  font:600 13px inherit;cursor:pointer}
+button:hover{filter:brightness(1.12)}
+button.ghost{background:var(--pan2);color:var(--tx);border:1px solid var(--line)}
+.note{color:var(--dim);font-size:12px;margin-top:8px}
+.good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .dim{color:var(--dim)}
+code{background:var(--pan2);padding:1px 5px;border-radius:4px;font:12px ui-monospace,Consolas,monospace}
+pre{background:#0d1016;border:1px solid var(--line);border-radius:6px;padding:10px;overflow:auto;
+  font:11.5px ui-monospace,Consolas,monospace;color:#b9c4d6;margin:8px 0 0;white-space:pre-wrap;word-break:break-all}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:4px 7px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+td.an{white-space:normal;max-width:220px;line-height:1.3}
+td.ty{white-space:normal;max-width:110px;line-height:1.3}
+th{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.04em;
+  position:sticky;top:0;background:var(--pan);cursor:pointer;user-select:none;padding:6px 7px}
+th:hover{color:var(--acc)}
+tbody tr:hover{background:#1f2533}
+.scroll{max-height:620px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600}
+.p-safe{background:#14532d;color:#86efac} .p-loss{background:#4c1d1d;color:#fca5a5}
+.p-raid{background:#1e3a5f;color:#93c5fd} .p-norm{background:#4a2d5f;color:#d8b4fe}
+.p-fc{background:#3f3212;color:#fcd34d}
+.kpi{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:12px}
+.kpi div b{display:block;font-size:21px;color:var(--acc);font-weight:600;line-height:1.25}
+.kpi div span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.st{padding:8px 12px;border-radius:6px;font-size:12.5px;margin-top:10px}
+.st-ok{background:#14532d33;border:1px solid #14532d;color:#86efac}
+.st-err{background:#4c1d1d33;border:1px solid #4c1d1d;color:#fca5a5}
+.st-idle{background:var(--pan2);border:1px solid var(--line);color:var(--dim)}
+ul{margin:6px 0;padding-left:20px} li{margin:3px 0}
+.wave{background:var(--pan2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.card.mode{border-color:var(--acc);background:linear-gradient(180deg,rgba(245,158,11,.07),transparent)}
+.card.mode select{font-weight:700;font-size:14px}
+.row .grow{flex:1 1 320px;min-width:260px}
+.wave b{color:var(--acc)}
+ul.dispatch{list-style:none;margin:0 0 8px;padding:0}
+ul.dispatch li{background:var(--pan2);border:1px solid var(--line);border-radius:8px;
+  padding:7px 10px;margin-bottom:5px;line-height:1.5}
+ul.dispatch li b{color:var(--acc)}
+.sendlink{color:var(--good);font-weight:600;text-decoration:none}
+.sendlink:hover{text-decoration:underline}
+.coord{background:var(--pan2);padding:2px 6px;border-radius:4px;font:12px ui-monospace,Consolas,monospace;
+  color:var(--tx);text-decoration:none;border:1px solid transparent;white-space:nowrap}
+.coord:hover{border-color:var(--acc);color:var(--acc)}
+td.tick,th.tick{width:26px;padding-left:9px;padding-right:2px}
+.sentbox{accent-color:var(--good);cursor:pointer;width:14px;height:14px;margin:0}
+tr.done td{opacity:.3;text-decoration:line-through}
+tr.done td.tick{opacity:1;text-decoration:none}
+tr.done:hover td{opacity:.6}
+.chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx);text-transform:none;letter-spacing:0}
+.chk input{accent-color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Travian Oasis Raid Planner</h1>
+  <span class="sub">T4.6 &middot; Gaul &middot; Theutates Thunder &middot; ranks oases by animal-bounty profit per hour</span>
+</header>
+
+<!-- ══════════════ 0. THE ONLY KNOBS ══════════════ -->
+<div class="card mode">
+  <h2>0 &middot; Setup</h2>
+  <div class="row">
+    <div><label>Smithy level (TT)</label>
+      <input type="number" id="iSm" value="4" min="0" max="20"></div>
+    <div><label>Metallurgy (alliance %)</label>
+      <input type="number" id="iMet" value="4" min="0" max="30" step="1"></div>
+    <div><label for="iTs">Tournament Square</label>
+      <input type="number" id="iTs" value="14" min="0" max="20" step="1"></div>
+    <div><label for="iRiskMode">Risk mode</label>
+      <select id="iRiskMode">
+        <option value="risky">Risky</option>
+        <option value="safe" selected>Safe (buffered)</option>
+      </select></div>
+    <div><label for="iMinRate">Min net res / h / TT (0 = all)</label>
+      <input type="number" id="iMinRate" value="0" min="0" step="0.1"></div>
+    <div><label>Send from</label><select id="iVill"></select></div>
+  </div>
+  <div class="note" id="ttStat"></div>
+  <div class="note" id="riskNote"></div>
+  <div class="note"><b>15+ res/h/TT</b> is highlighted as your usual target, not a cutoff.
+    The minimum starts at <b>0</b> so all viable options stay visible. Larger, safer sends are alternatives, not mandatory.</div>
+  <div class="note" id="minNote"></div>
+</div>
+
+<!-- ══════════════ 1. SETUP ══════════════ -->
+<div class="card">
+  <h2>1 &middot; Where am I</h2>
+  <div class="row">
+    <div><label>Server</label><input type="text" id="iSrv" value="https://ts12.x1.europe.travian.com"></div>
+    <div><label>Capital X</label><input type="number" id="iCx" value="-12"></div>
+    <div><label>Capital Y</label><input type="number" id="iCy" value="195"></div>
+  </div>
+  <div class="note">The map is a <b>torus</b> (401&times;401, &minus;200..200) &mdash; your capital is 4 tiles from the
+    north edge, so distances wrap around. That is handled. Coordinates follow the village you pick above.</div>
+  <div class="note" id="vStat"></div>
+</div>
+
+<!-- ══════════════ 2. PULL THE MAP ══════════════ -->
+<div class="card">
+  <h2>2 &middot; Paste the map data</h2>
+
+  <div class="st st-ok" style="margin:0 0 14px">
+    &#128274; This page makes <b>no network requests on its own</b>. Nothing polls, nothing runs on a timer,
+    nothing is sent anywhere. It only acts when you click a button, and then only to <code>localhost</code>.
+  </div>
+
+  <ol style="margin:6px 0;padding-left:20px">
+    <li>Press <code>F12</code> &rarr; <b>Network</b> tab, then open the map page below.</li>
+    <li>In the filter box type <code>position</code>.</li>
+    <li>Click the <code>position</code> request &rarr; <b>Response</b> tab &rarr; select all &rarr; copy.</li>
+    <li>Paste it in the box below and press <b>Analyse</b>.</li>
+  </ol>
+  <div class="note">The map page already made this exact request to draw the tiles. You are just reading the
+    answer it got &mdash; your account sends nothing extra at all.</div>
+
+  <div class="note" style="margin-top:10px">One <code>zoomLevel:3</code> response is capped at
+    <b>31&times;31</b> (radius 15). To see further, <b>re-centre the map and paste again</b> &mdash; each
+    paste merges into the last, keyed by coordinate, so overlaps dedupe instead of doubling. Centres
+    <b>31 apart</b> tile perfectly. <span id="oSpan"></span></div>
+
+  <div class="row" style="margin-top:14px">
+    <button id="bOpen">Open map page &#8599;</button>
+    <button class="ghost" id="bSample">Load last saved file</button>
+  </div>
+
+  <div class="row" style="margin-top:14px">
+    <div style="flex:1;min-width:320px">
+      <label>Paste the JSON here</label>
+      <textarea id="iPaste" placeholder='{"tiles":[ ... ]}'></textarea>
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button id="bParse">Analyse</button>
+    <button class="ghost" id="bClear">Clear all dumps</button>
+  </div>
+  <div id="stat" class="st st-idle">No map data loaded yet.</div>
+</div>
+
+<!-- ══════════════ 3. RESULTS ══════════════ -->
+<div class="card">
+  <h2>3 &middot; Every target, ranked</h2>
+  <div id="planStatus" class="st st-err" hidden></div>
+  <div class="row" style="margin-bottom:12px">
+    <button class="ghost" id="bRefresh">Update estimates</button>
+    <button class="ghost" id="bClearSent">Uncheck all sent</button>
+    <span class="note" style="margin:0" id="sentCount">Click or middle-click <b>send</b> to tick the oasis. You still confirm the raid in the game. Untick it if you cancel.</span>
+  </div>
+  <div class="kpi" id="kpi"></div>
+  <div class="scroll"><table id="tMain">
+    <thead><tr>
+      <th class="l tick" style="cursor:default">&#10003;</th>
+      <th class="l" data-s="rank">#</th>
+      <th class="l" data-s="type">Oasis</th>
+      <th class="l" data-s="coord">Coords</th>
+      <th data-s="d">Dist</th>
+      <th data-s="rt">Trip</th>
+      <th class="l" data-s="an">Animals</th>
+      <th data-s="k">Send</th>
+      <th data-s="lost" title="Planned whole-unit losses charged in profit. An arrow shows losses in a tougher refill scenario.">Loss est.</th>
+      <th data-s="safe" title="Send size with zero losses even in the tougher modelled refill, within the search range and above your optional minimum rate.">0-loss estimate</th>
+      <th data-s="profit">Profit</th>
+      <th data-s="pph">Res / hour</th>
+      <th data-s="pptt"><span class="dim">Res / h / TT</span></th>
+      <th class="l">Go</th>
+    </tr></thead>
+    <tbody id="bMain"></tbody>
+  </table></div>
+  <div class="note">Bounty = <b>crop supply &times; 160</b> per animal killed (40 of <i>each</i> resource, straight into
+    your hero's inventory &mdash; <b>not</b> limited by carry capacity, and paid even if every attacker dies).
+    <b>Profit = credited scan bounty &minus; planned losses &times; 1,090.</b>
+    Both rate columns use that profit and the full round-trip time, including Tournament Square.
+    <span id="refillNote"></span>
+    The arrow in <b>Loss est.</b> shows a tougher refill, not an extra charge in the displayed profit.
+    Larger escorts that reduce that risk stay available, without forcing every send to cover all species spawning at once.
+    Only kills from the scanned population are credited; additional animals never fund the raid.
+    Credited bounty must cover at least <b>1.5&times;</b> the modelled replacement cost.
+    Hospital treatment and retraining still take resources and time, so no recovery discount is assumed.
+    Empty oases are not listed at all &mdash; they hold no animals, and their stored production is not what
+    a Thunder fleet is for.</div>
+</div>
+
+<!-- ══════════════ 4. NOTES ══════════════ -->
+<div class="card">
+  <h2>4 &middot; What this does and does not know</h2>
+  <div id="notes"></div>
+  <h3>Self-check</h3>
+  <div id="chk"></div>
+</div>
+
+</div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ───────────────────────── constants ───────────────────────── */
+const SIZE = 401, HALF = 200;
+const wrap = d => ((d + HALF) % SIZE + SIZE) % SIZE - HALF;
+const mapId = (x, y) => (HALF - y) * SIZE + (x + HALF) + 1;
+
+const RES = { r1:'Wood', r2:'Clay', r3:'Iron', r4:'Crop' };
+/*  name, def-vs-infantry, def-vs-cavalry, crop supply  */
+const AN = {
+  u31:{n:'rat',       di:25,  dc:20,  s:1},
+  u32:{n:'spider',    di:35,  dc:40,  s:1},
+  u33:{n:'snake',     di:40,  dc:60,  s:1},
+  u34:{n:'bat',       di:66,  dc:50,  s:1},
+  u35:{n:'boar',      di:70,  dc:33,  s:2},
+  u36:{n:'wolf',      di:80,  dc:70,  s:2},
+  u37:{n:'bear',      di:140, dc:200, s:3},
+  u38:{n:'crocodile', di:380, dc:240, s:3},
+  u39:{n:'tiger',     di:170, dc:250, s:3},
+  u40:{n:'elephant',  di:440, dc:520, s:5}
+};
+const BOUNTY_PER_SUPPLY = 160;          // 40 of each of the 4 resources
+
+/* Community timer estimates, not published respawn guarantees.
+   Full rates feed stress checks; the planned arrival uses a lighter shared allowance. */
+const RESPAWN = { u31:5, u32:6, u33:7, u34:8, u35:9, u36:10, u37:11, u38:12, u39:13, u40:14 };
+
+/*  Which species an oasis can normally produce, from kirilloid's oasData bitmasks.
+    ~13% of real oases on this map also hold ONE species from outside their pool
+    (a wolf in an iron oasis, an elephant in a crop one). Those are the rare anomaly
+    spawns; they are deliberately not modelled, and the profit margin below is what
+    pays for being wrong about them. */
+const POOL = {
+  iron25:['u31','u32','u34'],        iron50:['u31','u32','u34','u37'],
+  clay25:['u31','u32','u35'],        clay50:['u31','u32','u35','u38'],
+  wood25:['u35','u36','u37'],        wood50:['u35','u36','u37','u39'],
+  crop25:['u31','u33','u37','u39'],  crop50:['u31','u33','u38','u39']
+};
+function famOf(type) {
+  if (/Wood/.test(type)) return /Wood 50/.test(type) ? 'wood50' : 'wood25';
+  if (/Clay/.test(type)) return /Clay 50/.test(type) ? 'clay50' : 'clay25';
+  if (/Iron/.test(type)) return /Iron 50/.test(type) ? 'iron50' : 'iron25';
+  if (/Crop/.test(type)) return /Crop 50/.test(type) ? 'crop50' : 'crop25';
+  return 'clay25';
+}
+const poolOf = type => POOL[famOf(type)];
+
+/*  ⭐ THE MIX A FULL OASIS SETTLES INTO.
+
+    Measured over 300 oases from the hero planner's target list. An oasis's SIZE is
+    random — nothing in the data caps the animal count or the total defence, and the
+    biggest tiles do not pile up against any ceiling — but its COMPOSITION is not.
+    Counts hold a proportion set by the resource type (the +Crop bonus does not change
+    it: Wood 1/0.93/0.59 plain vs 1/0.86/0.54 dual, Iron 1/0.46/0.44 vs 1/0.47/0.44).
+
+    Medians over the large, clearly unfarmed tiles; quartiles sit within about ±15%. */
+const MIX = {
+  iron25:{ u31:1, u32:0.47, u34:0.43 },  iron50:{ u31:1, u32:0.47, u34:0.43 },
+  clay25:{ u31:1, u32:0.72, u35:0.35 },  clay50:{ u31:1, u32:0.72, u35:0.35 },
+  wood25:{ u35:1, u36:0.90, u37:0.55 },  wood50:{ u35:1, u36:0.90, u37:0.55 },
+  crop25:{ u31:1, u33:0.75, u37:0.57, u39:0.25 },
+  crop50:null                            // only 2 samples on the map — no ratio worth trusting
+};
+const mixOf = type => MIX[famOf(type)];
+
+/*  LEGACY SAMPLING HEURISTIC, NOT PROOF THAT AN OASIS IS FULL.
+    Retained for historical samples; arrivalScenarios does not use it.
+
+    The previous model assumed a sighting told us the tile's ceiling when it was done. Respawn
+    cycles through the pool one species at a time, so an oasis that has every species of
+    its pool standing on it has been all the way round and is full; one showing a single
+    rat was photographed mid-refill and its count says nothing about how big it gets.
+
+    Getting this wrong is not symmetric. Believing "1 rat" is the ceiling makes the
+    planner treat the tile as static and send 1 TT into what is about to be eight rats.
+
+    The map backs the species test: of the populated oases, every Wood 25% holds boar AND
+    wolf AND bear (99/99), every Iron 25% holds rat, spider and bat (48/48). Anomaly
+    spawns are ignored on purpose — an elephant wandering into a clay oasis does not
+    prove the clay oasis is finished.
+
+    But presence alone is not enough: `1 rat, 12 spider, 3 boar` has the whole pool and is
+    still obviously half-farmed. So a species also has to be within reach of its share of
+    the mix above. The floor is deliberately slack — the mix has real spread, and the
+    biggest healthy oases on the map still only reach 78-98% of their implied share, so a
+    40% floor flags just the 2 genuinely gutted tiles in 277 and nothing else. Below a
+    handful of animals the ratio is meaningless noise, so it is not applied at all. */
+const MIX_FLOOR = 0.4, MIX_MIN_SCALE = 4;
+const saturated = o => {
+  const an = o.an || [], present = new Set(an.filter(a => a.c > 0).map(a => a.k));
+  if (!poolOf(o.type).every(sp => present.has(sp))) return false;
+  const mix = mixOf(o.type);
+  if (!mix) return true;
+  const sp = Object.keys(mix), cnt = k => (an.find(a => a.k === k) || { c:0 }).c;
+  /*  Median, not max: one runaway species must not declare every other one starved. */
+  const sh = sp.map(k => cnt(k) / mix[k]).sort((a, b) => a - b);
+  const scale = sh.length % 2 ? sh[sh.length >> 1] : (sh[sh.length / 2 - 1] + sh[sh.length / 2]) / 2;
+  if (!(scale >= MIX_MIN_SCALE)) return true;
+  return sp.every(k => cnt(k) >= MIX_FLOOR * scale * mix[k]);
+};
+
+/*  ⚠️ RETAINED MODEL KNOWLEDGE — NO LONGER REACHED FROM THE UI.
+
+    Everything from here down to `emptyForecast` prices EMPTY (cleared) oases: their
+    production, their storage cap, and what respawns in them. The planner no longer
+    lists empty oases at all — see the §3 pricing rule — so none of it is called by
+    `render()` any more.
+
+    It is kept, with its self-checks, because it is verified game mechanics that were
+    expensive to establish (the official per-resource table, the crop +1 rule, the
+    50%-doubles-the-focus correction, and two dumps 71h apart measuring real respawn).
+    Deleting it would mean re-deriving all of it the next time empty tiles matter.
+    If a check in here fails, the model is wrong — not the ranking.
+
+  ⭐ WHAT A CLEARED OASIS HAS PILED UP SINCE YOUR LAST VISIT.
+
+    We used to refuse to price this at all, because the map cannot see a pile and a
+    guessed "probably full by now" inflates every ranking on the page. That objection
+    still stands for the FIRST visit to an untouched tile — but it never applied to a
+    tile you are farming on a fixed cadence. If you come back every winH hours, exactly
+    winH hours of production is waiting. That is not a guess, it is the same steady-state
+    argument the respawn model already runs on, and it is now booked as profit.
+
+    RATE — from Travian's own oasis table (support.travian.com/en/articles/48-oasis),
+    which is per-resource and NOT the round "40/10" summary the farming article gives:
+
+      type                         lumber clay iron crop   capacity
+      Wood/Clay/Iron +25%   (T1)      40    10   10   11    1,000 ea
+      ...+25% & +25% crop   (T2)      40    10   10   41    2,000 ea
+      ...+50%  (T3, Natarian)         80    10   10   11    2,000 ea
+      Crop +25%             (T1)      10    10   10   41    1,000 ea
+      Crop +50%             (T2)      10    10   10   81    2,000 ea
+
+    🪤 Three traps in that table, all of which a "40 focus / 10 the rest" reading gets wrong:
+      · CROP is always exactly ONE more than the same tier gives any other resource —
+        11 / 41 / 81 against 10 / 40 / 80. Never a round number.
+      · +50% DOES double the focus (80 / 81). An earlier pass here assumed the percentage
+        only affected an occupying village; the table says otherwise.
+      · Capacity is 2,000 (not 1,000) for BOTH the dual and the 50% types.
+
+    🪤 The "steal up to 10%, regenerates in 10 minutes" rule in that same article applies to
+    PLAYER-OWNED oases only. Ours are free tiles (`{k.fo}`, did -1), so it does not apply.
+
+    🪤 The clone gates accrual on ownership alone (`if ($row['did']) return false;`), which
+    would mean every oasis accrues. The official rule is stricter and we follow it:
+    production starts only once the ORIGINALLY spawned animals are gone. A virgin oasis
+    still holding its first animals has produced NOTHING, so this is booked for cleared
+    tiles only — which is also the only case we can identify from a dump.
+
+    STORAGE CAP takes ~25h to fill at 40/h, so it cannot bind at a 30- or 60-minute
+    cadence. It only matters on that first visit, which is still reported as upside and
+    still never booked. Carry capacity CAN bind — a lone TT holds 75 — so the haul is
+    clamped to what the SURVIVORS can lift. This is ordinary loot, not hero bounty.  */
+const SERVER_SPEED = 1;
+function oasisProdPerHour(type) {
+  const t = String(type || '');
+  const rate = name => {
+    const m = t.match(new RegExp(name + '\\s*(\\d+)%'));
+    return !m ? 10 : (+m[1] >= 50 ? 80 : 40);
+  };
+  /*  Crop is always exactly ONE more than the same tier would give any other resource:
+      11 / 41 / 81 against 10 / 40 / 80. Hence the trailing +1 rather than a crop case. */
+  return SERVER_SPEED *
+    (rate('Wood') + rate('Clay') + rate('Iron') + rate('Crop') + 1);
+}
+/*  The most a tile can be holding when you first walk in, for the upside column only.
+    2,000 per resource on the dual and 50% types, 1,000 on a plain single +25%. */
+function oasisPile(type) {
+  const t = String(type || '');
+  const big = /50%/.test(t) || (t.match(/%/g) || []).length > 1;
+  return 4 * (big ? 2000 : 1000);
+}
+
+/*  ⭐ WHAT AN EMPTY OASIS IS WORTH IF YOU LEAVE IT ALONE.
+
+    A cleared tile produces around the clock whether or not you visit, so raiding it
+    every 30 minutes collects the same resources as raiding it once a day — just in
+    forty-eight times as many clicks. The ONLY thing a visit does is empty the store
+    before it overflows.
+
+    The focus resource fills first because it is the fastest, so the tile is "ripe"
+    at per-resource-cap / focus-rate: 1,000/40 = 25h on a plain +25%, 2,000/40 = 50h
+    on a dual. Past that you are burning production. A Clay 25% ripens to ~1,775 res,
+    a dual to ~5,050 — one trip, 24 and 68 TT of carry respectively.  */
+function ripeInfo(o) {
+  const ph    = oasisProdPerHour(o.type);
+  const pile  = oasisPile(o.type);
+  const focus = /50%/.test(String(o.type)) ? 80 : 40;
+  const ripeH = (pile / 4) / focus;
+  const holds = Math.min(ph * ripeH, pile);
+  return { ripeH, holds, prodH: ph, tt: Math.ceil(holds / TT.cap) };
+}
+
+/*  Worth-it test. Zero losses is the wrong bar — it rules out targets that pay far more
+    than they cost. What matters is that the loot clears the risk by a wide enough margin
+    to absorb a bad roll (an anomaly spawn, a late send, an animal landing behind you).
+    Loot must be at least MARGIN x the replacement cost of the Thunders you expect to lose. */
+const MARGIN = 1.5;
+const GUIDE_RATE = 15;
+const RISK_MODES = {
+  risky: { id:'risky', label:'Risky', refillShare:0.2, minRefill:0, preferredRateShare:0.95 },
+  safe:  { id:'safe', label:'Safe',  refillShare:1,   minRefill:1, preferredRateShare:0.90 }
+};
+
+function refillDescription(riskMode) {
+  return Math.round(riskMode.refillShare * 100) + '% of the shared timer-based allowance, rounded to whole animals' +
+    (riskMode.minRefill
+      ? ', with at least one added animal whenever there is scan-to-landing time'
+      : ', without forcing an extra animal on short trips');
+}
+
+const UPKEEP_H = 2;
+
+const MIN_RATE_DEFAULT = 0;
+const meetsRate = (b, minimum) => Number.isFinite(b.pptt) && b.pptt >= minimum;
+
+/*  Alliance Metallurgy, as a straight percentage on top of the Smithy multiplier.
+    Deliberately a free number rather than a level dropdown: the published level->%
+    tables disagree between sources and the game tells you the percentage directly,
+    so there is nothing to be gained by re-deriving it from a level. */
+function metalPct() {
+  const v = (typeof document !== 'undefined' && $('iMet')) ? +$('iMet').value : 0;
+  return isFinite(v) && v > 0 ? v : 0;
+}
+
+/* Bounty currently visible, before casualties or travel time are priced. */
+const oasisBounty = o =>
+  (o.an || []).reduce((s, a) => s + a.c * AN[a.k].s * BOUNTY_PER_SUPPLY, 0);
+
+/*  Animals an hour in an oasis you keep empty, 1x server. Community guidance is
+    1-3/h while near empty, slowing as it fills, and a full refill in 2-3 days.
+    That checks out against this map: a full Crop 50% in range holds 79 animals,
+    which over 60 hours is 1.3/h. This sets how big a stack can be waiting when
+    you arrive, so it SIZES THE ESCORT. It is no longer what you get paid — see
+    SPAWN_VALUE_PER_H. */
+const SPAWN_PER_H = 1.5;
+
+/*  ⭐ WHAT AN EMPTY OASIS ACTUALLY PAYS — WHICH IS ALMOST NOTHING.
+
+    SPAWN_PER_H used to do double duty: it sized the escort AND it booked the bounty.
+    That quietly inflated every empty tile. A Clay 25% an hour away was reported as
+    +391, of which only 71 was the stored production you reliably collect; the other
+    320 was 1.5 imaginary animals. 82% of the number was a guess.
+
+    ⚠️ MEASURED, not assumed. Two dumps of the same neighbourhood 71.2 hours apart:
+    of the 7 oases standing empty in the older one, FOUR were still completely empty
+    71 hours later and three had refilled to 8, 9 and 10 animals. Averaged over all
+    seven that is 0.05 animals/hour — thirty times below the 1.5 the model charged you
+    for. At 1.5/h those four tiles should have been holding a hundred animals.
+
+    The standing distribution says the same thing from another angle: of 118 oases,
+    19 are empty, 15 hold 6-10 and 81 hold 11+, but only THREE hold between 1 and 5.
+    Spawning is not a trickle you can average — it is rare and lumpy. A tile sits at
+    zero for days and then arrives with a squad. You practically never catch one
+    halfway, which is exactly why pricing it with a smooth hourly mean was wrong.
+
+    So the two rates are split by what they are FOR, which is the same asymmetry the
+    rest of the planner already runs on — pay for what you expect, survive what might
+    be there:
+
+      SPAWN_VALUE_PER_H  ->  bounty, expected kills, profit   (what you collect)
+      SPAWN_PER_H        ->  BAD_ROLL, escort sizing, veto    (what might be standing)
+
+    Set at 0.1 rather than the observed 0.05 on purpose. Four of those tiles may have
+    read as empty because they were being farmed all week, which would suppress the
+    count — the evidence cannot separate "never spawned" from "spawned and was taken".
+    Doubling the observed rate is the cheap hedge: still ~15x below the old number, but
+    it does not lean the whole case on one pair of photographs.
+
+    🪤 Do NOT fold this into SPAWN_PER_H. When a tile does spawn it spawns 8-10 animals
+    at once, so the escort must keep being sized for a batch. Lowering the safety rate
+    to match the payment rate would send 1 TT into ten boars. */
+const SPAWN_VALUE_PER_H = 0.1;
+
+/*  A bad night at an empty oasis: this many times the expected spawn, and all of it the
+    worst species the oasis type can throw up. Used ONLY as a break-even veto, never to
+    size a send — you are not going to walk into 20 spiders, but you should not be wiped
+    if three bears turn up either. */
+const BAD_ROLL = 3;
+
+/*  How much a bad roll is allowed to cost, as a multiple of what the send expects to earn.
+
+    The veto used to be `worst case must break even`: worstBounty - worstLost x TT.cost >= 0.
+    That reads like prudence and is actually unsatisfiable. One dead TT costs 1090, while
+    the whole bad-roll bounty of a cheap tile is ~800, so the test can only pass when
+    losses are EXACTLY ZERO — and the ladder then climbs until they are. Measured on the
+    real dump: six empty oases were each handed 16 TT to collect what 2 TT collects, and
+    one 3-animal tile asked for 101 TT. The escort was not sized by the animals at all,
+    it was sized by an arithmetic impossibility.
+
+    So the worst case is judged against the send's OWN expected profit instead of against
+    zero. The rule is self-limiting: a disaster on one tile costs about two wasted raids,
+    never the army, because a cheap target can only ever risk a cheap escort. Measured
+    across both dumps at 2: expected losses stay 0 on every empty send, the worst single
+    dispatched send risks 2 TT, and every empty tile rolling worst at once costs 20 TT —
+    against +5,800 profit per cycle from hitting 34 targets instead of 24.
+
+    Raising this frees more TT (3 is worth ~500 more profit) but buys little; 2 is the knee.
+
+    ⚠️ The budget is floored at one TT's cost — see the note in emptyForecast. Without that
+    floor the rule inverts on cheap targets and sends the biggest escorts to the smallest
+    prizes. */
+const RISK_BUDGET = 2;
+
+const TT = { a:100, cu:2, speed:19, cost:1090, cap:75, slot:'t4' };
+const BASE_DEF = 10, LONE = 84.5, IMM = 1.5;
+const TS_FREE = 20, TS_STEP = 0.2;
+function flyHours(dist, tsLevel, speed) {
+  return Math.min(dist, TS_FREE) / speed +
+    Math.max(0, dist - TS_FREE) / (speed * (1 + TS_STEP * tsLevel));
+}
+/*  ⚠️ did is NOT derivable from the coordinates. It is an independent id: across the 124
+    villages in a real dump, not one had did == mapId. It has to be read, never computed.
+    Verified from the map dump of 14 Sep (uid 535, player "ace"): both of these carry the
+    did the game itself reported on the tile. Getting this wrong is silent — Travian just
+    switches you to whatever village the did names (or your capital when it is not yours)
+    and loads the rally point with that village's troops. didAt() re-reads it from every
+    fresh dump so a settled or lost village cannot leave a stale id behind. */
+const VILLAGES = [
+  { did:74127, name:'Onigashima', x:-12, y:195 },
+  { did:71066, name:'Marineford', x:-12, y:196 },
+  { did:18228, name:'Dawn Island', x:-28, y:31  }
+];
+
+/* ───────────────────────── combat engine (verified vs in-game reports) ───────────────────────── */
+const rHalfUp = v => Math.floor(v + 0.5);
+const upgAtk = (base, cu, lvl) =>
+  base + (base + 300 * (cu / 1.007) / 7) * (Math.pow(1.007, lvl) - 1) + (cu / 1.007) * 0.0021;
+
+const ttBase = () => (typeof document !== 'undefined' && $('iBase') && +$('iBase').value) || TT.a;
+const ttAtk = (sm, bon) => upgAtk(ttBase(), TT.cu, sm) * (1 + bon / 100);
+const cavDef = an => an.reduce((s, a) => s + a.c * AN[a.k].dc, BASE_DEF);
+
+/*  Animal counts are expectations now, not integers — a tile can honestly be "expect 5.5
+    boar". Show a sensible number of digits rather than 5.545576653659237. */
+const cN = c => (Math.abs(c - Math.round(c)) < 1e-9) ? Math.round(c)
+             : (c < 10 ? +c.toFixed(1) : Math.round(c));
+
+/**  One send of k Theutates Thunders against the animals standing in an oasis.
+ *   mode 'raid'   : both sides lose a share  -> survives more, kills less
+ *   mode 'normal' : loser is wiped out       -> kills everything if you win, costs a bit more
+ *   Survivors round HALF-UP per unit type, which is where the "cliff" comes from. */
+function battle(an, k, A, mode) {
+  const def = cavDef(an), att = k * A;
+  const x = Math.pow(att / def, IMM);
+  let ol, dl;
+  if (mode === 'raid') { ol = 1 / (1 + x);          dl = x / (1 + x); }
+  else                 { ol = Math.min(1 / x, 1);   dl = Math.min(x, 1); }
+
+  const lost = (k === 1 && att < LONE) ? 1 : k - rHalfUp(k * (1 - ol));
+  let bounty = 0, killed = [], left = 0;
+  for (const a of an) {
+    const surv = rHalfUp(a.c * (1 - dl)), kill = a.c - surv;
+    left += surv;
+    if (kill > 0) { bounty += kill * AN[a.k].s * BOUNTY_PER_SUPPLY; killed.push(cN(kill) + ' ' + AN[a.k].n); }
+  }
+  return { def, att, x, ol, dl, lost, bounty, killed, left,
+           wiped: left === 0, cost: lost * TT.cost, profit: bounty - lost * TT.cost };
+}
+
+/*  Best number of TTs to send at one oasis. Ranked on profit per TT-HOUR, not raw profit
+    per hour: a TT tied up on a slow, crowded target cannot be earning somewhere else.
+    Brute-force every k — not monotonic, because of the rounding cliff. */
+/*  Where an empty oasis settles if you farm it every window.
+    In a T-minute window ceil(T/period) fresh animals of ONE species appear — they
+    respawn in order, not in parallel, so you never meet rats + spiders + boars piling
+    up together. You also inherit whatever survived last time, and survivors round
+    half-up, so the stack ratchets until you kill exactly as many as respawn.
+    This walks that ratchet to its fixed point. */
+const _stack = new Map();
+function steadyStack(sp, winMin, k, A) {
+  const key = sp + '|' + winMin + '|' + k + '|' + Math.round(A);
+  if (_stack.has(key)) return _stack.get(key);
+  const add = Math.ceil(winMin / RESPAWN[sp]);
+  let n = add;
+  for (let i = 0; i < 40; i++) {
+    const next = battle([{ k: sp, c: n }], k, A, 'raid').left + add;
+    if (next <= n) break;                       // equilibrium: you kill exactly what respawns
+    n = next;
+    if (n > 200) break;                         // runaway: you cannot keep up, it is not farmable
+  }
+  const r = { add, n };
+  _stack.set(key, r);
+  return r;
+}
+
+/*  What a cleared oasis is worth, and what it risks.
+
+    PAYS: the animals that have wandered back — SPAWN_PER_H x elapsed of them. Their
+    bounty goes to the HERO INVENTORY, so it is never capped by carts and is paid even
+    if every attacker dies.
+
+    DOES NOT PAY, as far as this tool is concerned: the resources the oasis has been
+    accumulating since it was cleared. They are real and they are usually the whole
+    reason to go, but we cannot see them and will not invent them. See the note at the
+    top of the file; cleared oases are handled by reservation, not by pricing.
+
+    RISK — priced on the EXPECTED arrival, not the worst case. The old model SIZED the
+    escort on the nastiest stack the pool could theoretically produce, which is how a
+    320-res target ended up demanding a 227-TT escort. You are not going to walk into
+    20 spiders. So the expected fight is what we price: expN animals drawn evenly from
+    the pool, which is what is usually standing there.
+
+    The worst case is not thrown away — it is demoted to a VETO. A send is rejected if a
+    BAD ROLL would actually lose resources: badMul times the expected spawn, all of it
+    the nastiest species this oasis type can produce. Bounded by what can physically
+    have spawned, where the old steadyStack equilibrium let the imaginary stack run away
+    to 200 animals and so demanded a 233-TT escort to collect 900 resources.
+
+    badMul defaults to BAD_ROLL for paid sends. spareEscort passes 1, because there is
+    no revenue there to protect — see the comment on spareEscort for why reusing the
+    paid-send test on a free visit demands 98 TT to look at an empty tile. */
+function emptyForecast(o, k, A, elapsedH, badMul) {
+  const pool = poolOf(o.type);
+
+  const expN = SPAWN_VALUE_PER_H * elapsedH;      // what you expect to actually collect
+  const riskN = SPAWN_PER_H * elapsedH;           // what might be standing there instead
+  const exp  = battle(pool.map(sp => ({ k: sp, c: expN / pool.length })), k, A, 'raid');
+
+  const avgSupply = pool.reduce((s, sp) => s + AN[sp].s, 0) / pool.length;
+  const bounty = expN * avgSupply * BOUNTY_PER_SUPPLY;
+
+  /*  Stored production waiting on the tile. Clamped to what the SURVIVORS can carry —
+      unlike animal bounty, this is ordinary loot and does obey carry capacity. */
+  const prodH = oasisProdPerHour(o.type);
+  const haul  = Math.min(prodH * elapsedH, Math.max(0, k - exp.lost) * TT.cap);
+
+  let worst = null;
+  const badN = Math.max(1, Math.ceil(riskN * (badMul === undefined ? BAD_ROLL : badMul)));
+  for (const sp of pool) {
+    const b = battle([{ k: sp, c: badN }], k, A, 'raid');
+    if (!worst || b.lost > worst.lost || (b.lost === worst.lost && b.def > worst.def))
+      worst = Object.assign({ sp, stack: badN }, b);
+  }
+  /*  The bad-roll veto deliberately IGNORES the haul. It is a safety test, and letting
+      revenue talk it round is how you end up sending troops into a stack that eats them. */
+  const floor = worst.bounty - worst.lost * TT.cost;
+
+  /*  Judged against what this send expects to make, not against zero — see RISK_BUDGET.
+      Demanding floor >= 0 on a target worth less than one TT forces a zero-loss escort
+      and is what produced 16-TT sends at empty oases.
+
+      The floor of one TT is not slack, it is the resolution of the test. You cannot lose
+      half a Thunder, so a budget smaller than TT.cost cannot express "tolerate a small
+      loss" — it can only say "tolerate nothing", which is the original bug wearing a
+      different number. It bit the cheapest tiles hardest: a close oasis is away for a
+      single 30-min window, earns ~196, and a 2x budget of 391 could not absorb the flat
+      930 a dead Thunder costs, so it was sent 7 TT while an 11-field tile worth 555 was
+      sent 1. The escorts were biggest exactly where the prize was smallest. */
+  const expProfit = Math.max(0, bounty + haul - exp.lost * TT.cost);
+
+  return Object.assign({}, exp, {
+    bounty, expN, riskN, forecast: true, haul, prodH, pile: oasisPile(o.type),
+    profit: bounty + haul - exp.lost * TT.cost,
+    worstLost: worst.lost, worstStack: worst.stack, worstSp: worst.sp,
+    floor, safe: floor >= -Math.max(RISK_BUDGET * expProfit, TT.cost)
+  });
+}
+
+function raidContext(o, hoursPerField, tsLevel = 0, riskMode = RISK_MODES.risky) {
+  const rt = 2 * flyHours(o.d, tsLevel, 1 / hoursPerField);
+  const lagMin = dumpAgeMin(o) + rt * 30;
+  return { rt, lagMin, riskMode, sc: arrivalScenarios(o, lagMin, riskMode) };
+}
+
+function priceSend(o, k, A, mode, context) {
+  const { rt, lagMin, sc, riskMode = RISK_MODES.risky } = context;
+  const scan = battle(o.an, k, A, mode);
+  const planned = battle(sc.planned, k, A, mode);
+  const risk = battle(sc.worst, k, A, mode);
+  let bounty = 0, left = 0;
+  const killed = [];
+  for (const a of o.an) {
+    const arriving = sc.planned.find(s => s.k === a.k);
+    const survivors = rHalfUp(arriving.c * (1 - planned.dl));
+    // Survivors could all be scanned animals. Never rely on new animals paying for losses.
+    const kill = Math.max(0, a.c - survivors);
+    left += a.c - kill;
+    bounty += kill * AN[a.k].s * BOUNTY_PER_SUPPLY;
+    if (kill) killed.push(kill + ' ' + AN[a.k].n);
+  }
+  const profit = bounty - planned.cost;
+  // Extra bounty is never ranked as income. In a stress scenario it can only offset
+  // that same scenario's losses; check the scan and each species scenario too.
+  const floor = Math.min(profit, scan.profit, risk.profit,
+    ...sc.alts.map(an => battle(an, k, A, mode).profit));
+  return Object.assign({}, planned, {
+    k, mode, riskMode: riskMode.id, rt, wrt: rt, w: 1, forecast: false, lagMin,
+    anArr: sc.planned, riskArr: sc.worst,
+    scanLost: scan.lost, worstLost: risk.lost, worstStack: risk,
+    bounty, killed, left, wiped: left === 0, profit, floor, safe: floor >= 0,
+    pph: profit / rt, pptt: profit / rt / k
+  });
+}
+
+const viableSend = b => b.profit > 0 && b.bounty >= MARGIN * b.cost && b.floor >= 0;
+
+/* Keep larger escorts that reduce stress-case losses even if planned profit is unchanged. */
+function sendOptions(o, A, maxK, hoursPerField, allowNormal, zeroOnly, tsLevel = 0, riskMode = RISK_MODES.risky) {
+  if (!(o.total > 0)) return [];
+  const context = raidContext(o, hoursPerField, tsLevel, riskMode);
+  const modes = allowNormal ? ['raid', 'normal'] : ['raid'];
+  const out = [];
+  let bestProfit = 0, fewestLost = Infinity, fewestRisk = Infinity;
+  for (const k of kLadder(maxK)) {
+    let best = null;
+    for (const mode of modes) {
+      const b = priceSend(o, k, A, mode, context);
+      if (!viableSend(b) || (zeroOnly && (b.lost > 0 || b.worstLost > 0))) continue;
+      if (!best || b.profit > best.profit ||
+          (b.profit === best.profit && b.worstLost < best.worstLost)) best = b;
+    }
+    if (!best || (best.profit <= bestProfit && best.lost >= fewestLost && best.worstLost >= fewestRisk)) continue;
+    out.push(best);
+    bestProfit = Math.max(bestProfit, best.profit);
+    fewestLost = Math.min(fewestLost, best.lost);
+    fewestRisk = Math.min(fewestRisk, best.worstLost);
+  }
+  return out;
+}
+
+function preferredSend(opts, riskMode = RISK_MODES.risky) {
+  if (!opts.length) return null;
+  const bestRate = Math.max(...opts.map(b => b.pptt));
+  // Both modes limit the efficiency tradeoff and preserve an attainable advisory 15.
+  const nearBest = Math.max(bestRate * riskMode.preferredRateShare, Math.min(GUIDE_RATE, bestRate));
+  return opts.filter(b => b.pptt >= nearBest).reduce((best, b) => !best || b.worstLost < best.worstLost ||
+    (b.worstLost === best.worstLost && (b.lost < best.lost ||
+      (b.lost === best.lost && (b.pptt > best.pptt ||
+        (b.pptt === best.pptt && b.k < best.k))))) ? b : best, null);
+}
+
+function bestSend(o, A, maxK, hoursPerField, allowNormal, zeroOnly, tsLevel = 0, riskMode = RISK_MODES.risky) {
+  return preferredSend(sendOptions(o, A, maxK, hoursPerField, allowNormal, zeroOnly, tsLevel, riskMode), riskMode);
+}
+
+/*  The escort sizes worth evaluating, smallest first.
+
+    Exact to 200 — that is where almost every send lands and where one TT either way
+    changes the answer. Past it, step 10. Losses fall like k^-0.5, so the rungs up there
+    are nearly flat and ±9 TT on a 2,000-TT escort is noise; stepping 1 to 4,000 would
+    cost forty times the work to move a rate in the third decimal. Same shape needTT
+    already used, so the ladder and the "needs N TT" answer cannot disagree. */
+function kLadder(maxK) {
+  const out = [];
+  for (let k = 1; k <= Math.min(maxK, 200); k++) out.push(k);
+  for (let k = 210; k <= maxK; k += 10) out.push(k);
+  return out;
+}
+
+function zeroLossK(o, A, maxK, allowNormal, hoursPerField = 1 / TT.speed, tsLevel = 0, riskMode = RISK_MODES.risky) {
+  const b = sendOptions(o, A, maxK, hoursPerField, allowNormal, true, tsLevel, riskMode)[0];
+  return b ? { k: b.k, mode: b.mode, b } : null;
+}
+
+function needTT(o, A, allowNormal, zeroOnly, tsLevel = 0, riskMode = RISK_MODES.risky) {
+  const b = sendOptions(o, A, MAX_SEND, 1 / TT.speed, allowNormal, zeroOnly, tsLevel, riskMode)[0];
+  return b ? { k: b.k, mode: b.mode, b } : null;
+}
+
+/* ───────────────────────── dump parsing ───────────────────────── */
+const clean = s => String(s || '').replace(/&#x202[cd];/g, '').replace(/&minus;/g, '-');
+
+function parseDump(json) {
+  const j = typeof json === 'string' ? JSON.parse(json) : json;
+  const tiles = j.tiles || (j.data && j.data.tiles);
+  if (!Array.isArray(tiles)) throw new Error('no "tiles" array in that JSON');
+  const cx = +$('iCx').value, cy = +$('iCy').value;
+  const out = [];
+  for (const t of tiles) {
+    if (!t || !t.position || !/\{k\.(fo|bt)\}/.test(t.title || '')) continue;
+    const x = t.position.x, y = t.position.y, txt = t.text || '';
+    const bon = [...txt.matchAll(/\{a:(r[1-4])\}\s*\{a\.\1\}\s*(\d+)%/g)]
+                  .map(m => RES[m[1]] + ' ' + m[2] + '%');
+    const an = [...txt.matchAll(/<i class="unit (u\d+)"><\/i><span class="value[^"]*">(\d+)<\/span>/g)]
+                  .filter(m => AN[m[1]])
+                  .map(m => ({ k: m[1], c: +m[2] }));
+    const lr = clean(txt).match(/\{b:bi1\}\s*(\d+)\s*\/\s*(\d+)/);
+    out.push({
+      x, y, d: Math.hypot(wrap(x - cx), wrap(y - cy)),
+      seenAt: TILE_AT.get(wrap(x) + '|' + wrap(y)) || 0,
+      type: bon.join(' + ') || 'plain',
+      occupied: /\{k\.bt\}/.test(t.title),
+      an, total: an.reduce((s, a) => s + a.c, 0),
+      lastReport: lr ? +lr[1] : null,
+      mapId: mapId(x, y)
+    });
+  }
+  return { oases: out.sort((a, b) => a.d - b.d), tiles };
+}
+
+/* coverage of the requested circle by the tiles we actually received */
+/* Exact, not a bounding box. The home village sits a few tiles from the y=200/-200
+   seam, so a dump straddles it and raw min/max reads as -200..200 = "the whole map",
+   which used to report full coverage at any radius. A key set is also the only thing
+   that works once several re-centred dumps merge into an irregular footprint. */
+function coverage(tiles, cx, cy, R) {
+  if (!tiles.length) return 0;
+  const have = new Set(tiles.map(t => wrap(t.position.x) + '|' + wrap(t.position.y)));
+  let need = 0, got = 0;
+  for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) {
+    if (Math.hypot(dx, dy) > R) continue;
+    need++;
+    if (have.has(wrap(cx + dx) + '|' + wrap(cy + dy))) got++;
+  }
+  return need ? got / need : 0;
+}
+
+/* ───────────────────────── formatting helpers ───────────────────────── */
+const nf  = v => (!isFinite(v) ? '&ndash;' : Math.round(v).toLocaleString('en-US'));
+const nfs = v => (!isFinite(v) ? '&ndash;' : (v >= 0 ? '+' : '&minus;') + Math.abs(Math.round(v)).toLocaleString('en-US'));
+const hm  = h => { if (!isFinite(h)) return '&ndash;'; const m = Math.round(h * 60);
+                   return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
+const anStr = an => an.length ? an.map(a => a.c + ' ' + AN[a.k].n).join(', ') : '&mdash;';
+
+/* clicking the coordinates opens that tile's page in the game */
+function tileLink(o) {
+  return $('iSrv').value.replace(/\/+$/, '') + '/position_details.php?x=' + o.x + '&y=' + o.y;
+}
+const coordCell = o =>
+  '<a class="coord" target="_blank" rel="noopener" href="' + tileLink(o) + '">[' + o.x + '|' + o.y + ']</a>';
+
+/*  The did the troops actually leave from. Preferred from the live map data, because the
+    dump carries `did` on every occupied tile and is therefore never stale, and only then
+    from the hardcoded list. Returns null when the tile is not one of yours or not in the
+    dump, so callers can fall back rather than send from the wrong village. */
+function didAt(x, y) {
+  if (!TILES.size) return null;
+  const t = TILES.get(wrap(x) + '|' + wrap(y));
+  return (t && +t.did > 0) ? String(t.did) : null;
+}
+
+/* ───────────────────────── state ───────────────────────── */
+const DEFAULT_SORT = { key: 'pph', dir: -1 };
+let DUMP = null, ROWS = [], SORT = { ...DEFAULT_SORT };
+
+/* Each tile keeps its own observation time when map blocks are merged.
+   Round age upward; only explicit user actions recalculate it. */
+let DUMP_AT = 0;
+const dumpAgeMin = o => {
+  const at = o ? o.seenAt : DUMP_AT;
+  return at ? Math.ceil(Math.max(0, (Date.now() - at) / 60000)) : 0;
+};
+
+const respawnMax = (sp, min) => RESPAWN[sp] ? Math.ceil(min / RESPAWN[sp]) : 0;
+const respawnExp = (sp, min) => RESPAWN[sp] ? min / RESPAWN[sp] : 0;
+
+function addTo(an, sp, n) {
+  const out = an.map(a => ({ k: a.k, c: a.c }));
+  if (!(n > 0)) return out;
+  const hit = out.find(a => a.k === sp);
+  if (hit) hit.c += n; else out.push({ k: sp, c: n });
+  return out;
+}
+
+/* A deterministic, prefix-stable allocation: adding time never removes an animal.
+   Whole cycles bound the work even for an old imported file. */
+function sharedRefill(pool, weights, count) {
+  const total = weights.reduce((s, w) => s + w, 0);
+  const cycles = Math.floor(count / total), rest = count % total;
+  const extra = weights.map(() => 0);
+  for (let n = 1; n <= rest; n++) {
+    let next = 0;
+    for (let i = 1; i < pool.length; i++) {
+      if (weights[i] * n / total - extra[i] > weights[next] * n / total - extra[next]) next = i;
+    }
+    extra[next]++;
+  }
+  return pool.map((k, i) => ({ k, c: cycles * weights[i] + extra[i] }));
+}
+
+function arrivalScenarios(o, lagMin, riskMode = RISK_MODES.risky) {
+  const base = (o.an || []).map(a => ({ k: a.k, c: a.c }));
+  const pool = poolOf(o.type);
+  if (!(lagMin > 0)) return { planned: base, alts: [base], worst: base, newN: 0, riskN: 0 };
+  const mix = mixOf(o.type);
+  const useMix = mix && pool.every(sp => mix[sp] > 0);
+  const weights = pool.map(sp => useMix ? Math.round(mix[sp] * 100) : 100);
+  const meanPeriod = pool.reduce((sum, sp, i) => sum + RESPAWN[sp] * weights[i], 0) /
+    weights.reduce((sum, weight) => sum + weight, 0);
+  const newN = Math.max(riskMode.minRefill, Math.round(lagMin * riskMode.refillShare / meanPeriod));
+  let planned = base;
+  for (const a of sharedRefill(pool, weights, newN)) planned = addTo(planned, a.k, a.c);
+
+  const cand = pool.slice();
+  for (const a of base) if (!cand.includes(a.k)) cand.push(a.k);
+  const alts = cand.map(sp => addTo(base, sp, respawnMax(sp, lagMin)));
+
+  /* One shared burst budget, not every species at its maximum simultaneously.
+     Unknown timing and composition remain a warning, not a claim about exact spawns. */
+  const riskN = Math.max(...cand.map(sp => respawnMax(sp, lagMin)));
+  let worst = base, remaining = riskN;
+  for (const sp of cand.slice().sort((a, b) => AN[b].dc - AN[a].dc)) {
+    const n = Math.min(remaining, respawnMax(sp, lagMin));
+    worst = addTo(worst, sp, n);
+    remaining -= n;
+  }
+  return { planned, alts, worst, newN, riskN };
+}
+
+/*  The single scenario "the whole refill went to the species already standing here".
+    That is one of the alts above, and the one that matched the raid the user lost. */
+function stackOnArrival(an, elapsedMin) {
+  if (!an || !an.length || !(elapsedMin > 0)) return an || [];
+  return an.map(a => ({ k: a.k, c: a.c + respawnMax(a.k, elapsedMin) }));
+}
+
+function sendLink(o, k, mode) {
+  const srv = $('iSrv').value.replace(/\/+$/, '');
+  const did = didAt(+$('iCx').value, +$('iCy').value) || $('iVill').value;
+  const ev  = mode === 'raid' ? 4 : 3;          // 4 = Attack: Raid, 3 = Attack: Normal
+  return srv + '/build.php?' + (did ? 'newdid=' + did + '&' : '') +
+         'gid=16&tt=2&eventType=' + ev +
+         '&targetMapId=' + o.mapId + '&troop%5B' + TT.slot + '%5D=' + k;
+}
+
+/* Raw tiles accumulated across every paste, keyed "x|y" so overlapping dumps dedupe
+   and the newest read of a tile wins. One zoomLevel:3 call is capped at 31x31, so
+   wider coverage means several re-centred dumps merged here. */
+let TILES = new Map(), TILE_AT = new Map(), DUMPS = 0;
+
+function mergeTiles(tiles, capturedAt = Date.now()) {
+  let added = 0, updated = 0;
+  for (const t of tiles) {
+    if (!t || !t.position) continue;
+    const k = wrap(t.position.x) + '|' + wrap(t.position.y);
+    if (TILES.has(k)) updated++; else added++;
+    TILES.set(k, t);
+    TILE_AT.set(k, capturedAt);
+  }
+  DUMPS++;
+  return { added, updated };
+}
+
+/* Width/height of the merged footprint, measured on the torus from the village so a
+   seam-crossing block reads 31x31 and not 31x401. */
+function footprint() {
+  if (!TILES.size) return { w: 0, h: 0 };
+  const cx = +$('iCx').value, cy = +$('iCy').value;
+  const dx = [], dy = [];
+  for (const t of TILES.values()) { dx.push(wrap(t.position.x - cx)); dy.push(wrap(t.position.y - cy)); }
+  return { w: Math.max(...dx) - Math.min(...dx) + 1, h: Math.max(...dy) - Math.min(...dy) + 1 };
+}
+
+/*  Which oases you have already hit this round. Keyed "x|y" -> timestamp,
+    kept in localStorage so it survives a reload. */
+const SENT_KEY = 'travian-oasis-sent';
+let SENT = {};
+try { if (typeof localStorage !== 'undefined') SENT = JSON.parse(localStorage.getItem(SENT_KEY) || '{}') || {}; }
+catch (e) { SENT = {}; }
+const okey = o => o.x + '|' + o.y;
+function saveSent() { try { if (typeof localStorage !== 'undefined')
+  localStorage.setItem(SENT_KEY, JSON.stringify(SENT)); } catch (e) {} }
+const ago = ms => {
+  const m = Math.round((Date.now() - ms) / 60000);
+  return m < 1 ? 'now' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : '');
+};
+
+/*  ⭐ TICKING MUST NOT REBUILD THE TABLE.
+
+    Clicking "send" opens the rally point in a new tab AND marks the oasis sent. The
+    obvious implementation — set the flag, call render() — is wrong twice over:
+
+      1. render() replaces #bMain.innerHTML, which destroys the very <a> the browser is
+         still holding to perform its default action on. A link deleted inside its own
+         click handler is not reliably followed. The tick would eat the send.
+      2. Even on the checkbox path it was a waste: ticking changes NOTHING about row
+         order or row contents, only the greying and the totals. Rebuilding 273 rows to
+         grey one of them is why that handler needed a scrollTop save/restore hack.
+
+    So the sent state paints in place: the rows for that key grey, and the handful of
+    totals that count unsent rows are repainted from TOTALS. */
+let TOTALS = null;
+
+/*  Every rung of an oasis shares one key, so one tick greys them all — they are
+    alternatives and you only fly one. Compared by attribute rather than a CSS
+    [data-k="..."] selector so a key can never need escaping. */
+function paintSent(key) {
+  if (typeof document === 'undefined') return 0;
+  const on = !!SENT[key], boxes = document.querySelectorAll('.sentbox');
+  let n = 0;
+  for (let i = 0; i < boxes.length; i++) {
+    const b = boxes[i];
+    if (b.getAttribute('data-k') !== key) continue;
+    b.checked = on;
+    const tr = b.closest('tr');
+    if (tr) {
+      if (on) tr.classList.add('done'); else tr.classList.remove('done');
+      const t = tr.querySelector('.sentago');
+      if (t) t.innerHTML = on ? ' ' + ago(SENT[key]) : '';
+    }
+    n++;
+  }
+  return n;
+}
+
+/*  Idempotent on purpose: clicking send twice must not untick the row. Only the
+    checkbox clears a tick. */
+function markSent(key) {
+  if (!key || SENT[key]) return false;
+  SENT[key] = Date.now();
+  saveSent();
+  paintSent(key);
+  paintTotals();
+  return true;
+}
+
+/*  The numbers that move when a tick moves. Everything here counts the oases still
+    TO DO, so it is the only part of the page a tick can change — which is what makes
+    repainting it, instead of the whole table, a complete answer. */
+function paintTotals() {
+  if (!TOTALS || typeof document === 'undefined') return;
+  const live = TOTALS.live;
+  const todo = live.filter(r => !SENT[okey(r.o)]);
+  const totB = todo.reduce((s, r) => s + r.best.bounty, 0);
+  const totP = todo.reduce((s, r) => s + r.best.profit, 0);
+  const totL = todo.reduce((s, r) => s + r.best.lost, 0);
+  const totK = todo.reduce((s, r) => s + r.best.k, 0);
+  const ttH  = todo.reduce((s, r) => s + r.best.k * r.best.rt, 0);
+
+  $('kpi').innerHTML =
+    kpi(TOTALS.pool, 'oases holding animals') +
+    kpi(todo.length + ' / ' + live.length, 'worth a send') +
+    kpi(nf(TOTALS.onMap), 'bounty on the map') +
+    kpi(nf(totB), 'in the rows below') +
+    kpi(nfs(totP), 'net profit') +
+    kpi(nf(totK), 'TTs to take it all') +
+    kpi(ttH ? nf(totP / ttH) : '&ndash;', 'res per TT-hour') +
+    kpi(totL, 'modelled TT losses') +
+    kpi((100 * TOTALS.cov).toFixed(0) + '%', 'map data complete');
+
+  const nSent = live.length - todo.length;
+  $('sentCount').innerHTML = nSent
+    ? '<span class="good">' + nSent + ' oas' + (nSent === 1 ? 'is' : 'es') + ' marked sent</span> &mdash; ' +
+      'every rung of each is greyed and out of the totals. Pasting a fresh map clears them.'
+    : 'Click or middle-click <b>send</b> to tick the oasis. Confirm the raid in the game. ' +
+      'The same oasis appears at several troop counts &mdash; pick the rung that matches what is home, and ' +
+      '<b>all the rungs for that oasis</b> grey out, since you only send it once. ' +
+      'Pasting a fresh map clears every tick.';
+}
+
+/* Historical population samples, retained for the legacy model checks.
+   Neither species proportions nor a running maximum prove a tile is full.
+   Active arrival sizing must not use these samples to limit growth. */
+/*  Ceilings are versioned. An earlier build recorded a ceiling from EVERY sighting, so a
+    tile photographed mid-farm was remembered as "full at 1 rat" and treated as static
+    forever — the browser would keep offering 1 TT against it long after the rule was
+    fixed, because nothing ever removes a stored ceiling. Bumping this discards memory
+    written under the old rule exactly once; the next paste rebuilds it correctly. */
+const CAPS_KEY = 'travian-oasis-caps', CAPS_VER = 2;
+function parseCaps(raw) {
+  try { const st = JSON.parse(raw || '{}') || {}; return st.v === CAPS_VER ? (st.caps || {}) : {}; }
+  catch (e) { return {}; }
+}
+let CAPS = {};
+try { if (typeof localStorage !== 'undefined') CAPS = parseCaps(localStorage.getItem(CAPS_KEY)); }
+catch (e) { CAPS = {}; }
+function saveCaps() { try { if (typeof localStorage !== 'undefined')
+  localStorage.setItem(CAPS_KEY, JSON.stringify({ v: CAPS_VER, caps: CAPS })); } catch (e) {} }
+
+/* Keep representative sightings without treating their counts as upper bounds. */
+function noteCap(o) {
+  if (!saturated(o)) return;
+  const key = okey(o), cur = CAPS[key] || { per: {}, total: 0 };
+  let tot = 0;
+  for (const a of (o.an || [])) {
+    tot += a.c;
+    if (a.c > (cur.per[a.k] || 0)) cur.per[a.k] = a.c;
+  }
+  if (tot > cur.total) cur.total = tot;
+  CAPS[key] = cur;
+}
+const capOf = o => CAPS[okey(o)] || null;
+
+/* ───────────────────────── render ───────────────────────── */
+/* Search beyond small escorts so lower-loss alternatives are not silently discarded. */
+const MAX_SEND = 4000;
+
+function plannerSettings() {
+  const readLevel = (id, label) => {
+    const input = $(id), value = input.valueAsNumber;
+    if (!Number.isInteger(value) || value < 0 || value > 20) {
+      throw new Error(label + ' must be a whole number from 0 to 20.');
+    }
+    return value;
+  };
+  const minRate = $('iMinRate').valueAsNumber;
+  if (!Number.isFinite(minRate) || minRate < 0) {
+    throw new Error('Minimum net res/h/TT must be a number of 0 or more. Use 0 to show all.');
+  }
+  const riskKey = $('iRiskMode').value;
+  if (!Object.prototype.hasOwnProperty.call(RISK_MODES, riskKey)) {
+    throw new Error('Choose Risky or Safe in the risk mode setting.');
+  }
+  return {
+    tsLevel: readLevel('iTs', 'Tournament Square'),
+    minRate,
+    riskMode: RISK_MODES[riskKey]
+  };
+}
+
+function showPlanMessage(message) {
+  $('planStatus').hidden = false;
+  $('planStatus').textContent = message;
+}
+
+function render() {
+  let settings;
+  try {
+    settings = plannerSettings();
+  } catch (e) {
+    ROWS = []; TOTALS = null;
+    $('bMain').innerHTML = '<tr><td colspan="14" class="warn">Correct the setup value above to show sends.</td></tr>';
+    $('kpi').innerHTML = '';
+    showPlanMessage(e.message);
+    return;
+  }
+  $('planStatus').hidden = true;
+  const { tsLevel, minRate, riskMode } = settings;
+  const sm = +$('iSm').value, met = metalPct();
+  const A = ttAtk(sm, met);
+  const hpf = 1 / TT.speed;
+  const allowNormal = false, zeroOnly = false;
+
+  const plain = ttAtk(sm, 0);
+  $('ttStat').innerHTML =
+    'One TT hits for <b>' + A.toFixed(1) + '</b> &mdash; Smithy ' + sm +
+    (met ? ' gives ' + plain.toFixed(1) + ', Metallurgy +' + met + '% takes it to ' + A.toFixed(1)
+         : ' and no Metallurgy bonus') + '. ' +
+    'A TT costs <b>' + nf(TT.cost) + '</b> resources, carries <b>' + TT.cap + '</b>, eats <b>' +
+    TT.cu + '</b> crop/h. Speed: <b>' + TT.speed + '</b> fields/h for the first 20 fields, then <b>' +
+    (TT.speed * (1 + TS_STEP * tsLevel)).toFixed(1) + '</b> at Tournament Square <b>' + tsLevel + '</b>.';
+
+  $('riskNote').innerHTML = '<b>' + riskMode.label + ':</b> ' +
+    (riskMode.id === 'risky' ? 'Your previous settings, unchanged. ' : 'A bigger buffer, not zero-loss-only. ') +
+    'Plans for ' + refillDescription(riskMode) + '. ' +
+    'The representative send can trade up to <b>' + Math.round((1 - riskMode.preferredRateShare) * 100) +
+    '%</b> of efficiency for fewer modelled losses. ' +
+    (riskMode.id === 'safe' ? 'Larger escorts or fewer viable targets are possible. ' : '') +
+    '<b>Neither mode guarantees no losses.</b> Switching recalculates locally and keeps your sent ticks; nothing is sent.';
+  $('refillNote').innerHTML = 'Planned losses use <b>' + riskMode.label + '</b> mode: ' +
+    refillDescription(riskMode) + ', distributed across the usual animal mix. Both modes keep the full tougher-refill checks. ';
+
+  $('oSpan').innerHTML = DUMPS
+    ? 'Loaded: <b>' + DUMPS + '</b> dump' + (DUMPS === 1 ? '' : 's') + ', <b>' + TILES.size + '</b> tiles.'
+    : '';
+
+  if (!DUMP) { ROWS = []; TOTALS = null;
+               $('bMain').innerHTML = '<tr><td colspan="14" class="dim">Load map data in step 2.</td></tr>';
+               $('kpi').innerHTML = ''; $('minNote').innerHTML = '';
+               notes(0, riskMode); selfCheck(); return; }
+
+  /*  Occupied oases are skipped — an animal-free oasis with a player in it is not a
+      bounty target. Empty wild oases are skipped too: they hold no animals at all, and
+      collecting their stored production is not what a Thunder fleet is for.
+
+      No radius filter: distance is already priced in, because the ranking is
+      profit / round trip / TT and a long flight ranks itself down. Cutting by radius
+      only ever hid targets that were paying their way. */
+  const wild  = DUMP.oases.filter(o => !o.occupied);
+  const empty = wild.filter(o => !o.total);
+  const pool  = wild.filter(o => o.total);
+  const far   = pool.reduce((m, o) => Math.max(m, o.d), 0);
+
+  ROWS = [];
+  for (const o of pool) {
+    const all = sendOptions(o, A, MAX_SEND, hpf, allowNormal, zeroOnly, tsLevel, riskMode);
+    const opts = all.filter(c => meetsRate(c, minRate));
+    const best = preferredSend(opts, riskMode);
+    const zl = opts.find(c => c.lost === 0 && c.worstLost === 0) || null;
+    ROWS.push({ o, best, opts, all, zl });
+  }
+
+  const live   = ROWS.filter(r => r.best);
+  const locked = ROWS.filter(r => !r.best);
+
+  /*  ⭐ ONE ROW PER SEND SIZE, not per oasis.
+
+      Keep the full send-size ladder: smaller escorts, more efficient choices and
+      larger, safer alternatives are available without a troops-at-home limit.
+
+      They are ALTERNATIVES, not waves: the tick is keyed on the oasis, so ticking any one
+      rung greys out every rung of that oasis. You send one of them, and the tile is done. */
+  const cards = [];
+  for (const r of live) for (const b of altSends(r)) cards.push({ r, o: r.o, b });
+  sortCards(cards);
+
+  const belowRate = locked.filter(r => r.all.length > 0);
+  const noSend  = locked.filter(r => r.all.length === 0);
+
+  $('minNote').innerHTML =
+    (minRate > 0
+      ? 'Showing sends at <b>' + minRate + '+ net res/h/TT</b>. '
+      : 'No efficiency cutoff: options below <b>' + GUIDE_RATE + '</b> stay visible. ') +
+    'Profit deducts planned TT losses; extra spawn bounty is not credited.' +
+    (belowRate.length
+      ? ' <span class="dim">' + belowRate.length + ' targets are below your chosen minimum.</span>'
+      : '') +
+    (noSend.length
+      ? '<br><b>' + noSend.length + '</b> more hold real bounty but nothing up to <b>' +
+        nf(MAX_SEND) + ' TT</b> takes ' + (noSend.length === 1 ? 'it' : 'them') +
+        ' profitably under the model, so they are not listed.'
+      : '') +
+    (empty.length ? ' <span class="dim">' + empty.length + ' empty oases are skipped.</span>' : '');
+
+  /* ── KPIs ── */
+  const cov = coverage(DUMP.tiles, +$('iCx').value, +$('iCy').value, Math.ceil(far));
+  const onMap = wild.reduce((s, o) => s + oasisBounty(o), 0);
+
+  /*  Say out loud which village the send links leave from. A wrong did is otherwise
+      completely silent: the game just switches village and loads the wrong troops. */
+  const cx = +$('iCx').value, cy = +$('iCy').value;
+  const liveDid = didAt(cx, cy), cfgDid = $('iVill').value;
+  const here = TILES.get(wrap(cx) + '|' + wrap(cy));
+  const hereName = here && +here.did > 0
+    ? String(here.title || '').replace(/\{[^}]*\}/g, '').trim() : '';
+  $('vStat').innerHTML = liveDid
+    ? 'Sending from <b>' + (hereName || 'your village') + '</b> at <b>' + cx + '|' + cy +
+      '</b>, <code>newdid=' + liveDid + '</code> <span class="dim">read from the map data</span>' +
+      (cfgDid && cfgDid !== liveDid
+        ? ' <span class="warn">&mdash; the dropdown says ' + cfgDid +
+          ', the map wins. Fix the list if that is wrong.</span>' : '')
+    : (DUMP
+        ? '<span class="warn">No village of yours at ' + cx + '|' + cy + ' in the map data.</span> ' +
+          'Falling back to <code>newdid=' + (cfgDid || '(none)') + '</code> from the dropdown, which may be stale.'
+        : '<span class="dim">Paste a map below and the village id for the send links is read from it.</span>');
+
+  TOTALS = { pool: pool.length, live, cov, onMap };
+  paintTotals();
+
+  /* ── table ── */
+  const body = [];
+  let rank = 0;
+  for (const c of cards) {
+    rank++;
+    const r = c.r, o = c.o, b = c.b, key = okey(o), done = !!SENT[key];
+    const safe = b.lost === 0 && b.worstLost === 0;
+    const anCell = anStr(o.an) +
+      (b.wiped ? ' <span class="pill p-safe">clear</span>'
+               : ' <span class="bad">&rarr; ' + b.left + ' left</span>') +
+      arrivalNote(o, b);
+    body.push('<tr' + (done ? ' class="done"' : '') + '>' +
+      '<td class="l tick"><input type="checkbox" class="sentbox" data-k="' + key + '"' + (done ? ' checked' : '') + '></td>' +
+      '<td class="l">' + rank + '</td>' +
+      '<td class="l ty">' + o.type + '</td>' +
+      '<td class="l">' + coordCell(o) + '</td>' +
+      '<td>' + o.d.toFixed(1) + '</td>' +
+      '<td>' + hm(b.rt) + (b.w > 1 ? ' <span class="pill p-loss">&times;' + b.w + '</span>' : '') + '</td>' +
+      '<td class="l an">' + anCell + '</td>' +
+      '<td><b>' + b.k + '</b>' + (b.mode === 'normal' ? ' <span class="pill p-norm">atk</span>' : '') + '</td>' +
+      '<td class="' + (safe ? 'good' : 'warn') + '" title="' + riskMode.label + ' planned loss is charged in profit. An arrow shows the tougher refill estimate, not a guaranteed maximum.">' +
+        b.lost + (b.worstLost > b.lost ? ' &rarr; ' + b.worstLost : '') + '</td>' +
+      '<td class="' + (safe ? 'good' : r.zl ? 'warn' : 'dim') + '">' +
+        (safe ? '&#10003;' : r.zl ? r.zl.k + ' TT' : '&mdash;') + '</td>' +
+      '<td class="' + (b.profit > 0 ? 'good' : 'bad') + '">' + nfs(b.profit) +
+        (b.lost ? ' <span class="dim">/' + nf(b.bounty) + '</span>' : '') + '</td>' +
+      '<td><b class="' + (b.pph > 0 ? 'good' : 'bad') + '">' + nfs(b.pph) + '</b></td>' +
+      '<td><span class="' + (b.pptt >= GUIDE_RATE ? 'good' : 'dim') + '" title="' +
+        (b.pptt >= GUIDE_RATE ? 'Meets' : 'Below') + ' your usual ' + GUIDE_RATE + ' res/h/TT target">' +
+        nfs(b.pptt) + '</span></td>' +
+      '<td class="l"><a class="sendlink" data-troops="' + b.k + '" data-mode="' + b.mode +
+        '" data-risk-mode="' + b.riskMode +
+        '" target="_blank" rel="noopener" href="' + sendLink(o, b.k, b.mode) + '">send &#8599;</a>' +
+        '<span class="sentago dim">' + (done ? ' ' + ago(SENT[key]) : '') + '</span></td>' +
+    '</tr>');
+  }
+
+  $('bMain').innerHTML = body.join('') ||
+    '<tr><td colspan="14" class="dim">' +
+    (belowRate.length
+      ? 'No send reaches your chosen minimum of <b>' + minRate + ' net res/h/TT</b>. Set the minimum to 0 to show all viable options.'
+      : noSend.length
+        ? 'No profitable send passes the refill checks with this data. Try a fresh scan or a different target.'
+        : 'No unoccupied oasis in this dump has animals to raid.') +
+    '</td></tr>';
+
+  notes(cov, riskMode);
+  selfCheck();
+}
+
+const kpi = (v, l) => '<div><b>' + v + '</b><span>' + l + '</span></div>';
+
+/*  ⭐ WHICH SEND SIZES TO OFFER FOR ONE OASIS.
+
+    `sendOptions` returns every rung that improves on the one below it — for a big stack
+    that is forty-odd near-identical rows, which is unreadable. This thins them to a
+    ladder you can actually choose from on the night:
+
+      · the cheapest send that still turns a profit
+      · the fewest losses, plus best resources per TT-hour
+      · the biggest haul on offer
+      · and rungs roughly doubling in between
+
+    Doubling rather than even spacing because losses fall like k^-0.5: going 300 -> 400 TT
+    barely moves the result, 300 -> 600 does. Capped so no single oasis can flood the list. */
+const ALT_STEP = 2, ALT_MAX = 6;
+function altSends(r) {
+  const opts = r.opts || [];
+  if (!opts.length) return [];
+  const keep = new Map(), add = o => { if (o && !keep.has(o.k)) keep.set(o.k, o); };
+  add(opts[0]);                       // cheapest that pays for itself
+  add(r.best);
+  const efficient = opts.reduce((best, b) => !best || b.pptt > best.pptt ? b : best, null);
+  add(efficient);
+  add(opts[opts.length - 1]);         // biggest haul (normally the full clear)
+  let last = opts[0].k;
+  for (const o of opts) if (o.k >= last * ALT_STEP) { add(o); last = o.k; }
+  const all = [...keep.values()].sort((a, b) => a.k - b.k);
+  if (all.length <= ALT_MAX) return all;
+  /*  Over budget: keep the three that mean something and thin the filler evenly. */
+  const must = new Set([all[0].k, r.best.k, efficient.k, all[all.length - 1].k]);
+  const rest = all.filter(o => !must.has(o.k));
+  const take = Math.max(0, ALT_MAX - must.size);
+  const step = rest.length / (take || 1);
+  const picked = [];
+  for (let i = 0; i < take; i++) picked.push(rest[Math.floor(i * step)]);
+  return all.filter(o => must.has(o.k) || picked.indexOf(o) >= 0);
+}
+
+function sortCards(cards, sort = SORT) {
+  const k = sort.key, d = sort.dir;
+  const val = c => ({ rank:0, type:c.o.type, coord:c.o.x * 1000 + c.o.y, d:c.o.d, rt:c.b.rt,
+                      an:c.o.total, k:c.b.k, lost:c.b.lost, safe:c.r.zl ? c.r.zl.k : 9999,
+                      profit:c.b.profit, pph:c.b.pph, pptt:c.b.pptt }[k]);
+  cards.sort((a, b) => {
+    const x = val(a), y = val(b);
+    const safer = a.b.worstLost - b.b.worstLost || a.b.lost - b.b.lost || a.b.k - b.b.k;
+    const tie = k === 'pph' || k === 'profit' ? b.b.pptt - a.b.pptt || safer : safer;
+    if (typeof x === 'string') return d * x.localeCompare(y) || tie;
+    return d * ((x || 0) - (y || 0)) || tie;
+  });
+}
+
+const fmtStack = an => (an && an.length)
+  ? an.filter(a => a.c > 0.05).map(a => cN(a.c) + ' ' + AN[a.k].n).join(', ') || 'empty'
+  : 'empty';
+
+function arrivalNote(o, b) {
+  if (!b.anArr || !o.an || !o.an.length) return '';
+  const was = o.an.reduce((s, a) => s + a.c, 0);
+  const now = b.anArr.reduce((s, a) => s + a.c, 0);
+  if (now < was + 1) return '';
+  const riskMode = RISK_MODES[b.riskMode];
+  return ' <span class="dim" title="' + riskMode.label + ' planned refill (' +
+    Math.round(riskMode.refillShare * 100) + '% of the shared timer rate): ' + fmtStack(b.anArr) +
+    '. Tougher refill: ' + fmtStack(b.riskArr) + '. Shared refill estimates, not known future animal counts.">' +
+    '+' + (now - was) + ' planned animals (' + Math.ceil(b.lagMin) + 'm scan to landing)' +
+    '</span>';
+}
+
+
+/* ───────────────────────── notes ───────────────────────── */
+function notes(cov, riskMode = RISK_MODES.risky) {
+  const warn = cov < 0.98 && DUMP
+    ? '<li class="warn"><b>Your dump has gaps &mdash; it covers only ' + (100 * cov).toFixed(0) +
+      '% of the area it reaches.</b> One <code>zoomLevel:3</code> response is capped at 31&times;31 (radius 15), ' +
+      'so re-centre the map about 31 fields away, grab that response too and paste it &mdash; the dumps merge.</li>'
+    : '';
+  $('notes').innerHTML = '<ul>' + warn + [
+    '<b>Ranking is resources per hour</b>, on real flight time, and the same oasis is listed at several ' +
+      'troop counts, without a troops-at-home limit. Larger escorts that reduce stress-case losses are kept even when ' +
+      'planned profit is unchanged. There is no maximum-loss setting.',
+    '<b>15 res/h/TT is a guide, not a filter.</b> Options below it stay visible unless you explicitly raise ' +
+      'the minimum from 0. In ' + riskMode.label + ' mode, the per-oasis totals prefer safety only among options within ' +
+      Math.round((1 - riskMode.preferredRateShare) * 100) + '% of the best ' +
+      'net res/h/TT and still reaching 15. If none reach 15, use the most efficient option. ' +
+      'On equal profit/hour, the leaner option sorts first; larger, safer alternatives stay available.',
+    '<b>Planned loss is what profit pays for.</b> Whole-unit casualties are calculated against the selected mode\'s ' +
+      'arrival estimate. Profit subtracts that loss at 1,090 per TT; both rate columns use this same profit. ' +
+      'Only scanned animals that the estimate kills are credited. New animals are not speculative revenue.',
+    '<b>' + riskMode.label + ' refill cushion.</b> The planned case uses ' + refillDescription(riskMode) + '. ' +
+      'This is a chosen planning cushion, not a measured spawn probability or calibrated EV. It follows the usual ' +
+      'animal mix; unknown mixes use equal weights. Existing unusual animals remain in the battle.',
+    '<b>The arrow is a tougher refill check.</b> Its shared burst budget is concentrated into the highest-defence ' +
+      'species, bounded by each species timer at the full rate. Scan, single-species and mixed checks still must ' +
+      'break even, but their losses are not treated as the normal outcome and their extra bounty is not added ' +
+      'to the headline profit. Neither estimate is a guaranteed arrival population.',
+    '<b>Old population samples are not caps.</b> The biggest count seen on a tile does not prove it cannot grow ' +
+      'further. A map snapshot cannot reveal future spawn timing or another player clearing it.',
+    '<b>No automatic refresh or sending.</b> Use Update estimates to recalculate scan age. Clicking or ' +
+      'middle-clicking send checks the selected escort again; if its loss or profit estimate deteriorated, ' +
+      'the link is blocked and the list updates for you to review. A link priced in another risk mode must also be reviewed. ' +
+      'Otherwise the normal game tab opens.',
+    '<b>Tournament Square:</b> the first 20 fields use base speed; the rest use ' +
+      '<code>19 &times; (1 + 0.2 &times; level)</code>. It affects both trip time and the time available for respawn.',
+    '<b>No minimum total bounty.</b> Small, efficient targets can be useful. The optional filter uses net ' +
+      'res/h/TT after losses, not raw loot size, and compares the unrounded rate.',
+    '<b>Bounty is the whole point.</b> Every animal killed pays 40 of each resource per point of its crop supply ' +
+      '(rat/spider/snake/bat 1, boar/wolf 2, bear/croc/tiger 3, elephant 5). It lands in your hero\'s inventory, ' +
+      'so it ignores carry capacity and you still get it even if the whole raid dies.',
+    '<b>Empty oases are not listed.</b> They hold no animals, so there is no bounty to collect; all they offer ' +
+      'is stored production, which accrues whether you visit or not and is not what a Thunder fleet is for.',
+    '<b>Raid only.</b> Links use the raid mode. Low-efficiency options remain visible; you choose whether ' +
+      'their larger haul or lower casualty risk is worth tying up more troops.',
+    '<b>The rounding cliff.</b> Survivors round half-up, so k TTs only come home intact if the fight costs under ' +
+      '<code>50/k %</code>. One TT survives up to 50% losses; ten TTs need under 5%. That is why stacking more of the ' +
+      '<i>same</i> unit scales badly &mdash; doubling the count needs 2.52&times; the attack but only gives you 2&times;.',
+    '<b>Hospital recovery is not free replacement.</b> Planned casualties are costed at full replacement value. ' +
+      'Healing is not guaranteed or immediate; no assumed hospital discount ' +
+      'makes a three-death send look better than a two-death send. Upkeep and training-queue time are not priced.',
+    '<b>Metallurgy multiplies the Smithy value</b>, it does not replace it: attack is ' +
+      '<code>upgraded(base, smithy) &times; (1 + metallurgy%)</code>. It is typed in as a plain percentage ' +
+      'rather than picked as an alliance level, because the game shows you the percentage directly and the ' +
+      'published level&rarr;% tables disagree with each other.',
+    '<b>Not modelled:</b> hero bonuses, artefacts, animal respawn between your own waves, ' +
+      'the resources an oasis has stored, and the Gaul cranny/wall (oases have neither).',
+    '<b>Link parameters</b> are verified against a working T4.6 client: <code>eventType=4</code> is Attack: Raid ' +
+      '(<code>3</code> is Attack: Normal, <code>5</code> Reinforcement), <code>gid=16&amp;tt=2</code> is the rally point ' +
+      '"send troops" tab, <code>troop[t4]</code> is the Theutates Thunder, and <code>newdid</code> forces the source ' +
+      'village &mdash; without it the link fires from whatever village happens to be active.',
+    '<b>TT base attack is set to 100.</b> kirilloid\'s data file still lists the old 90. Your own battle report ' +
+      '(1 TT + 1 Haeduan at Smithy 7 = <b>263</b>) only reproduces with 100 &mdash; 90 would give 252.',
+    '<b>The tooltip\'s date + <code>NNNN/0</code> line is your own last report on that tile</b>, not the oasis\' stock, ' +
+      'so it is deliberately ignored here.'
+  ].map(s => '<li>' + s + '</li>').join('') + '</ul>';
+}
+
+/* ───────────────────────── self-check ───────────────────────── */
+function selfCheck() {
+  const t = [], ok = (n, c, got) => t.push({ n, c, got });
+  const A0 = ttAtk(0, 0), A7 = ttAtk(7, 0);
+
+  ok('TT attack at Smithy 0 = 100.00', Math.abs(A0 - 100.0042) < 0.01, A0.toFixed(4));
+  ok('TT attack at Smithy 7 = 109.27', Math.abs(A7 - 109.268) < 0.01, A7.toFixed(3));
+  ok('1 TT + 1 Hae at Smithy 7 = 262.7 (matches your battle report)',
+     Math.abs(A7 + upgAtk(140, 3, 7) - 262.70) < 0.05, (A7 + upgAtk(140, 3, 7)).toFixed(2));
+  ok('mapId(-31|23) = 71147 (decoded from your own send link)', mapId(-31, 23) === 71147, mapId(-31, 23));
+  ok('mapId(-12|195) = 2194 (Marineford)', mapId(-12, 195) === 2194, mapId(-12, 195));
+  ok('torus: (-12|195) to (-20|-198) is short', Math.hypot(wrap(-20 + 12), wrap(-198 - 195)) < 12,
+     Math.hypot(wrap(-20 + 12), wrap(-198 - 195)).toFixed(1));
+  ok('TS 0 preserves ordinary travel time',
+     [5, 20, 34, 60].every(d => Math.abs(flyHours(d, 0, TT.speed) - d / TT.speed) < 1e-12),
+     'distance / 19');
+  ok('Tournament Square does not accelerate the first 20 fields',
+     [0, 5, 20].every(d => flyHours(d, 11, TT.speed) === flyHours(d, 0, TT.speed)),
+     'nearby targets unchanged');
+  ok('TS 11 speeds only the portion beyond 20 fields by 3.2x',
+     Math.abs(flyHours(34, 11, TT.speed) - (20 / 19 + 14 / 60.8)) < 1e-12,
+     hm(2 * flyHours(34, 11, TT.speed)) + ' round trip at 34 fields');
+
+  const rats2 = [{ k:'u31', c:2 }];
+  const b1 = battle(rats2, 1, A0, 'raid');
+  ok('1 TT raids 2 rats: survives', b1.lost === 0, b1.lost);
+  ok('1 TT raids 2 rats: only kills 1 (the ratchet) = 160', b1.bounty === 160, b1.bounty + ' / ' + b1.killed.join());
+
+  const sp5 = [{ k:'u32', c:5 }];
+  const b2 = battle(sp5, 1, A0, 'raid');
+  ok('1 TT vs 5 spiders dies (def 210)', b2.lost === 1, 'def ' + b2.def + ', loss ' + (100 * b2.ol).toFixed(1) + '%');
+
+  const b3 = battle(rats2, 1, A0, 'normal');
+  ok('normal attack wipes both rats = 320', b3.wiped && b3.bounty === 320, b3.bounty + ' / ' + b3.killed.join());
+
+  const bears3 = [{ k:'u37', c:3 }];
+  ok('bear supply 3 -> 480 each', AN.u37.s * BOUNTY_PER_SUPPLY === 480, AN.u37.s * BOUNTY_PER_SUPPLY);
+  const b4 = battle(bears3, 30, A0, 'normal');
+  ok('30 TT normal-attack 3 bears: full 1,440', b4.wiped && b4.bounty === 1440, b4.bounty + ' / ' + b4.killed.join());
+
+  ok('elephant pays 800', AN.u40.s * BOUNTY_PER_SUPPLY === 800, AN.u40.s * BOUNTY_PER_SUPPLY);
+  ok('cliff: 4 TTs need <12.5% losses', Math.abs(0.5 / 4 - 0.125) < 1e-9, '12.5%');
+
+  const parsed = parseDump({ tiles:[{ position:{ x:-9, y:198 }, title:'{k.fo}',
+    text:'{a:r2} {a.r2} 25%<i class="unit u31"></i><span class="value">1</span>' +
+         '<i class="unit u32"></i><span class="value">1</span>' }] });
+  ok('parser reads bonus + animals', parsed.oases.length === 1 &&
+     parsed.oases[0].type === 'Clay 25%' && parsed.oases[0].total === 2,
+     parsed.oases[0] ? parsed.oases[0].type + ' / ' + parsed.oases[0].total : 'none');
+
+  const lk = sendLink({ x:-31, y:23, mapId:71147 }, 5, 'raid');
+  ok('raid link: eventType=4 + targetMapId + troop[t4] + newdid',
+     /eventType=4/.test(lk) && /targetMapId=71147/.test(lk) && /troop%5Bt4%5D=5/.test(lk) && /newdid=/.test(lk), 'ok');
+  ok('normal-attack link uses eventType=3', /eventType=3/.test(sendLink({ mapId:1 }, 1, 'normal')), 'ok');
+  ok('coords link to position_details',
+     /position_details\.php\?x=-14&y=195/.test(tileLink({ x:-14, y:195 })), 'ok');
+
+  const o7 = { x:0, y:0, d:2.2, type:'Iron 25%', an:[{ k:'u31', c:7 }], total:7 };
+  const bs = bestSend(o7, A7, 400, 1 / 19, false, false);
+  const clean7 = zeroLossK(o7, A7, 400, false);
+  ok('prefers an efficient full clear while keeping the larger zero-risk alternative',
+     bs && clean7 && bs.k < clean7.k && bs.lost === 0 && bs.bounty === 1120 &&
+     clean7.b.worstLost === 0,
+     bs ? bs.k + ' TT, ' + bs.lost + ' lost' : 'none');
+  ok('per-TT-hour = profit / (round trip x TTs)',
+     bs && Math.abs(bs.pptt - bs.profit / (bs.rt * bs.k)) < 1e-6, bs ? nf(bs.pptt) : '&ndash;');
+  ok('a 1,000-TT two-hour slog scores near zero',
+     Math.abs(1000 / (2 * 1000) - 0.5) < 1e-9, '0.5 per TT-hour');
+
+  /* ── ⭐ the send-size ladder ── */
+  /* A large synthetic stack with several viable casualty-reducing escorts. */
+  const bigO = { x:0, y:0, d:9.8, type:'Clay 25%',
+                 an:[{ k:'u31', c:55 }, { k:'u32', c:25 }, { k:'u35', c:13 }],
+                 total:93 };
+  const bigOpts = sendOptions(bigO, A7, MAX_SEND, 1 / 19, false, false);
+  const bigRow  = { o: bigO, opts: bigOpts, best: bestSend(bigO, A7, MAX_SEND, 1 / 19, false, false) };
+  const alts    = altSends(bigRow);
+  ok('a big oasis is offered as a ladder of send sizes, not one answer',
+     alts.length > 1 && alts.length <= ALT_MAX,
+     bigOpts.length + ' rungs thinned to ' + alts.map(a => a.k).join(' / ') + ' TT');
+  ok('the ladder keeps the cheapest, the most efficient and the biggest haul',
+     alts.some(a => a.k === bigOpts[0].k) &&
+     alts.some(a => a.k === bigRow.best.k) &&
+     alts.some(a => a.k === bigOpts[bigOpts.length - 1].k),
+     'cheapest ' + bigOpts[0].k + ', best/TT ' + bigRow.best.k +
+     ', biggest ' + bigOpts[bigOpts.length - 1].k);
+  ok('the rungs are distinct decisions, not neighbours',
+     alts.every((a, i) => i === 0 || a.k > alts[i - 1].k) &&
+     (alts.length < 3 || alts[alts.length - 1].k >= 2 * alts[0].k),
+     'strictly rising, ' + alts[0].k + ' TT up to ' + alts[alts.length - 1].k + ' TT');
+  ok('every rung is a real priced send, not a placeholder',
+     alts.every(a => a.k > 0 && a.profit > 0 && Math.abs(a.pptt - a.profit / a.rt / a.k) < 1e-6),
+     'res/h/TT = profit / round trip / TTs on all ' + alts.length);
+  ok('a tile with one viable send still gets exactly one row',
+     altSends({ o:bigO, opts:[bigOpts[0]], best:bigOpts[0] }).length === 1, 'no padding');
+  ok('and an oasis no escort can take contributes no rows at all',
+     altSends({ o:bigO, opts:[], best:null }).length === 0, 'locked oases stay out of the table');
+
+  /*  The rungs are ALTERNATIVES: you send one and the tile is done. The tick is therefore
+      keyed on the OASIS, never on the troop count, so ticking any rung greys every rung of
+      that oasis. If this ever keys on k the list will quietly let you double-send a tile. */
+  ok('all rungs of one oasis share a single tick key',
+     alts.every(a => okey(bigO) === okey(bigO)) &&
+     okey(bigO) === okey(Object.assign({}, bigO, { total: 1 })),
+     'keyed on ' + okey(bigO) + ', which carries no troop count');
+
+  /* Battle reports validate combat against known defenders, not the spawn forecast. */
+  const Arep = ttAtk(3, 2);
+
+  const rep1 = battle([{ k:'u31', c:9 }, { k:'u32', c:4 }, { k:'u34', c:4 }], 44, Arep, 'raid');
+  ok('battle report 1 reproduced: 44 TT vs 9 rat / 4 spider / 4 bat loses 2',
+     rep1.lost === 2 && rep1.def === 550, rep1.lost + ' lost, def ' + rep1.def);
+  ok('and the scan-only stack it was costed against loses 1, by 0.008 of a TT',
+     (() => { const s = battle([{ k:'u31', c:9 }, { k:'u32', c:4 }, { k:'u34', c:3 }], 44, Arep, 'raid');
+              return s.lost === 1 && 44 * s.ol > 1.49 && 44 * s.ol < 1.5; })(),
+     'the rounding cliff: one bat was all it took');
+  ok('the lighter allowance still charges two losses for the reported 44-TT rounding cliff',
+     (() => {
+       const o = {type:'Iron 25% + Crop 25%', an:[{k:'u31',c:9},{k:'u32',c:4},{k:'u34',c:3}], total:16};
+       const sc = arrivalScenarios(o, 23);
+       const b = priceSend(o, 44, Arep, 'raid', {rt:46/60,lagMin:23,sc});
+       return sc.newN === 1 && b.lost === 2 && b.cost === 2180 && !viableSend(b);
+     })(), 'a small allowance still matters near a whole-TT casualty boundary');
+
+  const rep2 = battle([{ k:'u36', c:3 }, { k:'u37', c:2 }], 59, Arep, 'raid');
+  ok('battle report 2 reproduced: 59 TT vs 3 wolf + 2 bear loses 2',
+     rep2.lost === 2 && rep2.def === 620, rep2.lost + ' lost, def ' + rep2.def);
+  ok('and its bounty: 12 supplies = 1,920, the 480-of-each the hero banked',
+     rep2.bounty === 1920, rep2.bounty + ' = 480 wood + 480 clay + 480 iron + 480 crop');
+
+  const mixO = { x:778, y:778, d:6, type:'Wood 25% + Crop 25%', an:[{ k:'u36', c:2 }], total:2 };
+  const mixK = okey(mixO), hadCap = CAPS[mixK];
+  CAPS[mixK] = { per: { u37: 2 }, total: 9 }; // Synthetic historical sample, not an observed game cap.
+  const mixSc = arrivalScenarios(mixO, 24);
+  if (hadCap === undefined) delete CAPS[mixK]; else CAPS[mixK] = hadCap;
+  const mixW = mixSc.worst, mixB = battle(mixW, 59, Arep, 'raid');
+
+  ok('the tougher refill covers the defence in the wolf-and-bear report',
+     cavDef(mixW) >= rep2.def,
+     fmtStack(mixW) + ' is a stress case, not the reported population');
+  ok('the tougher refill covers each single-species defence scenario',
+     cavDef(mixW) >= Math.max.apply(null, mixSc.alts.map(cavDef)),
+     cavDef(mixW) + ' def vs ' + Math.max.apply(null, mixSc.alts.map(cavDef)) + ' for the worst single species');
+  ok('the old 59-TT send still carries a two-or-more-loss warning',
+     mixB.lost >= 2, mixB.lost + ' stress-case losses');
+  const mixPrice = priceSend(mixO, 59, Arep, 'raid', { rt:0.8, lagMin:24, sc:mixSc });
+  ok('extra spawn bounty cannot make that send pass the profit gate',
+     mixPrice.bounty <= 640 && !viableSend(mixPrice),
+     'at most the two scanned wolves are paid for');
+  ok('a rounded-zero normal refill still retains the full stress allowance',
+     mixSc.newN === 0 && mixSc.riskN === 3 &&
+     mixSc.planned.reduce((s, a) => s + a.c, 0) === 2 &&
+     mixSc.worst.reduce((s, a) => s + a.c, 0) === 5,
+     '0 planned additions at 24 minutes here, still 3 in the tougher refill');
+  ok('the lighter refill still grows with scan age and never removes scanned animals',
+     (() => {
+       const fresh = arrivalScenarios(mixO, 0), short = arrivalScenarios(mixO, 1);
+       const later = arrivalScenarios(mixO, 25), old = arrivalScenarios(mixO, 120);
+       return fresh.newN === 0 && JSON.stringify(fresh.planned) === JSON.stringify(mixO.an) &&
+         short.newN === 0 && short.riskN === 1 && cavDef(short.worst) > cavDef(mixO.an) &&
+         later.newN === 1 && old.newN === 2 && old.riskN === 14 &&
+         old.planned.every(a => Number.isInteger(a.c)) &&
+         old.planned.find(a => a.k === 'u36').c >= 2;
+     })(), 'short trips can round to zero; older scans still grow, with no fixed age cap');
+  ok('shared refill allocation stays whole and monotone across cycle boundaries',
+     (() => {
+       const pool = ['u35','u36','u37'], weights = [100,90,55];
+       return [0,1,2,243,244,245,246,489,490,10000].every(n => {
+         const a = sharedRefill(pool, weights, n), b = sharedRefill(pool, weights, n + 1);
+         return a.reduce((s, x) => s + x.c, 0) === n &&
+           b.every((x, i) => Number.isInteger(x.c) && x.c >= a[i].c) &&
+           b.reduce((s, x) => s + x.c, 0) === n + 1;
+       });
+     })(), 'one more allowance adds one animal without removing another');
+
+  const screenshotA = ttAtk(4, 2);
+  const reportRats = { x:25, y:184, d:Math.hypot(37, 11), type:'Clay 25%',
+    an:[{ k:'u31', c:24 }, { k:'u32', c:15 }], total:39 };
+  const reportBears = { x:-9, y:164, d:Math.hypot(3, 31), type:'Wood 25%',
+    an:[{ k:'u35', c:1 }, { k:'u36', c:1 }, { k:'u37', c:5 }], total:7 };
+  const ratsFight = battle(reportRats.an, 14, screenshotA, 'raid');
+  const bearsFight = battle(reportBears.an, 56, screenshotA, 'raid');
+  ok('screenshot: 14 TT, attack 1,503, lose 5, kill 15 rats and 9 spiders',
+     Math.round(ratsFight.att) === 1503 && ratsFight.def === 1090 &&
+     ratsFight.lost === 5 && ratsFight.bounty === 3840 && ratsFight.left === 15,
+     'reproduces the screenshot using Smithy 4 / 2% metallurgy');
+  ok('screenshot: 56 TT vs 1 boar, 1 wolf, 5 bears loses 4',
+     bearsFight.lost === 4 && bearsFight.bounty === 3040 && bearsFight.wiped,
+     '760 of each resource; all animals killed');
+  const preserved = [reportRats, reportBears].map(o =>
+    sendOptions(o, screenshotA, MAX_SEND, 1 / 19, false, false, 11));
+  ok('the screenshot-sized losing sends remain rejected without a casualty cap',
+     preserved.every((opts, i) => opts.every(b => b.k > [14, 56][i] && viableSend(b))),
+     preserved.map(opts => opts.length ? opts[0].k + ' TT' : 'no profitable send').join(' / '));
+  ok('profit and both rates pay the entire arrival casualty cost',
+     bigOpts.length > 0 && bigOpts.every(b => b.profit === b.bounty - b.lost * TT.cost &&
+       b.cost === b.lost * TT.cost && b.pph === b.profit / b.rt && b.pptt === b.pph / b.k),
+     'no hospital discount and no fractional deaths');
+  const zeroChoices = sendOptions(o7, screenshotA, MAX_SEND, 1 / 19, false, true, 11);
+  ok('the zero-loss filter applies to arrival, not the scan alone',
+     zeroChoices.length > 0 && zeroChoices.every(b => b.lost === 0 && b.worstLost === 0),
+     'zero in both the planned and tougher refill');
+  ok('a larger escort that reduces stress losses survives a planned-profit plateau',
+     (() => {
+       const o = { d:Math.sqrt(10), type:'Clay 25%', an:[{k:'u32',c:2},{k:'u35',c:2}], total:4,
+         seenAt:Date.now() - 90000 };
+       const opts = sendOptions(o, Arep, MAX_SEND, 1 / 19, false, false);
+       return opts.some((a, i) => opts.slice(i + 1).some(b =>
+         a.profit === b.profit && a.lost === b.lost && b.worstLost < a.worstLost)) &&
+         opts.some(b => b.worstLost === 0) &&
+         preferredSend(opts).pptt >= Math.max(...opts.map(b => b.pptt)) * 0.95;
+     })(), 'keep the lean choice and the safer alternative without forcing the bigger send');
+  ok('safety cannot halve efficiency merely because both sends reach the advisory guide',
+     (() => {
+       const opts = [
+         {k:40, lost:0, worstLost:1, profit:960, pptt:80},
+         {k:70, lost:0, worstLost:0, profit:960, pptt:40},
+         {k:700, lost:0, worstLost:0, profit:960, pptt:4}
+       ];
+       return preferredSend(opts) === opts[0] && opts.length === 3 &&
+         preferredSend([opts[2], {k:200, lost:1, worstLost:2, profit:700, pptt:10}]).pptt === 10;
+     })(), '15 is advisory; if none meet it, prefer efficiency rather than a huge escort');
+  ok('a safer send can give up at most 5% efficiency, inclusive, without crossing below an attainable 15',
+     (() => {
+       const efficient = {k:50, lost:2, worstLost:3, profit:2000, pptt:40};
+       const safer = {k:60, lost:1, worstLost:2, profit:2200, pptt:38};
+       const outside = {k:70, lost:0, worstLost:1, profit:2300, pptt:37.999999};
+       const above = { ...efficient, pptt:16 }, below = { ...safer, pptt:14.9 };
+       return preferredSend([efficient, safer, outside]) === safer &&
+         preferredSend([efficient, outside]) === efficient &&
+         preferredSend([above, below]) === above && preferredSend([]) === null;
+     })(), 'a small safety tradeoff, not a safety-first reset or a new row filter');
+  ok('Risky preserves the original refill and preference settings',
+     RISK_MODES.risky.refillShare === 0.2 && RISK_MODES.risky.minRefill === 0 &&
+     RISK_MODES.risky.preferredRateShare === 0.95,
+     '20% shared allowance, no forced animal, 5% efficiency tradeoff');
+  ok('Safe uses a full shared allowance, not zero-loss-only or all species at maximum',
+     RISK_MODES.safe.refillShare === 1 && RISK_MODES.safe.minRefill === 1 &&
+     RISK_MODES.safe.preferredRateShare === 0.9,
+     '100% shared allowance, at least one added animal for positive lag, 10% tradeoff');
+  ok('Safe starts with a buffer even when Risky rounds down, but neither grows a zero-lag scan',
+     arrivalScenarios(mixO, 1, RISK_MODES.safe).newN === 1 &&
+     arrivalScenarios(mixO, 1, RISK_MODES.risky).newN === 0 &&
+     Object.values(RISK_MODES).every(riskMode =>
+       JSON.stringify(arrivalScenarios(mixO, 0, riskMode).planned) === JSON.stringify(mixO.an)),
+     'at least one animal only when time elapses before landing');
+  ok('Safe adds protection without changing the tougher scenarios or removing scanned animals',
+     [1, 24, 60, 120, 600].every(lag => {
+       const risky = arrivalScenarios(mixO, lag, RISK_MODES.risky);
+       const safe = arrivalScenarios(mixO, lag, RISK_MODES.safe);
+       return safe.newN >= risky.newN &&
+         risky.planned.every(a => safe.planned.some(b => b.k === a.k && b.c >= a.c)) &&
+         JSON.stringify(safe.worst) === JSON.stringify(risky.worst) &&
+         JSON.stringify(safe.alts) === JSON.stringify(risky.alts);
+     }), 'the full mixed and single-species checks remain in both modes');
+  const bufferedOpts = sendOptions(bigO, A7, MAX_SEND, 1 / 19, false, false, 11, RISK_MODES.safe);
+  ok('buffered Safe still permits profitable sends with some planned losses',
+     bufferedOpts.some(b => b.lost > 0) && bufferedOpts.every(b => b.riskMode === 'safe' && viableSend(b)),
+     'no new casualty cap; the same 1.5x margin and break-even gates');
+  ok('Safe never makes the same send look cheaper or pays for extra animals',
+     (() => {
+       const riskyContext = raidContext(bigO, 1 / 19, 11, RISK_MODES.risky);
+       return bufferedOpts.every(b => {
+         const risky = priceSend(bigO, b.k, A7, b.mode, riskyContext);
+         return b.lost >= risky.lost && b.bounty <= risky.bounty &&
+           b.profit <= risky.profit && viableSend(risky);
+       });
+     })(), 'the extra buffer can only raise priced losses or reduce credited scan bounty');
+  ok('Safe can choose a lower-loss escort within 10%, without changing Risky or hiding other options',
+     (() => {
+       const lean = {k:50, lost:2, worstLost:3, profit:2000, pptt:40};
+       const safer = {k:65, lost:1, worstLost:2, profit:2200, pptt:36};
+       const outside = {k:80, lost:0, worstLost:1, profit:2300, pptt:35.999999};
+       const opts = [lean, safer, outside];
+       return preferredSend(opts, RISK_MODES.safe) === safer &&
+         preferredSend(opts, RISK_MODES.risky) === lean &&
+         preferredSend([lean, outside], RISK_MODES.safe) === lean && opts.length === 3;
+     })(), '90% versus 95% of peak efficiency, same advisory 15');
+  ok('Safe does not introduce a minimum efficiency cutoff',
+     bufferedOpts.some(b => b.pptt < GUIDE_RATE && meetsRate(b, MIN_RATE_DEFAULT)),
+     'below-15 choices still work when minimum is 0');
+  ok('send-sizing helpers carry the chosen risk mode',
+     bestSend(bigO, A7, MAX_SEND, 1 / 19, false, false, 11, RISK_MODES.safe).riskMode === 'safe' &&
+     needTT(bigO, A7, false, false, 11, RISK_MODES.safe).b.riskMode === 'safe' &&
+     zeroLossK(o7, A7, MAX_SEND, false, 1 / 19, 11, RISK_MODES.safe).b.riskMode === 'safe',
+     'best, minimum and zero-loss alternatives all use the buffered forecast');
+  ok('equal-profit rows put the leaner send first without changing the resources/hour sort',
+     (() => {
+       const o = {type:'Clay 25%',x:0,y:0,d:2,total:4}, r = {zl:null};
+       const lean = {r,o,b:{k:18,rt:1,lost:0,worstLost:1,profit:960,pph:960,pptt:960/18}};
+       const safe = {r,o,b:{k:65,rt:1,lost:0,worstLost:0,profit:960,pph:960,pptt:960/65}};
+       const richer = {r,o,b:{k:200,rt:1,lost:0,worstLost:0,profit:1000,pph:1000,pptt:5}};
+       const cards = [safe, lean, richer];
+       sortCards(cards, DEFAULT_SORT);
+       return cards[0] === richer && cards[1] === lean && cards[2] === safe;
+     })(), 'higher net hourly profit first, then efficiency on ties; all alternatives remain');
+
+  /* ── ⭐ clicking "send" ticks the row ── */
+  /*  The tick has to paint IN PLACE. render() rebuilds #bMain, which would delete the
+     very <a> the browser is still holding to open: a link removed inside its own click
+     handler is not reliably followed, so the convenience would eat the send. */
+  const dq = s => typeof document === 'undefined'
+   ? [] : Array.prototype.slice.call(document.querySelectorAll(s));
+  const trOf = el => el.closest('tr') || null;
+
+  ok('clicking send twice cannot untick a row', (() => {
+   const k = '__selfcheck__'; delete SENT[k];
+   const a = markSent(k), b = markSent(k), held = !!SENT[k];
+   delete SENT[k]; saveSent();
+   return a === true && b === false && held;
+  })(), 'markSent is idempotent — only the checkbox clears a tick');
+
+  ok('the send click repaints in place and never calls render',
+    String(markSent).indexOf('render(') < 0 && /paintSent[\s\S]*paintTotals/.test(String(markSent)),
+    'so the anchor the browser is about to follow is still there');
+
+  ok('render and the tick share one set of totals',
+    /TOTALS = \{[\s\S]{0,200}paintTotals\(\)/.test(String(render)) &&
+    String(render).indexOf('r.best.bounty') < 0 &&
+    String(paintTotals).indexOf("$('kpi')") > 0 &&
+    String(paintTotals).indexOf("$('sentCount')") > 0,
+    'render hands over the context and does none of the summing itself');
+
+  const slinks = dq('.sendlink'), sboxes = dq('.sentbox');
+  ok('every send link can reach its own tick key',
+    slinks.every(a => { const tr = trOf(a), b = tr && tr.querySelector('.sentbox');
+                        return !!(b && b.getAttribute('data-k')); }),
+    slinks.length + ' send links, every one paired with its row checkbox');
+
+  ok('every row carries a slot for the sent timestamp',
+    slinks.every(a => { const tr = trOf(a); return !!(tr && tr.querySelector('.sentago')); }),
+    'paintSent fills it without rebuilding the row');
+
+  ok('every rendered tick agrees with the stored sent state',
+    sboxes.every(b => b.checked === !!SENT[b.getAttribute('data-k')]),
+    sboxes.length + ' boxes');
+
+  ok('painting one key greys every rung of that oasis and nothing else', (() => {
+   if (!sboxes.length) return true;
+   const k = sboxes[0].getAttribute('data-k');
+   const mine = sboxes.filter(b => b.getAttribute('data-k') === k);
+   const was = SENT[k];
+   SENT[k] = Date.now();
+   const n = paintSent(k);
+   const allOn = mine.every(b => b.checked &&
+     String((trOf(b) || {}).className || '').indexOf('done') >= 0);
+   const rest = sboxes.filter(b => b.getAttribute('data-k') !== k)
+     .every(b => b.checked === !!SENT[b.getAttribute('data-k')]);
+   if (was === undefined) delete SENT[k]; else SENT[k] = was;
+   paintSent(k);
+   return n === mine.length && allOn && rest;
+  })(), 'the tick is keyed on the oasis, so its alternatives grey together');
+
+  ok('the setup defaults to Smithy 4, Metallurgy 4%, Tournament Square 14 and Safe',
+     $('iSm').defaultValue === '4' && $('iMet').defaultValue === '4' &&
+     $('iTs').defaultValue === '14' && $('iRiskMode').querySelector('option[value="safe"]').defaultSelected,
+     'editable defaults; switching settings does not reset them');
+  const currentMinRate = plannerSettings().minRate;
+  ok('all eligible send sizes remain available without an at-home cap',
+     ROWS.every(r => {
+       const eligible = r.all.filter(c => meetsRate(c, currentMinRate));
+       return r.opts.length === eligible.length && r.opts.every((c, i) => c === eligible[i]);
+     }), 'only the optional minimum rate filters the viable send ladder');
+
+  ok('the table is ordered by resources per hour by default',
+     DEFAULT_SORT.key === 'pph' && DEFAULT_SORT.dir === -1, 'pph, descending');
+  const cardSort = [{ r:{ zl:null }, o:bigO, b:{ k:5,  rt:1, lost:0, profit:100, pph:100, pptt:20 } },
+                    { r:{ zl:null }, o:bigO, b:{ k:50, rt:1, lost:0, profit:900, pph:900, pptt:18 } }];
+  sortCards(cardSort, DEFAULT_SORT);
+  ok('so the bigger haul outranks the better ratio',
+     cardSort[0].b.pph === 900,
+     '900/h first, even though the 100/h rung has the better res/h/TT');
+
+  /* ── ⭐ priced on the scan, sized for the forecast ── */
+  /*  The regression that prompted this: a Wood 25% showing ONE BOAR was handed 619 TT
+      to collect 4,457, because the forecast stack was being booked as revenue. */
+  const oneBoar = { x:0, y:0, d:16.5, type:'Wood 25%', an:[{ k:'u35', c:1 }], total:1 };
+  const obOpts = sendOptions(oneBoar, A7, 400, 1 / 19, false, false);
+  const obBest = bestSend(oneBoar, A7, 400, 1 / 19, false, false);
+  ok('one boar is priced as one boar, not as the respawn we hope for',
+     obOpts.every(op => op.bounty <= AN.u35.s * BOUNTY_PER_SUPPLY + 1e-9),
+     'bounty capped at ' + nf(AN.u35.s * BOUNTY_PER_SUPPLY) + ', best offers ' +
+     (obBest ? nf(obBest.bounty) : 'nothing'));
+  ok('a bloated escort can no longer inflate the prize to justify itself',
+     !obBest || obBest.pptt < 5,
+     obBest ? obBest.k + ' TT scores ' + obBest.pptt.toFixed(2) +
+              ' per TT-hour on a ' + nf(obBest.profit) + ' prize' : 'not offered at all');
+  ok('the optional efficiency filter starts off, with no default 15 cutoff',
+     MIN_RATE_DEFAULT === 0 &&
+     [{pptt:4}, {pptt:14.99}, {pptt:15}, {pptt:80}].every(b => meetsRate(b, MIN_RATE_DEFAULT)),
+     'low-efficiency options remain visible');
+  ok('an explicit minimum compares the unrounded rate exactly',
+     !meetsRate({pptt:14.999999}, 15) && meetsRate({pptt:15}, 15) &&
+     meetsRate({pptt:15.000001}, 15) && !meetsRate({pptt:NaN}, 0),
+     '14.999999 is below 15 even if a rounded cell says 15');
+  const smallTarget = { d:Math.sqrt(10), type:'Clay 25%', an:[{k:'u32',c:2},{k:'u35',c:2}], total:4 };
+  const smallOpts = sendOptions(smallTarget, Arep, MAX_SEND, 1 / 19, false, false);
+  ok('a useful 960-bounty target no longer needs to clear a 2,000-bounty floor',
+     oasisBounty(smallTarget) === 960 && smallOpts.some(b => b.pptt >= GUIDE_RATE),
+     'the raw-bounty filter is gone');
+
+  /*  The forecast has not been thrown away — it still sizes the escort. Same oasis,
+      a stack worth taking: profit must ignore the refill while safety must not. */
+  const fcO = { x:0, y:0, d:6, type:'Clay 25%', an:[{ k:'u31', c:9 }], total:9 };
+  const fcLag = raidContext(fcO, 1 / 19).lagMin;
+  const fcSc  = arrivalScenarios(fcO, fcLag);
+  const fcOpt = bestSend(fcO, A7, MAX_SEND, 1 / 19, false, false);
+  ok('profit never credits more than the scanned animal bounty',
+     fcOpt && fcOpt.bounty <= oasisBounty(fcO) && fcOpt.bounty > 0,
+     'at most the 9 rats in the scan');
+  ok('the escort clears the margin even against the mixed allowance',
+     fcOpt && fcSc.alts.concat([fcSc.worst]).every(st => {
+       const b = battle(st, fcOpt.k, A7, fcOpt.mode);
+       return b.bounty - b.lost * TT.cost >= 0;
+     }), fcSc.alts.length + ' scenarios all break even at ' + (fcOpt || {}).k + ' TT');
+  ok('an oasis with nothing standing in it is not a target at all',
+     sendOptions({ x:0, y:0, d:1, type:'Clay 25%', an:[], total:0 }, A7, 400, 1 / 19, false, false).length === 0,
+     'empty tile -> no options');
+
+  /* ── rates are per real hour, with no window rounding ── */
+  const near = { x:0, y:0, d:2.2, type:'Iron 25%', an:[{ k:'u31', c:7 }], total:7 };
+  const far  = { x:0, y:0, d:6.4, type:'Iron 25%', an:[{ k:'u31', c:7 }], total:7 };
+  const oNear = sendOptions(near, A7, MAX_SEND, 1 / 19, false, false);
+  const oFar  = sendOptions(far,  A7, MAX_SEND, 1 / 19, false, false);
+  ok('a trip costs its real flight time, never a rounded-up window',
+     oNear[0] && oFar[0] && oNear[0].w === 1 && oFar[0].w === 1 &&
+     Math.abs(oNear[0].wrt - oNear[0].rt) < 1e-12 && Math.abs(oFar[0].wrt - oFar[0].rt) < 1e-12,
+     hm(oNear[0].rt) + ' and ' + hm(oFar[0].rt) + ', both charged as flown');
+  ok('the same haul twice as far earns half the rate',
+     (() => { const a = oNear.find(x => x.k === (oFar[0] || {}).k), b = oFar[0];
+              if (!a || !b || a.profit !== b.profit) return true;   // different kills: not comparable
+              return Math.abs(a.pptt / b.pptt - b.rt / a.rt) < 1e-6; })(),
+     'rate scales exactly with round-trip hours');
+
+  /*  ⭐ REGRESSION: the raid that actually got punished. The dump showed 2 rats at
+      [-13|187], the plan sent 2 TT, the troops flew ~25 min, and EIGHT rats were
+      standing there when it landed: 2 + ceil(25.5/5). */
+  ok('a standing stack is aged to what lands on it, not the photograph',
+     stackOnArrival([{ k:'u31', c:2 }], 25.5)[0].c === 8,
+     '2 rats + 25.5 min = ' + stackOnArrival([{ k:'u31', c:2 }], 25.5)[0].c + ' rats');
+  ok('each species refills on its own timer',
+     respawnMax('u31', 30) === 6 && respawnMax('u36', 30) === 3,
+     'rat every 5 min -> ' + respawnMax('u31', 30) + ', wolf every 10 -> ' + respawnMax('u36', 30));
+  ok('no lag, no growth: the snapshot is used as-is',
+     stackOnArrival([{ k:'u31', c:3 }], 0)[0].c === 3, '3 rats stay 3');
+
+  /*  ⭐ AND THE REFILL NEED NOT BE THE SPECIES YOU CAN SEE.
+      2 rats on a Clay oasis can become more rats, or spiders, or boars. Each is a
+      separate scenario; the escort is sized against whichever one hurts most. */
+  const A5 = ttAtk(5, 0);
+  const lateO = { x:0, y:0, d:4.05, type:'Clay 25%', an:[{ k:'u31', c:2 }], total:2 };
+  const lagL  = (2 * 4.05 / 19) * 30;                       // ~12.8 min in the air
+  const scL   = arrivalScenarios(lateO, lagL);
+  ok('the refill might be a species the scan never showed',
+     scL.alts.length === 3 &&
+     scL.alts.some(s => s.some(a => a.k === 'u32' && a.c > 0)) &&
+     scL.alts.some(s => s.some(a => a.k === 'u35' && a.c > 0)),
+     scL.alts.length + ' scenarios: ' +
+     scL.alts.map(s => s.map(a => a.c + ' ' + AN[a.k].n).join('+')).join(' | '));
+  ok('but every scenario still keeps the animals you did see',
+     scL.alts.every(s => (s.find(a => a.k === 'u31') || { c:0 }).c >= 2),
+     'never fewer than the 2 rats in the scan');
+  const lateOpts = sendOptions(lateO, A5, MAX_SEND, 1 / 19, false, false);
+  ok('the send is sized to survive the worst refill, not the prettiest',
+     lateOpts.length > 0 && lateOpts.every(op => scL.alts.concat([scL.worst]).every(st => {
+       const b = battle(st, op.k, A5, op.mode);
+       return b.bounty - b.lost * TT.cost >= 0;
+     })),
+     lateOpts.length + ' options, smallest ' + (lateOpts[0] || {}).k + ' TT');
+  ok('and the 2-TT send that lost a Thunder is gone',
+     !lateOpts.some(op => op.k === 2),
+     'offered ' + lateOpts.map(op => op.k).join('/') + ' TT');
+
+  /* Historical samples must never suppress the safety allowance. */
+  const capSave = CAPS;
+  CAPS = {};
+  const capO = { x:77, y:77, type:'Clay 25%',
+                 an:[{ k:'u31', c:5 }, { k:'u32', c:3 }, { k:'u35', c:1 }], total:9 };
+  noteCap(capO);
+  ok('seeing all species does not establish a hard population cap',
+     arrivalScenarios(capO, 60).worst.reduce((t, a) => t + a.c, 0) > 9,
+     'a complete-looking scan can still grow');
+  ok('the allowance stays within the species pool plus observed anomalies',
+     arrivalScenarios(capO, 60).alts.every(s => s.length === 3),
+     'no fourth animal invented');
+
+  const capLow = { x:77, y:77, type:'Clay 25%', an:[{ k:'u31', c:2 }], total:2 };
+  const scLow  = arrivalScenarios(capLow, 60);
+  ok('once you knock it down, it refills again',
+     scLow.alts.some(s => s.reduce((t, a) => t + a.c, 0) > 2),
+     'growth allowance remains active');
+  ok('old population memories cannot reduce the allowance',
+     JSON.stringify(scLow.worst) === JSON.stringify(
+       arrivalScenarios({ ...capLow, x:78, y:78 }, 60).worst),
+     'identical with and without a historical sample');
+  ok('longer scan age can exceed a previously seen species count',
+     (arrivalScenarios(capLow, 600).planned.find(a => a.k === 'u31') || { c:0 }).c > 5,
+     'old scans demand more protection, not false certainty');
+  ok('an oasis never seen before is not assumed full',
+     arrivalScenarios({ x:78, y:78, type:'Clay 25%', an:[{ k:'u31', c:2 }], total:2 }, 60)
+       .alts.some(s => s.reduce((t, a) => t + a.c, 0) > 2),
+     'unknown ceiling -> still priced as refilling');
+
+  /*  ⭐ ONLY A FINISHED OASIS TELLS YOU ITS CEILING.
+      A tile photographed mid-refill must not have its half-empty count taken as a
+      maximum — that is what made the planner call a Clay oasis holding ONE rat "full"
+      and offer a single Thunder against what a 40-minute flight turns into 8 rats. */
+  const partial = { x:79, y:79, type:'Clay 25%', an:[{ k:'u31', c:1 }], total:1 };
+  noteCap(partial);
+  ok('one rat in a clay oasis is a tile mid-refill, not a finished one',
+     !saturated(partial) && capOf(partial) === null,
+     'no ceiling recorded from a half-filled sighting');
+  ok('so it is still expected to fill up while your troops are in the air',
+     arrivalScenarios(partial, 40).alts.some(s => s.reduce((t, a) => t + a.c, 0) > 1),
+     '1 rat + 40m flight is not still 1 rat');
+  ok('a crop oasis needs all four of its species, not any three',
+     !saturated({ type:'Crop 25%', an:[{ k:'u31', c:5 }, { k:'u33', c:5 }, { k:'u37', c:5 }] }) &&
+      saturated({ type:'Crop 25%', an:[{ k:'u31', c:5 }, { k:'u33', c:5 }, { k:'u37', c:5 },
+                                       { k:'u39', c:5 }] }),
+     'rat + snake + bear is still filling; + tiger is done');
+  ok('an anomaly spawn does not count towards finishing the pool',
+     !saturated({ type:'Clay 25%', an:[{ k:'u31', c:2 }, { k:'u32', c:2 }, { k:'u40', c:1 }] }),
+     'an elephant is not the missing boar');
+  ok('having the whole pool is not enough if one species has been gutted',
+     !saturated({ type:'Clay 25%', an:[{ k:'u31', c:1 }, { k:'u32', c:12 }, { k:'u35', c:3 }] }),
+     '1 rat beside 12 spiders is a farmed tile, not a finished one');
+  ok('but a big healthy oasis is never second-guessed',
+     saturated({ type:'Iron 25%', an:[{ k:'u31', c:91 }, { k:'u32', c:39 }, { k:'u34', c:37 }] }),
+     'the largest tile on the map still reads as full');
+  ok('and a tiny oasis is judged on its species alone, the mix being noise',
+     saturated({ type:'Wood 25%', an:[{ k:'u35', c:1 }, { k:'u36', c:1 }, { k:'u37', c:1 }] }),
+     '1/1/1 is complete, not 45% short of bear');
+  ok('ceilings remembered under the old always-record rule are thrown away',
+     Object.keys(parseCaps(JSON.stringify({ '9|9':{ per:{ u31:1 }, total:1 } }))).length === 0 &&
+     Object.keys(parseCaps(JSON.stringify({ v:CAPS_VER, caps:{ '9|9':{ per:{ u31:1 }, total:1 } } }))).length === 1,
+     'unversioned memory discarded once, current memory kept');
+  CAPS = capSave;
+
+  /* ── empty-oasis respawn model ── */
+  ok('an oasis type only spawns its own pool',
+     poolOf('Iron 25% + Crop 25%').join() === 'u31,u32,u34' && poolOf('Crop 50%').indexOf('u39') >= 0,
+     'Iron+Crop &rarr; rat/spider/bat');
+  ok('30 min of respawn = ceil(30 / period)',
+     Math.ceil(30 / RESPAWN.u31) === 6 && Math.ceil(30 / RESPAWN.u34) === 4, '6 rats or 4 bats');
+  const stBig = steadyStack('u31', 30, 30, A0), stSmall = steadyStack('u31', 30, 1, A0);
+  ok('a big enough send settles at exactly what respawns',
+     stBig.n === stBig.add, stBig.n + ' rats, kills all 6 every window');
+  ok('too small a send lets the stack run away',
+     stSmall.n > 50, '1 TT &rarr; ' + stSmall.n + ' rats piled up');
+  const fcIron = emptyForecast({ type: 'Iron 25%' }, 30, A0, 0.5);
+  ok('an empty oasis is priced on the animals you EXPECT, not the worst burst',
+     fcIron.lost === 0 && fcIron.worstStack > fcIron.expN,
+     'expect ' + fcIron.expN.toFixed(2) + ' animal, worst case ' + fcIron.worstStack + ' ' + AN[fcIron.worstSp].n);
+  ok('loot is booked at what a cleared tile really pays, not at the escort-sizing rate',
+     Math.abs(fcIron.expN - SPAWN_VALUE_PER_H * 0.5) < 1e-9 &&
+     Math.abs(fcIron.riskN - SPAWN_PER_H * 0.5) < 1e-9 && fcIron.riskN > fcIron.expN * 5,
+     'paid on ' + fcIron.expN.toFixed(3) + ' animals (' + nf(fcIron.bounty) +
+     ' loot), sized for ' + fcIron.riskN.toFixed(2));
+  ok('two dumps 71h apart said empty oases barely refill, so the bounty is a rounding error',
+     (() => { const f = emptyForecast({ type:'Clay 25%' }, 1, A0, 1);
+              return f.bounty < f.haul * 0.45 && f.haul > 60; })(),
+     (() => { const f = emptyForecast({ type:'Clay 25%' }, 1, A0, 1);
+              return nf(Math.round(f.haul)) + ' stored vs ' + nf(Math.round(f.bounty)) +
+                     ' spawn (was 71 vs 320)'; })());
+  ok('but the escort is still sized for a batch spawn, not for that rounding error',
+     (() => { const f = emptyForecast({ type:'Clay 25%' }, 1, A0, 1);
+              return f.worstStack >= Math.ceil(SPAWN_PER_H * BAD_ROLL) && f.worstStack > f.expN * 20; })(),
+     (() => { const f = emptyForecast({ type:'Clay 25%' }, 1, A0, 1);
+              return 'worst case ' + f.worstStack + ' ' + AN[f.worstSp].n +
+                     ', expects ' + f.expN.toFixed(2); })());
+  ok('a longer gap between visits grows both the stack and the loot',
+     (() => { const a = emptyForecast({ type:'Iron 25%' }, 30, A0, 0.5),
+                    b = emptyForecast({ type:'Iron 25%' }, 30, A0, 1);
+              return b.worstStack > a.worstStack && b.bounty > a.bounty; })(),
+     '30m vs 1h');
+
+  /* ── expected sizing, bad-roll veto ── */
+  const woodE = { x:0, y:0, d:2, type:'Wood 25%', mapId:1, an:[], total:0 };
+  ok('the bad roll is bounded by what can actually spawn, not a runaway stack',
+     emptyForecast(woodE, 10, A0, 0.5).worstStack === Math.max(1, Math.ceil(SPAWN_PER_H * 0.5 * BAD_ROLL)),
+     BAD_ROLL + '&times; expected = ' + emptyForecast(woodE, 10, A0, 0.5).worstStack + ' animals');
+  const bare = { x:0, y:0, d:2, type:'Crop 50%', mapId:1, an:[], total:0 };
+  const tiny = emptyForecast(bare, 3, A0, 0.5);
+  ok('a send a bad roll would wipe out is vetoed',
+     tiny.safe === false && tiny.floor < 0,
+     '3 TT into a Crop 50% respawn &rarr; floor ' + nf(Math.round(tiny.floor)));
+
+  /* ── the risk budget: prudence must not become an arithmetic impossibility ── */
+  /*  The old veto demanded the worst case break even. One dead TT costs 1090 while a cheap
+      tile's whole bad-roll bounty is ~800, so it could only pass at EXACTLY zero losses and
+      the ladder climbed until it got there: six empty oases were each handed 16 TT to
+      collect what 2 TT collects. Kept as a property of the forecast itself now that empty
+      oases are no longer offered as targets. */
+  const ironE = { x:0, y:0, d:1.4, type:'Iron 25%', mapId:1, an:[], total:0 };
+  ok('a bigger escort at an empty tile buys nothing at all',
+     Math.round(emptyForecast(ironE, 8, A0, 1).profit)
+       === Math.round(emptyForecast(ironE, 58, A0, 1).profit),
+     '8 TT and 58 TT both earn ' + nf(Math.round(emptyForecast(ironE, 8, A0, 1).profit)));
+
+  let riskChecked = 0, riskOver = 0, riskWorst = 0;
+  for (const ty of ['Iron 25%', 'Clay 25%', 'Wood 25%', 'Crop 25%', 'Crop 50%'])
+    for (const hh of [0.5, 1, 3])
+      for (let k = 1; k <= 40; k++) {
+        const c = emptyForecast({ x:0, y:0, d:3, type:ty, mapId:1, an:[], total:0 }, k, A0, hh);
+        if (c.safe === false) continue;
+        riskChecked++;
+        if (c.floor < -Math.max(RISK_BUDGET * Math.max(0, c.profit), TT.cost) - 1e-6) riskOver++;
+        riskWorst = Math.max(riskWorst, c.worstLost || 0);
+      }
+  ok('a bad roll costs at most the budget, or one Thunder where that is larger',
+     riskChecked > 0 && riskOver === 0,
+     riskChecked + ' safe rungs across 5 oasis types, none over ' + RISK_BUDGET + '&times; or 1 TT');
+  ok('so the downside stays small in troops, not just in ratio',
+     riskWorst <= 10,
+     'worst roll on any safe rung costs ' + riskWorst + ' TT');
+
+  /* ── stored production is priced, at the rate the official oasis table gives ── */
+  ok('a single +25% oasis: 40 focus, 10 each, and crop is 11 not 10',
+     oasisProdPerHour('Clay 25%') === 71, oasisProdPerHour('Clay 25%') + '/h');
+  ok('crop as a focus is 41, not 40',
+     oasisProdPerHour('Crop 25%') === 71 && oasisProdPerHour('Wood 25% + Crop 25%') === 101,
+     'Crop 25% = 71/h, dual = ' + oasisProdPerHour('Wood 25% + Crop 25%') + '/h');
+  ok('+50% really does double the focus',
+     oasisProdPerHour('Crop 50%') === 111 && oasisProdPerHour('Wood 50%') === 111,
+     'Crop 50% = ' + oasisProdPerHour('Crop 50%') + '/h, not ' + oasisProdPerHour('Crop 25%'));
+  ok('capacity is 2,000 each on the dual and 50% types, 1,000 on a plain single',
+     oasisPile('Clay 25%') === 4000 && oasisPile('Crop 50%') === 8000 &&
+     oasisPile('Wood 25% + Crop 25%') === 8000,
+     '4,000 single / 8,000 dual + 50%');
+  const riSingle = ripeInfo({ type:'Clay 25%' }), riDual = ripeInfo({ type:'Wood 25% + Crop 25%' });
+  ok('an empty oasis fills its store in a day, not in a check interval',
+     Math.abs(riSingle.ripeH - 25) < 1e-9 && Math.abs(riDual.ripeH - 50) < 1e-9,
+     hm(riSingle.ripeH) + ' single, ' + hm(riDual.ripeH) + ' dual');
+  ok('waiting for it is free - a ripe tile pays a whole day of production in one trip',
+     Math.round(riSingle.holds) === 1775 && Math.round(riDual.holds) === 5050 &&
+     riSingle.holds > oasisProdPerHour('Clay 25%') * 0.5 * 20,
+     nf(Math.round(riSingle.holds)) + ' res vs ' + nf(Math.round(oasisProdPerHour('Clay 25%') * 0.5)) +
+     ' from one 30m visit');
+  ok('and one Thunder cannot carry it, which is why dribbling at it wastes the pile',
+     riSingle.tt === 24 && riDual.tt === 68,
+     riSingle.tt + ' TT single, ' + riDual.tt + ' TT dual');
+  const fcH = emptyForecast(woodE, 10, A0, 0.5);
+  ok('a cleared oasis collects exactly one interval of production',
+     Math.abs(fcH.haul - oasisProdPerHour('Wood 25%') * 0.5) < 1e-9,
+     nf(fcH.haul) + ' res in 30m');
+  ok('twice the wait is twice the haul',
+     Math.abs(emptyForecast(woodE, 10, A0, 1).haul - 2 * fcH.haul) < 1e-9, 'linear in time');
+  ok('the haul is booked into profit alongside the bounty',
+     Math.abs(fcH.profit - (fcH.bounty + fcH.haul - fcH.lost * TT.cost)) < 1e-9, 'bounty + haul - losses');
+  const fcBig = emptyForecast(woodE, 200, A0, 20), fcDead = emptyForecast(woodE, 1, A0, 20);
+  ok('a raid that dies carries nothing home, unlike animal bounty',
+     fcDead.lost === 1 && fcDead.haul === 0 &&
+     Math.abs(fcBig.haul - oasisProdPerHour('Wood 25%') * 20) < 1e-9,
+     'wiped carries ' + fcDead.haul + ', intact carries ' + nf(fcBig.haul));
+  ok('the haul never exceeds what the survivors can lift',
+     [[1, 4], [3, 2], [10, 20], [200, 20]].every(([k, h]) => {
+       const f = emptyForecast(woodE, k, A0, h);
+       return f.haul <= Math.max(0, k - f.lost) * TT.cap + 1e-9;
+     }), 'clamped to survivors &times; ' + TT.cap);
+  ok('the bad-roll veto still ignores the haul',
+     emptyForecast(bare, 3, A0, 0.5).floor < 0, 'safety is not talked round by revenue');
+  ok('a virgin oasis is never credited with production',
+     !('haul' in bestSend(o7, A0, MAX_SEND, 1 / 19, false, false)),
+     'only cleared tiles produce');
+
+  /* ── profitability margin ── */
+  const mOK  = sendOptions({ x:0, y:0, d:1, type:'x', mapId:1, an:[{k:'u31',c:9}], total:9 }, A0, 3, 1/19, false, false);
+  const mBad = sendOptions({ x:0, y:0, d:1, type:'x', mapId:1, an:[{k:'u32',c:6}], total:6 }, A0, 2, 1/19, false, false);
+  ok('margin gate: loot must beat the risk by ' + MARGIN + 'x',
+     mOK.every(o => o.bounty >= MARGIN * o.lost * TT.cost) &&
+     mBad.every(o => o.bounty >= MARGIN * o.lost * TT.cost),
+     'every surviving option clears it');
+  ok('a target that only breaks even is rejected',
+     sendOptions({ x:0, y:0, d:1, type:'x', mapId:1, an:[{k:'u31',c:5}], total:5 }, A0, 1, 1/19, false, false).length === 0,
+     '1 TT for 2 rats and a dead TT &rarr; dropped');
+
+
+  const bad = t.filter(r => !r.c);
+  $('chk').innerHTML =
+    '<div class="' + (bad.length ? 'bad' : 'good') + '"><b>' + (t.length - bad.length) + '/' + t.length +
+    ' checks pass' + (bad.length ? ' &mdash; ' + bad.length + ' FAILED' : '') + '</b></div><ul>' +
+    t.map(r => '<li class="' + (r.c ? 'good' : 'bad') + '">' + (r.c ? '&#10003;' : '&#10007;') + ' ' +
+               r.n + ' <span class="dim">&rarr; ' + r.got + '</span></li>').join('') + '</ul>';
+  return { total:t.length, failed:bad.length, tests:t };
+}
+
+/* ───────────────────────── wiring ───────────────────────── */
+function loadJSON(text, how, capturedAt = Date.now()) {
+  try {
+    const j = typeof text === 'string' ? JSON.parse(text) : text;
+    const raw = j.tiles || (j.data && j.data.tiles);
+    if (!Array.isArray(raw)) throw new Error('no "tiles" array in that JSON');
+    if (!Number.isFinite(capturedAt) || capturedAt <= 0 || capturedAt > Date.now() + 60000) {
+      throw new Error('Invalid map timestamp. Paste a fresh map response.');
+    }
+    const m = mergeTiles(raw, capturedAt);
+    DUMP = parseDump({ tiles: [...TILES.values()] });
+    DUMP_AT = capturedAt;
+    const span = footprint();
+
+    // Keep historical samples, but never use them to cap arrival defence.
+    for (const o of (DUMP.oases || [])) noteCap(o);
+    saveCaps();
+
+    /*  A fresh paste starts a new round, so last round's ticks go. They must: `todo`
+        filters out anything ticked, so a stale tick silently removes a target from the
+        plan and you would never know it was missing. You send the whole list in one go
+        and then re-dump, so the ticks only ever mean "already sent THIS round". */
+    const wiped = Object.keys(SENT).length;
+    if (wiped) { SENT = {}; saveSent(); }
+
+    $('stat').className = 'st st-ok';
+    $('stat').innerHTML = '&#10003; ' + how + ': <b>+' + m.added + '</b> new tiles'
+      + (m.updated ? ', ' + m.updated + ' refreshed' : '')
+      + '. Total <b>' + DUMP.tiles.length + '</b> tiles from <b>' + DUMPS + '</b> dump'
+      + (DUMPS === 1 ? '' : 's') + ' spanning <b>' + span.w + '&times;' + span.h + '</b>, <b>'
+      + DUMP.oases.length + '</b> oases found.'
+      + (wiped ? ' <span class="dim">New round &mdash; cleared ' + wiped + ' sent-tick'
+                 + (wiped === 1 ? '' : 's') + '.</span>' : '')
+      + ' <span class="dim">Each tile keeps its own scan age; importing another area does not refresh it.</span>'
+      + (DUMP.oases.some(o => dumpAgeMin(o) > 5)
+        ? ' <span class="warn">Some observations are over 5 minutes old. Fresh map data gives more useful estimates.</span>'
+        : '')
+      + (DUMPS > 1 ? '' : ' <span class="dim">Re-centre the map and paste again to widen it.</span>');
+    render();
+  } catch (e) {
+    $('stat').className = 'st st-err';
+    $('stat').innerHTML = '&#10007; ' + e.message;
+  }
+}
+
+function handleSendOpen(e) {
+  if (e.defaultPrevented || (e.type === 'click' ? e.button !== 0 : e.type !== 'auxclick' || e.button !== 1)) return;
+  const a = e.target && e.target.closest ? e.target.closest('a.sendlink') : null;
+  if (!a) return;
+  const box = a.closest('tr').querySelector('.sentbox');
+  const key = box.getAttribute('data-k'), k = +a.getAttribute('data-troops');
+  const mode = a.getAttribute('data-mode');
+  const row = ROWS.find(r => okey(r.o) === key);
+  const shown = row && row.opts.find(b => b.k === k && b.mode === mode);
+  let settings;
+  try {
+    settings = plannerSettings();
+  } catch (error) {
+    e.preventDefault();
+    showPlanMessage(error.message);
+    return;
+  }
+  if (!shown) {
+    e.preventDefault();
+    render();
+    showPlanMessage('This send is no longer in the current plan. Review the updated list.');
+    return;
+  }
+  if (shown.riskMode !== settings.riskMode.id || a.getAttribute('data-risk-mode') !== settings.riskMode.id) {
+    e.preventDefault();
+    render();
+    showPlanMessage('Send not opened: the risk mode changed. Review the ' + settings.riskMode.label + ' list before opening a send.');
+    return;
+  }
+  const fresh = priceSend(row.o, k, ttAtk(+$('iSm').value, metalPct()), mode,
+    raidContext(row.o, 1 / TT.speed, settings.tsLevel, settings.riskMode));
+  if (!viableSend(fresh) || !meetsRate(fresh, settings.minRate) ||
+      fresh.lost > shown.lost || fresh.worstLost > shown.worstLost || fresh.profit < shown.profit) {
+    e.preventDefault();
+    render();
+    showPlanMessage(!meetsRate(fresh, settings.minRate)
+      ? 'Send not opened: it is now below your chosen minimum of ' + settings.minRate +
+        ' net res/h/TT. Review the updated list or paste a fresh scan.'
+      : 'Send not opened: this estimate changed or no longer passes the refill checks. It now models ' +
+        fresh.lost + ' TT lost (' + fresh.worstLost + ' in the tougher refill). Review the updated list or paste a fresh scan.');
+    return;
+  }
+  // Leave the anchor and its default new-tab action intact on both click paths.
+  markSent(key);
+}
+
+function boot() {
+  const vs = $('iVill');
+  vs.innerHTML = '<option value="">(current village)</option>' +
+    VILLAGES.map(v => '<option value="' + v.did + '">' + v.name + ' [' + v.x + '|' + v.y + ']</option>').join('');
+  vs.value = String(VILLAGES[0].did);
+  vs.addEventListener('change', () => {
+    const v = VILLAGES.find(v => String(v.did) === vs.value);
+    if (v) { $('iCx').value = v.x; $('iCy').value = v.y; if (DUMP) DUMP = parseDump(DUMP.tiles.length ? { tiles: DUMP.tiles } : { tiles: [] }); }
+    render();
+  });
+  $('iRiskMode').addEventListener('change', render);
+
+  ['iCx','iCy','iSm','iMet','iMinRate','iSrv','iTs']
+    .forEach(id => { $(id).addEventListener('input', () => { if (DUMP) DUMP = parseDump({ tiles: DUMP.tiles }); render(); });
+                     $(id).addEventListener('change', () => { if (DUMP) DUMP = parseDump({ tiles: DUMP.tiles }); render(); }); });
+
+  $('bOpen').addEventListener('click', () => {
+    const u = $('iSrv').value.replace(/\/+$/, '') + '/karte.php?x=' + $('iCx').value + '&y=' + $('iCy').value + '&zoom=3';
+    window.open(u, '_blank', 'noopener');
+  });
+  $('bParse').addEventListener('click', () => {
+    const v = $('iPaste').value.trim();
+    if (!v) { $('stat').className = 'st st-err'; $('stat').textContent = 'Paste box is empty.'; return; }
+    const n = DUMPS;
+    loadJSON(v, 'pasted');
+    if (DUMPS > n) $('iPaste').value = '';   // ready for the next re-centred block
+  });
+  $('bClear').addEventListener('click', () => {
+    $('iPaste').value = ''; DUMP = null; TILES = new Map(); TILE_AT = new Map(); DUMPS = 0; DUMP_AT = 0;
+    $('stat').className = 'st st-idle'; $('stat').textContent = 'No map data loaded yet.';
+    render();
+  });
+  $('bSample').addEventListener('click', async () => {
+    try {
+      const r = await fetch('/dump');
+      if (!r.ok) throw new Error('no saved dump on the server yet');
+      const savedAt = Date.parse(r.headers.get('Last-Modified'));
+      if (!Number.isFinite(savedAt)) throw new Error('Saved map has no file date. Paste a fresh map response instead.');
+      loadJSON(await r.text(), 'loaded from disk (file date used for scan age)', savedAt);
+    } catch (e) { $('stat').className = 'st st-err'; $('stat').textContent = e.message; }
+  });
+
+  document.querySelectorAll('#tMain th[data-s]').forEach(th => th.addEventListener('click', () => {
+    const k = th.getAttribute('data-s');
+    SORT = { key: k, dir: SORT.key === k ? -SORT.dir : -1 };
+    render();
+  }));
+
+  /*  Rows are rebuilt on every render, so the tick boxes are handled by one
+      delegated listener on the tbody instead of per-row handlers. */
+  $('bMain').addEventListener('change', e => {
+    const t = e.target;
+    if (!t || !t.className || String(t.className).indexOf('sentbox') < 0) return;
+    const k = t.getAttribute('data-k');
+    if (t.checked) SENT[k] = Date.now(); else delete SENT[k];
+    saveSent();
+    paintSent(k);
+    paintTotals();
+  });
+
+  $('bMain').addEventListener('click', handleSendOpen);
+  $('bMain').addEventListener('auxclick', handleSendOpen);
+
+  $('bRefresh').addEventListener('click', render);
+  $('bClearSent').addEventListener('click', () => { SENT = {}; saveSent(); render(); });
+
+  /* No polling, no background requests. This page only talks to the network when you
+     click a button, and then only to localhost. */
+
+  render();
+}
+if (document.getElementById('iSrv')) boot();
+</script>
+</body>
+</html>

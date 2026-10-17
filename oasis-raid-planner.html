@@ -89,7 +89,7 @@ tr.done:hover td{opacity:.6}
 
 <header>
   <h1>Travian Oasis Raid Planner</h1>
-  <span class="sub">T4.6 &middot; Gaul &middot; Theutates Thunder &middot; ranks oases by animal-bounty profit per hour</span>
+  <span class="sub">T4.6 &middot; Gaul &middot; Theutates Thunder &middot; ranks oases by net animal-bounty profit per TT-hour</span>
 </header>
 
 <!-- ══════════════ 0. THE ONLY KNOBS ══════════════ -->
@@ -114,7 +114,8 @@ tr.done:hover td{opacity:.6}
   <div class="note" id="ttStat"></div>
   <div class="note" id="riskNote"></div>
   <div class="note"><b>15+ res/h/TT</b> is highlighted as your usual target, not a cutoff.
-    The minimum starts at <b>0</b> so all viable options stay visible. Larger, safer sends are alternatives, not mandatory.</div>
+    The minimum starts at <b>0</b> so all viable targets stay visible.
+    Each oasis appears once, with its highest <b>net res/h/TT</b> send.</div>
   <div class="note" id="minNote"></div>
 </div>
 
@@ -136,8 +137,8 @@ tr.done:hover td{opacity:.6}
   <h2>2 &middot; Paste the map data</h2>
 
   <div class="st st-ok" style="margin:0 0 14px">
-    &#128274; This page makes <b>no network requests on its own</b>. Nothing polls, nothing runs on a timer,
-    nothing is sent anywhere. It only acts when you click a button, and then only to <code>localhost</code>.
+    &#128274; Map calculations run locally. <b>Cloudflare Web Analytics records page visits and performance statistics.</b>
+    No game requests, farming timers, polling or troop sending are automated.
   </div>
 
   <ol style="margin:6px 0;padding-left:20px">
@@ -196,7 +197,7 @@ tr.done:hover td{opacity:.6}
       <th data-s="safe" title="Send size with zero losses even in the tougher modelled refill, within the search range and above your optional minimum rate.">0-loss estimate</th>
       <th data-s="profit">Profit</th>
       <th data-s="pph">Res / hour</th>
-      <th data-s="pptt"><span class="dim">Res / h / TT</span></th>
+      <th data-s="pptt">Res / h / TT</th>
       <th class="l">Go</th>
     </tr></thead>
     <tbody id="bMain"></tbody>
@@ -207,7 +208,7 @@ tr.done:hover td{opacity:.6}
     Both rate columns use that profit and the full round-trip time, including Tournament Square.
     <span id="refillNote"></span>
     The arrow in <b>Loss est.</b> shows a tougher refill, not an extra charge in the displayed profit.
-    Larger escorts that reduce that risk stay available, without forcing every send to cover all species spawning at once.
+    Each oasis shows only its best net res/h/TT send; the <b>0-loss estimate</b> is a reference, not another row.
     Only kills from the scanned population are credited; additional animals never fund the raid.
     Credited bounty must cover at least <b>1.5&times;</b> the modelled replacement cost.
     Hospital treatment and retraining still take resources and time, so no recovery discount is assumed.
@@ -224,6 +225,7 @@ tr.done:hover td{opacity:.6}
 </div>
 
 </div>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "340927ebc211466b92ab0a2bde9e1496"}'></script><!-- End Cloudflare Web Analytics -->
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -426,8 +428,8 @@ function ripeInfo(o) {
 const MARGIN = 1.5;
 const GUIDE_RATE = 15;
 const RISK_MODES = {
-  risky: { id:'risky', label:'Risky', refillShare:0.2, minRefill:0, preferredRateShare:0.95 },
-  safe:  { id:'safe', label:'Safe',  refillShare:1,   minRefill:1, preferredRateShare:0.90 }
+  risky: { id:'risky', label:'Risky', refillShare:0.2, minRefill:0 },
+  safe:  { id:'safe', label:'Safe',  refillShare:1,   minRefill:1 }
 };
 
 function refillDescription(riskMode) {
@@ -747,19 +749,15 @@ function sendOptions(o, A, maxK, hoursPerField, allowNormal, zeroOnly, tsLevel =
   return out;
 }
 
-function preferredSend(opts, riskMode = RISK_MODES.risky) {
-  if (!opts.length) return null;
-  const bestRate = Math.max(...opts.map(b => b.pptt));
-  // Both modes limit the efficiency tradeoff and preserve an attainable advisory 15.
-  const nearBest = Math.max(bestRate * riskMode.preferredRateShare, Math.min(GUIDE_RATE, bestRate));
-  return opts.filter(b => b.pptt >= nearBest).reduce((best, b) => !best || b.worstLost < best.worstLost ||
-    (b.worstLost === best.worstLost && (b.lost < best.lost ||
-      (b.lost === best.lost && (b.pptt > best.pptt ||
-        (b.pptt === best.pptt && b.k < best.k))))) ? b : best, null);
+function preferredSend(opts) {
+  return opts.reduce((best, b) => !best || b.pptt > best.pptt ||
+    (b.pptt === best.pptt && (b.worstLost < best.worstLost ||
+      (b.worstLost === best.worstLost && (b.lost < best.lost ||
+        (b.lost === best.lost && b.k < best.k))))) ? b : best, null);
 }
 
 function bestSend(o, A, maxK, hoursPerField, allowNormal, zeroOnly, tsLevel = 0, riskMode = RISK_MODES.risky) {
-  return preferredSend(sendOptions(o, A, maxK, hoursPerField, allowNormal, zeroOnly, tsLevel, riskMode), riskMode);
+  return preferredSend(sendOptions(o, A, maxK, hoursPerField, allowNormal, zeroOnly, tsLevel, riskMode));
 }
 
 /*  The escort sizes worth evaluating, smallest first.
@@ -859,7 +857,7 @@ function didAt(x, y) {
 }
 
 /* ───────────────────────── state ───────────────────────── */
-const DEFAULT_SORT = { key: 'pph', dir: -1 };
+const DEFAULT_SORT = { key: 'pptt', dir: -1 };
 let DUMP = null, ROWS = [], SORT = { ...DEFAULT_SORT };
 
 /* Each tile keeps its own observation time when map blocks are merged.
@@ -1000,9 +998,7 @@ const ago = ms => {
     totals that count unsent rows are repainted from TOTALS. */
 let TOTALS = null;
 
-/*  Every rung of an oasis shares one key, so one tick greys them all — they are
-    alternatives and you only fly one. Compared by attribute rather than a CSS
-    [data-k="..."] selector so a key can never need escaping. */
+/* Keep sent state keyed by oasis even when a settings change selects a different send. */
 function paintSent(key) {
   if (typeof document === 'undefined') return 0;
   const on = !!SENT[key], boxes = document.querySelectorAll('.sentbox');
@@ -1060,10 +1056,9 @@ function paintTotals() {
   const nSent = live.length - todo.length;
   $('sentCount').innerHTML = nSent
     ? '<span class="good">' + nSent + ' oas' + (nSent === 1 ? 'is' : 'es') + ' marked sent</span> &mdash; ' +
-      'every rung of each is greyed and out of the totals. Pasting a fresh map clears them.'
+      'their rows are greyed and out of the totals. Pasting a fresh map clears them.'
     : 'Click or middle-click <b>send</b> to tick the oasis. Confirm the raid in the game. ' +
-      'The same oasis appears at several troop counts &mdash; pick the rung that matches what is home, and ' +
-      '<b>all the rungs for that oasis</b> grey out, since you only send it once. ' +
+      'One row per oasis, using its highest net res/h/TT send. Untick it if you cancel. ' +
       'Pasting a fresh map clears every tick.';
 }
 
@@ -1160,10 +1155,9 @@ function render() {
     (TT.speed * (1 + TS_STEP * tsLevel)).toFixed(1) + '</b> at Tournament Square <b>' + tsLevel + '</b>.';
 
   $('riskNote').innerHTML = '<b>' + riskMode.label + ':</b> ' +
-    (riskMode.id === 'risky' ? 'Your previous settings, unchanged. ' : 'A bigger buffer, not zero-loss-only. ') +
+    (riskMode.id === 'risky' ? 'A lighter planned refill buffer. ' : 'A bigger buffer, not zero-loss-only. ') +
     'Plans for ' + refillDescription(riskMode) + '. ' +
-    'The representative send can trade up to <b>' + Math.round((1 - riskMode.preferredRateShare) * 100) +
-    '%</b> of efficiency for fewer modelled losses. ' +
+    'Each oasis uses its highest <b>net res/h/TT</b> send under this forecast; lower losses break exact rate ties. ' +
     (riskMode.id === 'safe' ? 'Larger escorts or fewer viable targets are possible. ' : '') +
     '<b>Neither mode guarantees no losses.</b> Switching recalculates locally and keeps your sent ticks; nothing is sent.';
   $('refillNote').innerHTML = 'Planned losses use <b>' + riskMode.label + '</b> mode: ' +
@@ -1194,7 +1188,7 @@ function render() {
   for (const o of pool) {
     const all = sendOptions(o, A, MAX_SEND, hpf, allowNormal, zeroOnly, tsLevel, riskMode);
     const opts = all.filter(c => meetsRate(c, minRate));
-    const best = preferredSend(opts, riskMode);
+    const best = preferredSend(opts);
     const zl = opts.find(c => c.lost === 0 && c.worstLost === 0) || null;
     ROWS.push({ o, best, opts, all, zl });
   }
@@ -1202,15 +1196,7 @@ function render() {
   const live   = ROWS.filter(r => r.best);
   const locked = ROWS.filter(r => !r.best);
 
-  /*  ⭐ ONE ROW PER SEND SIZE, not per oasis.
-
-      Keep the full send-size ladder: smaller escorts, more efficient choices and
-      larger, safer alternatives are available without a troops-at-home limit.
-
-      They are ALTERNATIVES, not waves: the tick is keyed on the oasis, so ticking any one
-      rung greys out every rung of that oasis. You send one of them, and the tile is done. */
-  const cards = [];
-  for (const r of live) for (const b of altSends(r)) cards.push({ r, o: r.o, b });
+  const cards = live.map(r => ({ r, o:r.o, b:r.best }));
   sortCards(cards);
 
   const belowRate = locked.filter(r => r.all.length > 0);
@@ -1219,7 +1205,7 @@ function render() {
   $('minNote').innerHTML =
     (minRate > 0
       ? 'Showing sends at <b>' + minRate + '+ net res/h/TT</b>. '
-      : 'No efficiency cutoff: options below <b>' + GUIDE_RATE + '</b> stay visible. ') +
+      : 'No efficiency cutoff: targets below <b>' + GUIDE_RATE + '</b> stay visible. ') +
     'Profit deducts planned TT losses; extra spawn bounty is not credited.' +
     (belowRate.length
       ? ' <span class="dim">' + belowRate.length + ' targets are below your chosen minimum.</span>'
@@ -1282,10 +1268,10 @@ function render() {
         (safe ? '&#10003;' : r.zl ? r.zl.k + ' TT' : '&mdash;') + '</td>' +
       '<td class="' + (b.profit > 0 ? 'good' : 'bad') + '">' + nfs(b.profit) +
         (b.lost ? ' <span class="dim">/' + nf(b.bounty) + '</span>' : '') + '</td>' +
-      '<td><b class="' + (b.pph > 0 ? 'good' : 'bad') + '">' + nfs(b.pph) + '</b></td>' +
-      '<td><span class="' + (b.pptt >= GUIDE_RATE ? 'good' : 'dim') + '" title="' +
+      '<td class="' + (b.pph > 0 ? 'good' : 'bad') + '">' + nfs(b.pph) + '</td>' +
+      '<td><b class="' + (b.pptt >= GUIDE_RATE ? 'good' : 'dim') + '" title="' +
         (b.pptt >= GUIDE_RATE ? 'Meets' : 'Below') + ' your usual ' + GUIDE_RATE + ' res/h/TT target">' +
-        nfs(b.pptt) + '</span></td>' +
+        nfs(b.pptt) + '</b></td>' +
       '<td class="l"><a class="sendlink" data-troops="' + b.k + '" data-mode="' + b.mode +
         '" data-risk-mode="' + b.riskMode +
         '" target="_blank" rel="noopener" href="' + sendLink(o, b.k, b.mode) + '">send &#8599;</a>' +
@@ -1307,43 +1293,6 @@ function render() {
 }
 
 const kpi = (v, l) => '<div><b>' + v + '</b><span>' + l + '</span></div>';
-
-/*  ⭐ WHICH SEND SIZES TO OFFER FOR ONE OASIS.
-
-    `sendOptions` returns every rung that improves on the one below it — for a big stack
-    that is forty-odd near-identical rows, which is unreadable. This thins them to a
-    ladder you can actually choose from on the night:
-
-      · the cheapest send that still turns a profit
-      · the fewest losses, plus best resources per TT-hour
-      · the biggest haul on offer
-      · and rungs roughly doubling in between
-
-    Doubling rather than even spacing because losses fall like k^-0.5: going 300 -> 400 TT
-    barely moves the result, 300 -> 600 does. Capped so no single oasis can flood the list. */
-const ALT_STEP = 2, ALT_MAX = 6;
-function altSends(r) {
-  const opts = r.opts || [];
-  if (!opts.length) return [];
-  const keep = new Map(), add = o => { if (o && !keep.has(o.k)) keep.set(o.k, o); };
-  add(opts[0]);                       // cheapest that pays for itself
-  add(r.best);
-  const efficient = opts.reduce((best, b) => !best || b.pptt > best.pptt ? b : best, null);
-  add(efficient);
-  add(opts[opts.length - 1]);         // biggest haul (normally the full clear)
-  let last = opts[0].k;
-  for (const o of opts) if (o.k >= last * ALT_STEP) { add(o); last = o.k; }
-  const all = [...keep.values()].sort((a, b) => a.k - b.k);
-  if (all.length <= ALT_MAX) return all;
-  /*  Over budget: keep the three that mean something and thin the filler evenly. */
-  const must = new Set([all[0].k, r.best.k, efficient.k, all[all.length - 1].k]);
-  const rest = all.filter(o => !must.has(o.k));
-  const take = Math.max(0, ALT_MAX - must.size);
-  const step = rest.length / (take || 1);
-  const picked = [];
-  for (let i = 0; i < take; i++) picked.push(rest[Math.floor(i * step)]);
-  return all.filter(o => must.has(o.k) || picked.indexOf(o) >= 0);
-}
 
 function sortCards(cards, sort = SORT) {
   const k = sort.key, d = sort.dir;
@@ -1385,14 +1334,12 @@ function notes(cov, riskMode = RISK_MODES.risky) {
       'so re-centre the map about 31 fields away, grab that response too and paste it &mdash; the dumps merge.</li>'
     : '';
   $('notes').innerHTML = '<ul>' + warn + [
-    '<b>Ranking is resources per hour</b>, on real flight time, and the same oasis is listed at several ' +
-      'troop counts, without a troops-at-home limit. Larger escorts that reduce stress-case losses are kept even when ' +
-      'planned profit is unchanged. There is no maximum-loss setting.',
-    '<b>15 res/h/TT is a guide, not a filter.</b> Options below it stay visible unless you explicitly raise ' +
-      'the minimum from 0. In ' + riskMode.label + ' mode, the per-oasis totals prefer safety only among options within ' +
-      Math.round((1 - riskMode.preferredRateShare) * 100) + '% of the best ' +
-      'net res/h/TT and still reaching 15. If none reach 15, use the most efficient option. ' +
-      'On equal profit/hour, the leaner option sorts first; larger, safer alternatives stay available.',
+    '<b>One row per oasis, ranked by net resources per TT-hour.</b> The selected send maximizes ' +
+      '<code>profit / round-trip hours / TT count</code> across the viable send-size search, without a troops-at-home limit. ' +
+      'Exact rate ties prefer fewer tougher-refill losses, then fewer planned losses, then fewer troops. ' +
+      'Totals and send links use that same selected send.',
+    '<b>15 res/h/TT is a guide, not a filter.</b> Targets below it stay visible unless you explicitly raise ' +
+      'the minimum from 0. Both risk modes select the highest unrounded rate; neither gives up efficiency for a larger escort.',
     '<b>Planned loss is what profit pays for.</b> Whole-unit casualties are calculated against the selected mode\'s ' +
       'arrival estimate. Profit subtracts that loss at 1,090 per TT; both rate columns use this same profit. ' +
       'Only scanned animals that the estimate kills are credited. New animals are not speculative revenue.',
@@ -1418,8 +1365,7 @@ function notes(cov, riskMode = RISK_MODES.risky) {
       'so it ignores carry capacity and you still get it even if the whole raid dies.',
     '<b>Empty oases are not listed.</b> They hold no animals, so there is no bounty to collect; all they offer ' +
       'is stored production, which accrues whether you visit or not and is not what a Thunder fleet is for.',
-    '<b>Raid only.</b> Links use the raid mode. Low-efficiency options remain visible; you choose whether ' +
-      'their larger haul or lower casualty risk is worth tying up more troops.',
+    '<b>Raid only.</b> Links use the raid mode and the selected troop count. You still confirm the raid in the game.',
     '<b>The rounding cliff.</b> Survivors round half-up, so k TTs only come home intact if the fight costs under ' +
       '<code>50/k %</code>. One TT survives up to 50% losses; ten TTs need under 5%. That is why stacking more of the ' +
       '<i>same</i> unit scales badly &mdash; doubling the count needs 2.52&times; the attack but only gives you 2&times;.',
@@ -1503,7 +1449,7 @@ function selfCheck() {
   const o7 = { x:0, y:0, d:2.2, type:'Iron 25%', an:[{ k:'u31', c:7 }], total:7 };
   const bs = bestSend(o7, A7, 400, 1 / 19, false, false);
   const clean7 = zeroLossK(o7, A7, 400, false);
-  ok('prefers an efficient full clear while keeping the larger zero-risk alternative',
+  ok('selects an efficient full clear while retaining the zero-loss reference',
      bs && clean7 && bs.k < clean7.k && bs.lost === 0 && bs.bounty === 1120 &&
      clean7.b.worstLost === 0,
      bs ? bs.k + ' TT, ' + bs.lost + ' lost' : 'none');
@@ -1512,40 +1458,23 @@ function selfCheck() {
   ok('a 1,000-TT two-hour slog scores near zero',
      Math.abs(1000 / (2 * 1000) - 0.5) < 1e-9, '0.5 per TT-hour');
 
-  /* ── ⭐ the send-size ladder ── */
-  /* A large synthetic stack with several viable casualty-reducing escorts. */
+  /* A large synthetic stack with several viable send sizes. */
   const bigO = { x:0, y:0, d:9.8, type:'Clay 25%',
                  an:[{ k:'u31', c:55 }, { k:'u32', c:25 }, { k:'u35', c:13 }],
                  total:93 };
   const bigOpts = sendOptions(bigO, A7, MAX_SEND, 1 / 19, false, false);
   const bigRow  = { o: bigO, opts: bigOpts, best: bestSend(bigO, A7, MAX_SEND, 1 / 19, false, false) };
-  const alts    = altSends(bigRow);
-  ok('a big oasis is offered as a ladder of send sizes, not one answer',
-     alts.length > 1 && alts.length <= ALT_MAX,
-     bigOpts.length + ' rungs thinned to ' + alts.map(a => a.k).join(' / ') + ' TT');
-  ok('the ladder keeps the cheapest, the most efficient and the biggest haul',
-     alts.some(a => a.k === bigOpts[0].k) &&
-     alts.some(a => a.k === bigRow.best.k) &&
-     alts.some(a => a.k === bigOpts[bigOpts.length - 1].k),
-     'cheapest ' + bigOpts[0].k + ', best/TT ' + bigRow.best.k +
-     ', biggest ' + bigOpts[bigOpts.length - 1].k);
-  ok('the rungs are distinct decisions, not neighbours',
-     alts.every((a, i) => i === 0 || a.k > alts[i - 1].k) &&
-     (alts.length < 3 || alts[alts.length - 1].k >= 2 * alts[0].k),
-     'strictly rising, ' + alts[0].k + ' TT up to ' + alts[alts.length - 1].k + ' TT');
-  ok('every rung is a real priced send, not a placeholder',
-     alts.every(a => a.k > 0 && a.profit > 0 && Math.abs(a.pptt - a.profit / a.rt / a.k) < 1e-6),
-     'res/h/TT = profit / round trip / TTs on all ' + alts.length);
-  ok('a tile with one viable send still gets exactly one row',
-     altSends({ o:bigO, opts:[bigOpts[0]], best:bigOpts[0] }).length === 1, 'no padding');
-  ok('and an oasis no escort can take contributes no rows at all',
-     altSends({ o:bigO, opts:[], best:null }).length === 0, 'locked oases stay out of the table');
-
-  /*  The rungs are ALTERNATIVES: you send one and the tile is done. The tick is therefore
-      keyed on the OASIS, never on the troop count, so ticking any rung greys every rung of
-      that oasis. If this ever keys on k the list will quietly let you double-send a tile. */
-  ok('all rungs of one oasis share a single tick key',
-     alts.every(a => okey(bigO) === okey(bigO)) &&
+  ok('a big oasis selects exactly its maximum net res/h/TT send',
+     bigOpts.length > 1 && bigRow.best.pptt === Math.max(...bigOpts.map(b => b.pptt)) &&
+     bigOpts.some(b => b.k === bigRow.best.k),
+     bigOpts.length + ' viable choices, one selected send of ' + bigRow.best.k + ' TT');
+  ok('the selected send uses net profit and the full round trip',
+     bigRow.best.profit > 0 &&
+     Math.abs(bigRow.best.pptt - bigRow.best.profit / bigRow.best.rt / bigRow.best.k) < 1e-6,
+     'not total haul or raw bounty per TT');
+  ok('single-choice and empty targets have exactly one or no selection',
+     preferredSend([bigOpts[0]]) === bigOpts[0] && preferredSend([]) === null, 'no padding or fallback sends');
+  ok('sent state stays keyed on the oasis, not on the selected troop count',
      okey(bigO) === okey(Object.assign({}, bigO, { total: 1 })),
      'keyed on ' + okey(bigO) + ', which carries no troop count');
 
@@ -1653,8 +1582,8 @@ function selfCheck() {
        return opts.some((a, i) => opts.slice(i + 1).some(b =>
          a.profit === b.profit && a.lost === b.lost && b.worstLost < a.worstLost)) &&
          opts.some(b => b.worstLost === 0) &&
-         preferredSend(opts).pptt >= Math.max(...opts.map(b => b.pptt)) * 0.95;
-     })(), 'keep the lean choice and the safer alternative without forcing the bigger send');
+         preferredSend(opts).pptt === Math.max(...opts.map(b => b.pptt));
+     })(), 'retain the zero-loss reference without replacing the maximum-efficiency send');
   ok('safety cannot halve efficiency merely because both sends reach the advisory guide',
      (() => {
        const opts = [
@@ -1665,24 +1594,23 @@ function selfCheck() {
        return preferredSend(opts) === opts[0] && opts.length === 3 &&
          preferredSend([opts[2], {k:200, lost:1, worstLost:2, profit:700, pptt:10}]).pptt === 10;
      })(), '15 is advisory; if none meet it, prefer efficiency rather than a huge escort');
-  ok('a safer send can give up at most 5% efficiency, inclusive, without crossing below an attainable 15',
+  ok('even a tiny efficiency advantage wins over a safer or larger haul',
      (() => {
        const efficient = {k:50, lost:2, worstLost:3, profit:2000, pptt:40};
        const safer = {k:60, lost:1, worstLost:2, profit:2200, pptt:38};
        const outside = {k:70, lost:0, worstLost:1, profit:2300, pptt:37.999999};
        const above = { ...efficient, pptt:16 }, below = { ...safer, pptt:14.9 };
-       return preferredSend([efficient, safer, outside]) === safer &&
-         preferredSend([efficient, outside]) === efficient &&
+       const tinyEdge = { ...efficient, pptt:38.000001 };
+       return preferredSend([efficient, safer, outside]) === efficient &&
+         preferredSend([safer, tinyEdge]) === tinyEdge &&
          preferredSend([above, below]) === above && preferredSend([]) === null;
-     })(), 'a small safety tradeoff, not a safety-first reset or a new row filter');
-  ok('Risky preserves the original refill and preference settings',
-     RISK_MODES.risky.refillShare === 0.2 && RISK_MODES.risky.minRefill === 0 &&
-     RISK_MODES.risky.preferredRateShare === 0.95,
-     '20% shared allowance, no forced animal, 5% efficiency tradeoff');
+     })(), 'compare full-precision net res/h/TT, not rounded display values');
+  ok('Risky preserves its original refill settings',
+     RISK_MODES.risky.refillShare === 0.2 && RISK_MODES.risky.minRefill === 0,
+     '20% shared allowance, no forced animal');
   ok('Safe uses a full shared allowance, not zero-loss-only or all species at maximum',
-     RISK_MODES.safe.refillShare === 1 && RISK_MODES.safe.minRefill === 1 &&
-     RISK_MODES.safe.preferredRateShare === 0.9,
-     '100% shared allowance, at least one added animal for positive lag, 10% tradeoff');
+     RISK_MODES.safe.refillShare === 1 && RISK_MODES.safe.minRefill === 1,
+     '100% shared allowance, at least one added animal for positive lag');
   ok('Safe starts with a buffer even when Risky rounds down, but neither grows a zero-lag scan',
      arrivalScenarios(mixO, 1, RISK_MODES.safe).newN === 1 &&
      arrivalScenarios(mixO, 1, RISK_MODES.risky).newN === 0 &&
@@ -1711,16 +1639,20 @@ function selfCheck() {
            b.profit <= risky.profit && viableSend(risky);
        });
      })(), 'the extra buffer can only raise priced losses or reduce credited scan bounty');
-  ok('Safe can choose a lower-loss escort within 10%, without changing Risky or hiding other options',
+  ok('exact efficiency ties prefer fewer losses, then fewer troops',
      (() => {
-       const lean = {k:50, lost:2, worstLost:3, profit:2000, pptt:40};
-       const safer = {k:65, lost:1, worstLost:2, profit:2200, pptt:36};
-       const outside = {k:80, lost:0, worstLost:1, profit:2300, pptt:35.999999};
-       const opts = [lean, safer, outside];
-       return preferredSend(opts, RISK_MODES.safe) === safer &&
-         preferredSend(opts, RISK_MODES.risky) === lean &&
-         preferredSend([lean, outside], RISK_MODES.safe) === lean && opts.length === 3;
-     })(), '90% versus 95% of peak efficiency, same advisory 15');
+       const base = {k:50, lost:2, worstLost:3, pptt:40};
+       const lessRisk = { ...base, k:65, worstLost:2 };
+       const lessLoss = { ...lessRisk, k:70, lost:1 };
+       const leaner = { ...lessLoss, k:60 };
+       return preferredSend([base, lessRisk]) === lessRisk &&
+         preferredSend([lessRisk, lessLoss]) === lessLoss &&
+         preferredSend([lessLoss, leaner]) === leaner &&
+         preferredSend([leaner, lessLoss]) === leaner;
+     })(), 'tie-breaking never sacrifices net res/h/TT');
+  ok('Safe also selects the exact highest efficiency under its buffered forecast',
+     preferredSend(bufferedOpts).pptt === Math.max(...bufferedOpts.map(b => b.pptt)),
+     'no 10% safety tradeoff after pricing');
   ok('Safe does not introduce a minimum efficiency cutoff',
      bufferedOpts.some(b => b.pptt < GUIDE_RATE && meetsRate(b, MIN_RATE_DEFAULT)),
      'below-15 choices still work when minimum is 0');
@@ -1729,16 +1661,16 @@ function selfCheck() {
      needTT(bigO, A7, false, false, 11, RISK_MODES.safe).b.riskMode === 'safe' &&
      zeroLossK(o7, A7, MAX_SEND, false, 1 / 19, 11, RISK_MODES.safe).b.riskMode === 'safe',
      'best, minimum and zero-loss alternatives all use the buffered forecast');
-  ok('equal-profit rows put the leaner send first without changing the resources/hour sort',
+  ok('manual resources/hour sorting remains available after selecting one send',
      (() => {
        const o = {type:'Clay 25%',x:0,y:0,d:2,total:4}, r = {zl:null};
        const lean = {r,o,b:{k:18,rt:1,lost:0,worstLost:1,profit:960,pph:960,pptt:960/18}};
        const safe = {r,o,b:{k:65,rt:1,lost:0,worstLost:0,profit:960,pph:960,pptt:960/65}};
        const richer = {r,o,b:{k:200,rt:1,lost:0,worstLost:0,profit:1000,pph:1000,pptt:5}};
        const cards = [safe, lean, richer];
-       sortCards(cards, DEFAULT_SORT);
+       sortCards(cards, { key:'pph', dir:-1 });
        return cards[0] === richer && cards[1] === lean && cards[2] === safe;
-     })(), 'higher net hourly profit first, then efficiency on ties; all alternatives remain');
+     })(), 'sorting changes target order, not each target\'s selected send');
 
   /* ── ⭐ clicking "send" ticks the row ── */
   /*  The tick has to paint IN PLACE. render() rebuilds #bMain, which would delete the
@@ -1767,6 +1699,10 @@ function selfCheck() {
     'render hands over the context and does none of the summing itself');
 
   const slinks = dq('.sendlink'), sboxes = dq('.sentbox');
+  ok('every viable oasis appears exactly once in the rendered list',
+    sboxes.length === ROWS.filter(r => r.best).length &&
+    new Set(sboxes.map(b => b.getAttribute('data-k'))).size === sboxes.length,
+    sboxes.length + ' rows with unique oasis coordinates');
   ok('every send link can reach its own tick key',
     slinks.every(a => { const tr = trOf(a), b = tr && tr.querySelector('.sentbox');
                         return !!(b && b.getAttribute('data-k')); }),
@@ -1780,7 +1716,7 @@ function selfCheck() {
     sboxes.every(b => b.checked === !!SENT[b.getAttribute('data-k')]),
     sboxes.length + ' boxes');
 
-  ok('painting one key greys every rung of that oasis and nothing else', (() => {
+  ok('painting one key greys only that oasis row', (() => {
    if (!sboxes.length) return true;
    const k = sboxes[0].getAttribute('data-k');
    const mine = sboxes.filter(b => b.getAttribute('data-k') === k);
@@ -1793,28 +1729,28 @@ function selfCheck() {
      .every(b => b.checked === !!SENT[b.getAttribute('data-k')]);
    if (was === undefined) delete SENT[k]; else SENT[k] = was;
    paintSent(k);
-   return n === mine.length && allOn && rest;
-  })(), 'the tick is keyed on the oasis, so its alternatives grey together');
+   return mine.length === 1 && n === 1 && allOn && rest;
+  })(), 'one target, one tick; all other targets stay unchanged');
 
   ok('the setup defaults to Smithy 4, Metallurgy 4%, Tournament Square 14 and Safe',
      $('iSm').defaultValue === '4' && $('iMet').defaultValue === '4' &&
      $('iTs').defaultValue === '14' && $('iRiskMode').querySelector('option[value="safe"]').defaultSelected,
      'editable defaults; switching settings does not reset them');
   const currentMinRate = plannerSettings().minRate;
-  ok('all eligible send sizes remain available without an at-home cap',
+  ok('all eligible send sizes are considered without an at-home cap',
      ROWS.every(r => {
        const eligible = r.all.filter(c => meetsRate(c, currentMinRate));
        return r.opts.length === eligible.length && r.opts.every((c, i) => c === eligible[i]);
      }), 'only the optional minimum rate filters the viable send ladder');
 
-  ok('the table is ordered by resources per hour by default',
-     DEFAULT_SORT.key === 'pph' && DEFAULT_SORT.dir === -1, 'pph, descending');
+  ok('the table is ordered by net resources per TT-hour by default',
+     DEFAULT_SORT.key === 'pptt' && DEFAULT_SORT.dir === -1, 'pptt, descending');
   const cardSort = [{ r:{ zl:null }, o:bigO, b:{ k:5,  rt:1, lost:0, profit:100, pph:100, pptt:20 } },
                     { r:{ zl:null }, o:bigO, b:{ k:50, rt:1, lost:0, profit:900, pph:900, pptt:18 } }];
   sortCards(cardSort, DEFAULT_SORT);
-  ok('so the bigger haul outranks the better ratio',
-     cardSort[0].b.pph === 900,
-     '900/h first, even though the 100/h rung has the better res/h/TT');
+  ok('the higher efficiency outranks a bigger hourly haul',
+     cardSort[0].b.pptt === 20,
+     '20 res/h/TT ranks above 18, even when its total resources/hour is lower');
 
   /* ── ⭐ priced on the scan, sized for the forecast ── */
   /*  The regression that prompted this: a Wood 25% showing ONE BOAR was handed 619 TT
@@ -2182,7 +2118,7 @@ function handleSendOpen(e) {
   const key = box.getAttribute('data-k'), k = +a.getAttribute('data-troops');
   const mode = a.getAttribute('data-mode');
   const row = ROWS.find(r => okey(r.o) === key);
-  const shown = row && row.opts.find(b => b.k === k && b.mode === mode);
+  const shown = row && row.best;
   let settings;
   try {
     settings = plannerSettings();
@@ -2191,7 +2127,7 @@ function handleSendOpen(e) {
     showPlanMessage(error.message);
     return;
   }
-  if (!shown) {
+  if (!shown || shown.k !== k || shown.mode !== mode) {
     e.preventDefault();
     render();
     showPlanMessage('This send is no longer in the current plan. Review the updated list.');
@@ -2286,8 +2222,7 @@ function boot() {
   $('bRefresh').addEventListener('click', render);
   $('bClearSent').addEventListener('click', () => { SENT = {}; saveSent(); render(); });
 
-  /* No polling, no background requests. This page only talks to the network when you
-     click a button, and then only to localhost. */
+  /* Planner network actions are manual; the separate Cloudflare beacon reports page analytics. */
 
   render();
 }

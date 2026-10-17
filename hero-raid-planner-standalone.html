@@ -1,0 +1,1545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="x-dns-prefetch-control" content="off">
+<title>Travian Hero Raid Planner - Standalone</title>
+<style>
+:root{
+  --bg:#11141a; --pan:#191d26; --pan2:#212734; --line:#2e3646;
+  --tx:#dfe5ef; --dim:#8a94a6; --acc:#ffb34d; --good:#4ade80; --bad:#f87171; --warn:#fbbf24;
+  --hp:#f472b6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",Roboto,system-ui,sans-serif}
+a{color:var(--acc)}
+h1{font-size:19px;margin:0}
+h2{font-size:14px;margin:0 0 10px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc)}
+h3{font-size:13px;margin:16px 0 6px;color:var(--tx)}
+.wrap{max-width:1620px;margin:0 auto;padding:18px}
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+header .sub{color:var(--dim);font-size:12px}
+header .state-actions{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+label{display:block;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+input[type=number],input[type=text],select{
+  background:var(--pan2);border:1px solid var(--line);color:var(--tx);border-radius:6px;
+  padding:6px 8px;font:13px inherit;min-width:70px}
+input[type=text]{min-width:200px}
+input[type=range]{width:190px;vertical-align:middle}
+textarea{width:100%;height:90px;background:var(--pan2);border:1px solid var(--line);color:var(--tx);
+  border-radius:6px;padding:8px;font:12px ui-monospace,Consolas,monospace;resize:vertical}
+button{background:var(--acc);color:#191d26;border:0;border-radius:6px;padding:8px 14px;
+  font:600 13px inherit;cursor:pointer}
+button:hover{filter:brightness(1.12)}
+button.ghost{background:var(--pan2);color:var(--tx);border:1px solid var(--line)}
+button:disabled{opacity:.6;cursor:wait}
+#oState{margin:0 0 14px}
+.note{color:var(--dim);font-size:12px;margin-top:8px}
+.good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .dim{color:var(--dim)}
+.hpc{color:var(--hp)}
+code{background:var(--pan2);padding:1px 5px;border-radius:4px;font:12px ui-monospace,Consolas,monospace}
+pre{background:#0d1016;border:1px solid var(--line);border-radius:6px;padding:10px;overflow:auto;
+  font:11.5px ui-monospace,Consolas,monospace;color:#b9c4d6;margin:8px 0 0;white-space:pre-wrap;word-break:break-all}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:4px 7px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+td.an{white-space:normal;max-width:210px;line-height:1.3}
+td.ty{white-space:normal;max-width:108px;line-height:1.3}
+th{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.04em;
+  position:sticky;top:0;background:var(--pan);cursor:pointer;user-select:none;padding:6px 7px}
+th:hover{color:var(--acc)}
+tbody tr:hover{background:#1f2533}
+.scroll{max-height:640px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600}
+.p-safe{background:#14532d;color:#86efac} .p-dead{background:#7f1d1d;color:#fecaca}
+.p-risk{background:#4c1d1d;color:#fca5a5} .p-par{background:#1e3a5f;color:#93c5fd}
+.p-norm{background:#4a2d5f;color:#d8b4fe} .p-cheap{background:#3f2d12;color:#fcd34d}
+.kpi{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:12px}
+.kpi div b{display:block;font-size:21px;color:var(--acc);font-weight:600;line-height:1.25}
+.kpi div span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.st{padding:8px 12px;border-radius:6px;font-size:12.5px;margin-top:10px}
+.st-ok{background:#14532d33;border:1px solid #14532d;color:#86efac}
+.st-err{background:#4c1d1d33;border:1px solid #4c1d1d;color:#fca5a5}
+.st-warn{background:#4c3a1d33;border:1px solid #6b4a1d;color:#fcd34d}
+.st-idle{background:var(--pan2);border:1px solid var(--line);color:var(--dim)}
+ul{margin:6px 0;padding-left:20px} li{margin:3px 0}
+.step{background:var(--pan2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-bottom:7px;
+  display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;font-size:12.5px}
+.step b{color:var(--acc)}
+.step .n{color:var(--dim);font-weight:600;min-width:22px}
+.bar{height:7px;border-radius:4px;background:#2e3646;overflow:hidden;min-width:110px;flex:0 0 110px}
+.bar i{display:block;height:100%;background:var(--hp)}
+.sendlink{color:var(--good);font-weight:600;text-decoration:none}
+.sendlink:hover{text-decoration:underline}
+.coord{background:var(--pan2);padding:2px 6px;border-radius:4px;font:12px ui-monospace,Consolas,monospace;
+  color:var(--tx);text-decoration:none;border:1px solid transparent;white-space:nowrap}
+.coord:hover{border-color:var(--acc);color:var(--acc)}
+td.tick,th.tick{width:26px;padding-left:9px;padding-right:2px}
+.sentbox{accent-color:var(--good);cursor:pointer;width:14px;height:14px;margin:0}
+tr.done td{opacity:.3;text-decoration:line-through}
+tr.done td.tick{opacity:1;text-decoration:none}
+tr.done:hover td{opacity:.6}
+tr.dead td{background:#2a1416}
+.chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx);text-transform:none;letter-spacing:0}
+.chk input{accent-color:var(--acc)}
+
+/* drag-to-select basket */
+tbody tr{cursor:pointer}
+tbody tr.pick td{background:#1c3350}
+tbody tr.pick:hover td{background:#224063}
+tbody tr.pick td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+table.dragging{user-select:none}
+.basket{background:var(--pan2);border:1px solid var(--line);border-top:2px solid var(--acc);
+  border-radius:0 0 8px 8px;padding:10px 14px;margin-top:-1px}
+.basket .sum{display:flex;gap:24px;flex-wrap:wrap;align-items:baseline}
+.basket .sum b{color:var(--acc);font-size:17px;font-weight:600}
+.basket .sum span.l{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;display:block}
+.basket .hint{color:var(--dim);font-size:12px}
+.picklist{margin-top:10px;max-height:230px;overflow:auto}
+.picklist .step{margin-bottom:5px;padding:6px 10px;font-size:12px}
+.dragbar{height:8px;border-radius:4px;background:#2e3646;overflow:hidden;display:flex;min-width:220px}
+.dragbar i{display:block;height:100%}
+.dragbar i.hp{background:var(--hp)} .dragbar i.left{background:var(--good)}
+.xp{color:#a78bfa;font-size:11px;white-space:nowrap}
+.lvlup{background:#2a2144;border:1px solid #6d4fd0;border-left:3px solid #a78bfa;border-radius:8px;
+  padding:7px 12px;margin:0 0 7px 0;font-size:12.5px;color:#d9d0ff}
+.lvlup b{color:#c4b5fd}
+.banner{background:#14532d33;border:1px solid #14532d;color:#86efac;border-radius:8px;
+  padding:8px 12px;font-size:12.5px;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+.derive{font-size:11.5px;color:var(--dim);margin-top:4px}
+.derive b{color:var(--tx)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:var(--pan2);color:var(--dim);border-radius:0;padding:6px 12px;font-weight:600}
+.seg button.on{background:var(--acc);color:#191d26}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Travian Hero Raid Planner - Standalone</h1>
+  <span class="sub">All tribes &middot; pasted hero totals &middot; solo hero &middot; independent copy</span>
+  <div class="state-actions">
+    <button id="bExport" type="button" class="ghost">Export state</button>
+    <button id="bImport" type="button" class="ghost" title="Restore an exported JSON file, replacing this tab's state">Import state</button>
+    <input id="iStateFile" type="file" accept=".json,application/json" aria-label="Import planner state file" hidden>
+  </div>
+</header>
+<div id="oState" class="st st-idle" role="status" aria-live="polite" hidden></div>
+
+<div class="banner">Calculations run locally and work offline. Cloudflare Web Analytics records page visits and performance statistics.
+  No automatic game requests or troop sending. Read your hero page, paste map dumps, then Analyse.
+  Game links open only when clicked; confirm every send in game.</div>
+
+<!-- ══════════════ 1. HERO ══════════════ -->
+<div class="card">
+  <h2>1 &middot; The hero</h2>
+  <div>
+    <label for="iHero">Open the English hero page in game &mdash; Ctrl+A, Ctrl+C, then paste here</label>
+    <textarea id="iHero" style="height:110px" placeholder="Include Health, Experience, Speed, Fighting strength and the full Hero equipment benefits section."></textarea>
+    <div class="row" style="margin-top:8px">
+      <button id="bHero" class="go">Read hero stats</button>
+      <button id="bHeroClear" class="ghost">Clear</button>
+    </div>
+    <div id="oHero" class="st st-idle" style="margin-top:8px">Nothing read yet.</div>
+  </div>
+  <div id="oHeroStats" class="kpi" style="margin-top:14px"></div>
+  <div id="oEquipment" class="note"></div>
+  <div class="note">No manual hero stats. Reported strength and speed already include weapons, shields, armour, mounts,
+    spurs, upgrades and tribal bonuses; they are not added twice. All seven tribes use their pasted totals.
+    Re-paste after changing equipment or health.</div>
+  <details class="note">
+    <summary>Supported equipment and movement rules</summary>
+    <p>Weapons, shields, breastplates, segmented armour, mounts and spurs use the hero page's final strength/speed.
+      Damage reduction, XP helmets and regeneration equipment use their numeric active benefits.
+      Small Map / Map / Large Map give +30% / +40% / +50% <b>return speed only</b>:
+      a one-hour outward journey with Small Map returns in 1 / 1.3 hours, not 0.7 hours.</p>
+    <p>Distance boots and Tournament Square apply only beyond 20 fields, with multiplier
+      <code>1 + 0.2 &times; TS level + boots bonus / 100</code>.
+      Pennants, standards, Natar horns, thief bags, troop training/weapon bonuses, culture points and resource production
+      do not improve a solo oasis raid. Inventory consumables are not used by the planner.
+      Unknown active benefits are flagged, not silently ignored.</p>
+    <p>Official references:
+      <a href="https://support.travian.com/en/articles/92-hero-left-hand-items" target="_blank" rel="noopener noreferrer">left-hand items</a>,
+      <a href="https://support.travian.com/en/articles/93-hero-armour-items" target="_blank" rel="noopener noreferrer">armour, helmets and boots</a>,
+      <a href="https://support.travian.com/en/articles/71-troops-speed-increase-and-tournament-square" target="_blank" rel="noopener noreferrer">movement</a>,
+      <a href="https://support.travian.com/en/articles/47-hero-health-and-revival" target="_blank" rel="noopener noreferrer">health</a>.</p>
+  </details>
+</div>
+
+<!-- ══════════════ 2. WHERE ══════════════ -->
+<div class="card">
+  <h2>2 &middot; Where am I</h2>
+  <div class="row">
+    <div><label>Server</label><input type="text" id="iSrv" value="https://ts12.x1.europe.travian.com"></div>
+    <div><label for="iCx">Village X</label><input type="number" id="iCx" value="-12" min="-200" max="200" step="1"></div>
+    <div><label for="iCy">Village Y</label><input type="number" id="iCy" value="195" min="-200" max="200" step="1"></div>
+    <div><label for="iTs">Tournament Square: <output id="oTs">0</output></label>
+      <input type="range" id="iTs" value="0" min="0" max="20" step="1"></div>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <span class="chk"><input type="checkbox" id="iOcc" checked><label for="iOcc" style="margin:0">include occupied oases</label></span>
+  </div>
+  <div class="note">Grab the dump: <b>F12 &rarr; Network &rarr; filter <code>position</code> &rarr; click the request &rarr; Response &rarr; copy</b>.
+    The map page already made that call, so this costs zero extra requests. All loaded oases with animals are shown, with no radius limit.</div>
+  <div id="oSource" class="note"></div>
+</div>
+
+<!-- ══════════════ 3. DUMP ══════════════ -->
+<div class="card">
+  <h2>3 &middot; Paste the dump</h2>
+  <textarea id="iPaste" placeholder='{"tiles":[ ... ]}'></textarea>
+  <div class="row" style="margin-top:10px">
+    <button id="bGo">Analyse</button>
+    <button class="ghost" id="bClear">Clear all dumps</button>
+    <button class="ghost" id="bUncheck">Uncheck all sent</button>
+  </div>
+  <div id="oStatus" class="st st-idle">No dump loaded.</div>
+  <div class="note">Hero data, merged dumps, settings, sent ticks and picks stay in this tab.
+    <b>Export state</b> downloads a backup; <b>Import state</b> restores it, replacing this tab's data.
+    Nothing is uploaded or shared with the original planner. Imported data is a snapshot, not live game data.</div>
+</div>
+
+<!-- ══════════════ 4. BALANCE ══════════════ -->
+<div class="card">
+  <h2>4 &middot; The balance dial</h2>
+  <div class="row" style="margin-bottom:14px">
+    <div><label for="iFloor">HP floor (stop at)</label><input type="number" id="iFloor" value="5" min="0" max="99" step="1"></div>
+    <div><label for="iCap">Max HP per trip</label><input type="number" id="iCap" value="25" min="1" max="89" step="1"></div>
+  </div>
+  <div class="row" style="align-items:center">
+    <div style="flex:1 1 420px;min-width:320px">
+      <label>Protect the hero &nbsp;&larr;&nbsp; greed &nbsp;&rarr;&nbsp; grab the resources</label>
+      <input type="range" id="iGreed" min="0" max="100" step="1" value="50" style="width:100%">
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);margin-top:2px">
+        <span>0 &mdash; only free hits</span><span>50 &mdash; balanced</span><span>100 &mdash; res/hour at any cost</span>
+      </div>
+    </div>
+    <div><label>Greed</label><input type="number" id="iGreedN" value="50" min="0" max="100" step="1" style="min-width:64px"></div>
+    <div><label>&rarr; price of 1 HP</label><input type="number" id="iP" value="0" min="0" step="10" style="min-width:96px"></div>
+    <div><button class="ghost" id="bAuto">Reset to balanced</button></div>
+  </div>
+  <div class="derive" id="oP"></div>
+  <div class="note">One dial, three things. Ranking is <code>net/h = (bounty &minus; P &times; HP) / round-trip hours</code> &mdash;
+    resources on top, <b>health</b> priced at <code>P</code>, <b>time</b> in the divisor. Sliding <b>greed</b> just moves <code>P</code>:
+    at <b>100</b> health is free so it chases raw res/hour; at <b>0</b> health is priceless so it only takes hits your armour absorbs.
+    <b>50</b> sits on the <i>shadow price</i> &mdash; what a point of health is actually worth given how much of it you have to spend.
+    The HP floor and per-trip HP cap above are planning preferences, not hero stats.
+    Raids only, one visit per oasis. All targets remain visible regardless of their resource rate.</div>
+</div>
+
+<!-- ══════════════ 5. TARGETS ══════════════ -->
+<div class="card">
+  <h2>5 &middot; Targets</h2>
+  <div class="kpi" id="oKpi"></div>
+  <div class="scroll">
+    <table id="oTab">
+      <thead><tr>
+        <th class="tick"></th>
+        <th data-s="rank">#</th>
+        <th class="l" data-s="type">Oasis</th>
+        <th class="l" data-s="coord">Coords</th>
+        <th data-s="d">Dist</th>
+        <th data-s="rt">Trip</th>
+        <th class="l" data-s="total">Animals</th>
+        <th data-s="def">Def</th>
+        <th data-s="bounty">Bounty</th>
+        <th data-s="dmg">HP</th>
+        <th data-s="rhp">Res/HP</th>
+        <th data-s="rph">Res/h</th>
+        <th data-s="nph">Net/h</th>
+        <th class="l">Go</th>
+      </tr></thead>
+      <tbody id="oBody"></tbody>
+    </table>
+  </div>
+  <div class="basket" id="oBasket"></div>
+  <div id="oNotes"></div>
+</div>
+
+<!-- ══════════════ 6. SESSION ══════════════ -->
+<div class="card">
+  <h2>6 &middot; The run queue &mdash; ordered, HP-aware</h2>
+  <div id="oPlan"></div>
+</div>
+
+<div class="card">
+  <h2>Self-check</h2>
+  <div id="oCheck"></div>
+</div>
+
+</div>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "340927ebc211466b92ab0a2bde9e1496"}'></script><!-- End Cloudflare Web Analytics -->
+<script>
+const $ = id => document.getElementById(id);
+
+/* ───────────────────────── constants ───────────────────────── */
+const SIZE = 401, HALF = 200;
+const wrap  = d => ((d + HALF) % SIZE + SIZE) % SIZE - HALF;
+const mapId = (x, y) => (HALF - y) * SIZE + (x + HALF) + 1;
+
+const RES = { r1:'Wood', r2:'Clay', r3:'Iron', r4:'Crop' };
+
+/* di = defence vs infantry, dc = defence vs cavalry, s = supply (drives bounty) */
+const AN = {
+  u31:{n:'rat',       di:25,  dc:20,  s:1},
+  u32:{n:'spider',    di:35,  dc:40,  s:1},
+  u33:{n:'snake',     di:40,  dc:60,  s:1},
+  u34:{n:'bat',       di:66,  dc:50,  s:1},
+  u35:{n:'boar',      di:70,  dc:33,  s:2},
+  u36:{n:'wolf',      di:80,  dc:70,  s:2},
+  u37:{n:'bear',      di:140, dc:200, s:3},
+  u38:{n:'crocodile', di:380, dc:240, s:3},
+  u39:{n:'tiger',     di:170, dc:250, s:3},
+  u40:{n:'elephant',  di:440, dc:520, s:5}
+};
+
+const BOUNTY_PER_SUPPLY = 160;   // 40 of each of the 4 resources per supply point killed
+const BASE_DEF = 10;             // every oasis carries 10 base defence
+const LONE = 84.5;               // a solo attacker below this attack value dies outright
+const IMM  = 1.5;                // immensity exponent, valid while total units <= 1001
+const DEATH_AT = 89;             // hero dies at >=90% health lost; 89.0 is the safe wall
+
+const rHalfUp = v => Math.floor(v + 0.5);   // Travian rounds .5 up
+const esc = value => String(value).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
+class InputError extends Error {}
+let HERO = null, HERO_SOURCE = null;
+
+/* ───────────────────────── hero stats ───────────────────────── */
+function heroFs() {
+  return HERO.fs;
+}
+function heroSpeed() {
+  return HERO.speed;
+}
+/* ─────────────────── experience ───────────────────
+   ✅ VERIFIED (support.travian.com/en/articles/49): the attacking hero gains XP
+   equal to the TOTAL SUPPLY (crop consumption) of every enemy unit killed —
+   paid even if the battle is lost or the hero dies. The wiki's worked example
+   ("3 XP for a Bear") matches AN.u37.s = 3 exactly, so XP is precisely
+   bounty / 160, then lifted by the helmet.
+
+   ⚠️ The LEVEL THRESHOLD below is the one number here not from an official
+   source: T4 cumulative XP to reach level L = 25·L·(L+1) (travian.fandom.com).
+   It is checked against the pasted XP and level and used only for display,
+   never inside the optimiser. */
+const xpBonus  = (hero = HERO) => 1 + hero.effects.xp / 100;
+const xpOf     = (f, hero = HERO) => Math.round(f.supply * xpBonus(hero));
+const xpForLvl = L => 25 * L * (L + 1);
+const lvlForXp = xp => Math.floor((Math.sqrt(4 * xp + 25) - 5) / 10);
+
+/* Where does the next level sit, and do we know where we are? */
+function xpState(hero = HERO) {
+  const lvl = hero.level, xp = hero.xp, known = xp !== null && lvlForXp(xp) === lvl;
+  const need = xpForLvl(lvl + 1);
+  return { lvl, xp, known, need, toGo: known ? Math.max(0, need - xp) : null };
+}
+/* attack actually applied in the battle: fighting strength lifted by the off bonus */
+const heroAtk = () => HERO.fs * (1 + HERO.offBonus / 100);
+const isMounted = () => HERO.mounted;
+
+function settings(values = null) {
+  const valueOf = id => values ? values[id] : $(id).value;
+  const read = (id, label, low, high, integer = false) => {
+    const text = valueOf(id), value = text.trim() === '' ? NaN : Number(text);
+    if (!Number.isFinite(value) || value < low || value > high || (integer && !Number.isInteger(value))) {
+      throw new InputError(label + ' must be ' + (integer ? 'a whole number' : 'a number') +
+        ' from ' + low + ' to ' + high + '.');
+    }
+    return value;
+  };
+  return {
+    x:read('iCx', 'Village X', -200, 200, true), y:read('iCy', 'Village Y', -200, 200, true),
+    ts:read('iTs', 'Tournament Square', 0, 20, true),
+    floor:read('iFloor', 'HP floor', 0, 99), cap:read('iCap', 'HP cap', 1, 89),
+    greed:read('iGreedN', 'Greed', 0, 100, true),
+    server:serverOrigin(valueOf('iSrv'))
+  };
+}
+
+function hpPrice(value = $('iP').value) {
+  if (value.trim() === '' || !Number.isFinite(Number(value)) || Number(value) < 0) {
+    throw new InputError('The price of 1 HP must be a non-negative number.');
+  }
+  return Number(value);
+}
+
+function travelEffects(hero = HERO, ts = settings().ts) {
+  return {ts, returnSpeed:hero.effects.returnSpeed, longSpeed:hero.effects.longSpeed,
+    regen:hero.regen};
+}
+
+function travelTimes(distance, hpf, travel) {
+  const outward = (Math.min(distance, 20) +
+    Math.max(0, distance - 20) / (1 + 0.2 * travel.ts + travel.longSpeed / 100)) * hpf;
+  const homeward = outward / (1 + travel.returnSpeed / 100);
+  return {outward, homeward, total:outward + homeward};
+}
+
+function legHealth(hp, fight, trip, regen) {
+  const atBattle = hp > 0 ? Math.min(100, hp + trip.outward * regen / 24) : 0;
+  const fatal = hp <= 0 || fight.lethal || fight.dmg >= atBattle;
+  const afterBattle = Math.max(0, atBattle - fight.dmg);
+  const home = fatal ? 0 : Math.min(100, afterBattle + trip.homeward * regen / 24);
+  return {atBattle, afterBattle, home, fatal,
+    healed:fatal ? atBattle - hp : atBattle - hp + home - afterBattle};
+}
+
+/* Solo raids; survivors round half-up per species, as in the original planner. */
+const defOf = (an, mounted) =>
+  an.reduce((s, a) => s + a.c * (mounted ? AN[a.k].dc : AN[a.k].di), BASE_DEF);
+
+function heroFight(an, A, dr, mounted) {
+  const def = defOf(an, mounted);
+  const x = Math.pow(A / def, IMM);
+  const ol = 1 / (1 + x), dl = x / (1 + x);
+
+  let bounty = 0, supply = 0, killed = [], rest = [], left = 0, kills = 0;
+  for (const a of an) {
+    const surv = rHalfUp(a.c * (1 - dl)), kill = a.c - surv;
+    if (kill > 0) { supply += kill * AN[a.k].s; bounty += kill * AN[a.k].s * BOUNTY_PER_SUPPLY;
+                    killed.push(kill + ' ' + AN[a.k].n); kills += kill; }
+    if (surv > 0) { rest.push({ k:a.k, c:surv }); left += surv; }
+  }
+  const raw = 100 * ol;
+  const lone = A < LONE;                       // solo unit under 84.5 attack simply dies
+  const dmg  = lone ? 100 : Math.max(0, raw - dr);
+  return { def, ol, raw, dmg, bounty, supply, killed, kills, rest, left,
+           lethal: dmg >= DEATH_AT, lone };
+}
+
+/* ───────────────────────── dump parsing ───────────────────────── */
+const validCoordinate = n => Number.isInteger(n) && n >= -HALF && n <= HALF;
+
+function parseDump(json, cx = Number($('iCx').value), cy = Number($('iCy').value)) {
+  let j = json;
+  if (typeof json === 'string') {
+    try { j = JSON.parse(json); }
+    catch (error) {
+      if (error.name !== 'SyntaxError') throw error;
+      throw new InputError('Invalid JSON: ' + error.message);
+    }
+  }
+  const raw = j?.tiles ?? j?.data?.tiles;
+  if (!Array.isArray(raw)) throw new InputError('The JSON needs a "tiles" array, at the top level or inside "data".');
+  const unique = new Map();
+  for (const [index, tile] of raw.entries()) {
+    if (!validCoordinate(tile?.position?.x) || !validCoordinate(tile?.position?.y)) {
+      throw new InputError('Tile ' + (index + 1) + ' needs integer coordinates from -200 to 200.');
+    }
+    unique.set(tile.position.x + '|' + tile.position.y, tile);
+  }
+  const tiles = [...unique.values()];
+  const out = [];
+  for (const t of tiles) {
+    if (typeof t.title !== 'string' || !/\{k\.(fo|bt)\}/.test(t.title)) continue;
+    const x = t.position.x, y = t.position.y, txt = t.text;
+    if (typeof txt !== 'string') throw new InputError('Oasis [' + x + '|' + y + '] has no tooltip text.');
+    const bon = [...txt.matchAll(/\{a:(r[1-4])\}\s*\{a\.\1\}\s*(\d+)%/g)]
+                  .map(m => RES[m[1]] + ' ' + m[2] + '%');
+    const counts = new Map();
+    for (const m of txt.matchAll(/<i class="unit (u\d+)"><\/i>\s*<span class="value[^"]*">([\s\S]*?)<\/span>/g)) {
+      if (!AN[m[1]]) continue;
+      const value = m[2].trim(), count = Number(value);
+      if (!/^\d+$/.test(value) || !Number.isSafeInteger(count) || count > 1000000) {
+        throw new InputError('Invalid ' + AN[m[1]].n + ' count at [' + x + '|' + y + '].');
+      }
+      if (counts.has(m[1])) throw new InputError('Duplicate animal entry at [' + x + '|' + y + '].');
+      counts.set(m[1], count);
+    }
+    const an = [...counts].filter(([, count]) => count > 0).map(([k, c]) => ({k, c}));
+    out.push({
+      x, y, d: Math.hypot(wrap(x - cx), wrap(y - cy)),
+      type: bon.join(' + ') || 'plain',
+      occupied: /\{k\.bt\}/.test(t.title),
+      an, total: an.reduce((s, a) => s + a.c, 0),
+      mapId: mapId(x, y)
+    });
+  }
+  return { oases: out.sort((a, b) => a.d - b.d), tiles };
+}
+
+/* ───────────────────────── formatting ───────────────────────── */
+const nf  = v => (!isFinite(v) ? '&ndash;' : Math.round(v).toLocaleString('en-US'));
+const nf1 = v => (!isFinite(v) ? '&ndash;' : v.toFixed(1));
+const hm  = h => { if (!isFinite(h)) return '&ndash;'; const m = Math.round(h * 60);
+                   return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
+const anStr = an => an.length ? an.map(a => a.c + ' ' + AN[a.k].n).join(', ') : '&mdash;';
+
+function serverOrigin(value = $('iSrv').value) {
+  const text = value.trim();
+  if (!text) throw new InputError('Enter the game server hostname or URL.');
+  let url;
+  try { url = new URL(/^[a-z][a-z\d+.-]*:/i.test(text) ? text : 'https://' + text); }
+  catch (error) {
+    if (error.name !== 'TypeError') throw error;
+    throw new InputError('Enter a valid HTTP(S) game server URL.');
+  }
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) {
+    throw new InputError('The server must be an HTTP(S) URL without a username or password.');
+  }
+  return url.origin;
+}
+
+const tileLink = o => serverOrigin() + '/position_details.php?x=' + o.x + '&y=' + o.y;
+const coordCell = o =>
+  '<a class="coord" href="' + esc(tileLink(o)) + '" target="_blank" rel="noopener noreferrer">' + o.x + '|' + o.y + '</a>';
+
+function heroDid() {
+  const tile = TILES.get(Number($('iCx').value) + '|' + Number($('iCy').value));
+  const did = tile?.did;
+  return (typeof did === 'number' || typeof did === 'string') && /^[1-9]\d*$/.test(String(did)) &&
+    Number.isSafeInteger(Number(did)) ? Number(did) : null;
+}
+
+function sendLink(o) {
+  const did = heroDid();
+  if (did === null) return null;
+  return serverOrigin() + '/build.php?newdid=' + did + '&gid=16&tt=2&eventType=4' +
+         '&targetMapId=' + o.mapId + '&troop%5Bt11%5D=1';
+}
+
+function sendCell(o, blocked = false) {
+  if (blocked) return '<span class="dim">&mdash;</span>';
+  const href = sendLink(o);
+  return href
+    ? '<a class="sendlink" data-send="' + okey(o) + '" href="' + esc(href) +
+      '" target="_blank" rel="noopener noreferrer">send &rarr;</a>'
+    : '<span class="dim" title="Paste a map dump covering your origin village to detect its village ID.">origin ID needed</span>';
+}
+
+/* Only the active-benefits section is equipment evidence, never inventory names. */
+function parseEquipment(block) {
+  const effects = {xp:0, dr:0, regen:0, returnSpeed:0, longSpeed:0};
+  const included = [], irrelevant = [], unknown = [];
+  let mounted = false, cages = false;
+  const add = (key, match, line) => {
+    if (!match) { unknown.push(line); return; }
+    const value = Number(match[1].replace(/[,\s]/g, ''));
+    if (!Number.isFinite(value) || value < 0 || value > 10000) {
+      throw new InputError('Invalid equipment benefit: ' + line);
+    }
+    effects[key] += value;
+  };
+  const lines = block.split(/\n/).map(line => line.trim()).filter(Boolean);
+  for (const line of lines) {
+    const percent = line.match(/([+-]?\s*\d+(?:\.\d+)?)\s*%/);
+    const flat = line.match(/^\+?\s*(\d[\d,]*(?:\.\d+)?)/);
+    if (/^(?:Your hero\b|Hero is\b|Inventory\b|Attributes\b|Appearance\b|Adventures\b|Hero equipment benefits\b)/i.test(line)) break;
+    if (/cages?|\bcaptur(?:e|es|ing)\b/i.test(line)) { cages = true; continue; }
+    if (/^Mounts (?:the )?hero\b/i.test(line)) { mounted = true; continue; }
+    if (/Natars?|crann(?:y|ies)|culture points?|training|barracks|stable|own villages?|alliance|confedera|loyalty|resource production/i.test(line) ||
+        /(?:attack|defen[cs]e).*(?:every|each|troop|infantry|cavalry)/i.test(line) ||
+        /bandages?|ointment|bucket|scroll|artwork|book of wisdom|tablets?/i.test(line)) {
+      irrelevant.push(line);
+    } else if (/(?:return|way (?:back|home))/i.test(line) && /speed|faster/i.test(line)) {
+      add('returnSpeed', percent, line);
+    } else if (/speed|faster/i.test(line) && /(?:20|tournament|long.distance)/i.test(line)) {
+      add('longSpeed', percent, line);
+    } else if (/damage reduction/i.test(line)) {
+      add('dr', flat, line);
+    } else if (/regenerat|(?:health|HP).*per day/i.test(line)) {
+      if (percent && /faster|increas|bonus|rate/i.test(line)) unknown.push(line);
+      else add('regen', flat, line);
+    } else if (/experience|\bXP\b/i.test(line)) {
+      add('xp', percent, line);
+    } else if (/fighting strength|speed for mounted hero|fields?\s*(?:\/|per)\s*hour/i.test(line)) {
+      included.push(line);
+    } else if (/^[+-]|\d\s*%|speed|damage|strength|regenerat|health|experience|map|boots|helmet|armou?r|shield|spurs|mount/i.test(line)) {
+      unknown.push(line);
+    }
+  }
+  return {effects, mounted, cages, included, irrelevant, unknown};
+}
+
+function parseHeroDump(text) {
+  const t = String(text).replace(/[\u202a-\u202e\u200e\u200f\u2066-\u2069]/g, '')
+    .replace(/\r\n?/g, '\n').replace(/[\u00a0\u202f]/g, ' ');
+  const header = /Hero equipment benefits[ \t]*:?[ \t]*(?:\n|$)/i.exec(t);
+  if (!header) throw new InputError('Include the complete "Hero equipment benefits" section, even with no items equipped.');
+  const attributes = t.slice(0, header.index);
+  const num = match => match ? Number(match[1].replace(/[,\s]/g, '')) : null;
+  const fs = attributes.match(/Fighting strength[ \t]*\n\s*(\d[\d, \t]*)\n\s*(\d[\d, \t]*)(?=\n|$)/i);
+  const hero = {
+    level:num(attributes.match(/\blevel[ \t]+(\d+)\b/i)),
+    hp:num(attributes.match(/Health[ \t]*\n\s*(\d+(?:\.\d+)?)\s*%/i)),
+    xp:num(attributes.match(/Experience[ \t]*\n[ \t]*(\d[\d, \t]*)(?=\n|$)/i)),
+    speed:num(attributes.match(/Speed[ \t]*\n\s*(\d[\d,]*(?:\.\d+)?)\s*fields?\/hour/i)),
+    offBonus:num(attributes.match(/Off bonus[ \t]*\n\s*\d[\d, \t]*\n\s*(\d+(?:\.\d+)?)\s*%/i)),
+    fs:fs ? Number(fs[2].replace(/[,\s]/g, '')) : null,
+    ...parseEquipment(t.slice(header.index + header[0].length))
+  };
+  for (const [key, label, max, integer] of [
+    ['level', 'level', 10000, true], ['hp', 'Health', 100, false],
+    ['xp', 'Experience', Number.MAX_SAFE_INTEGER, true], ['speed', 'Speed', 10000, false],
+    ['fs', 'Fighting strength total (after the points line)', 100000000, true],
+    ['offBonus', 'Off bonus', 100, false]
+  ]) {
+    const value = hero[key];
+    if (value === null || !Number.isFinite(value) || value < 0 || value > max ||
+        (integer && !Number.isSafeInteger(value)) || ((key === 'fs' || key === 'speed') && value === 0)) {
+      throw new InputError('Missing or invalid ' + label + '. Copy the whole English hero page, not just inventory or one panel.');
+    }
+  }
+  hero.regen = 10 + hero.effects.regen;
+  hero.warnings = [];
+  if (lvlForXp(hero.xp) !== hero.level) hero.warnings.push('XP does not match the level-threshold formula. Level-up estimates are disabled.');
+  if (hero.offBonus > 0) hero.warnings.push('As in the original, attack includes Off bonus. Its effect on a solo hero is not independently verified; check a battle report.');
+  if (hero.cages) hero.warnings.push('Equipped cages capture animals instead of paying kill bounty. Unequip them and re-paste before planning.');
+  if (hero.unknown.length) hero.warnings.push('Unrecognised active benefits: ' + hero.unknown.join('; ') + '. Planning is blocked rather than guessing their effects.');
+  if (hero.hp === 0) hero.warnings.push('The pasted hero has no health. Revive in game, then re-paste; regeneration cannot revive a dead hero.');
+  hero.blocked = hero.cages || hero.unknown.length > 0 || hero.hp === 0;
+  return hero;
+}
+
+function applyHeroDump(hero, source = $('iHero').value) {
+  HERO = hero;
+  HERO_SOURCE = source;
+  $('oHero').className = hero.blocked ? 'st st-err' : hero.warnings.length ? 'st st-warn' : 'st st-ok';
+  $('oHero').textContent = 'Read complete hero profile. ' + hero.warnings.join(' ');
+  renderHero();
+}
+
+function renderHero() {
+  if (!HERO) { $('oHeroStats').innerHTML = ''; $('oEquipment').innerHTML = ''; return; }
+  const h = HERO, e = h.effects;
+  const cell = (value, label) => '<div><b>' + value + '</b><span>' + label + '</span></div>';
+  $('oHeroStats').innerHTML = cell(nf(h.fs), 'reported strength') + cell(nf1(h.speed) + ' f/h', 'reported speed') +
+    cell(nf1(h.hp), 'current HP') + cell(h.level, 'level') + cell(nf(h.xp), 'total XP') +
+    cell(h.mounted ? 'Mounted' : 'On foot', 'defence matchup');
+  $('oEquipment').innerHTML = '<b>Applied equipment:</b> ' + nf1(e.dr) + ' damage reduction; +' +
+    nf1(e.xp) + '% XP; +' + nf1(e.returnSpeed) + '% return speed; +' + nf1(e.longSpeed) +
+    '% speed beyond 20 fields; ' + nf1(h.regen) + ' HP/day regeneration (10 base + ' + nf1(e.regen) + ' gear).' +
+    '<br>Strength and flat speed bonuses are already in the reported totals. Mount status comes from "Mounts hero".' +
+    (h.irrelevant.length ? '<br><b>Not used for a solo oasis raid:</b> ' + h.irrelevant.map(esc).join('; ') + '.' : '') +
+    '<br>Only active benefit lines are read, not item names in inventory. Consumables are never assumed used. Unequip cages before raiding for bounty.';
+}
+
+/* ───────────────────────── state ───────────────────────── */
+let DUMP = null, ROWS = [], SORT = { key:'nph', dir:-1 };
+/* Raw tiles accumulated across every paste, keyed "x|y" so overlapping dumps
+   dedupe and the newest read of a tile wins. One zoomLevel:3 call is capped at
+   31x31, so wider coverage means several re-centred dumps merged here. */
+let TILES = new Map(), DUMPS = 0;
+
+function mergeTiles(tiles) {
+  let added = 0, updated = 0;
+  for (const t of tiles) {
+    const k = t.position.x + '|' + t.position.y;
+    if (TILES.has(k)) updated++; else added++;
+    TILES.set(k, t);
+  }
+  DUMPS++;
+  return { added, updated };
+}
+let SENT = {};
+const okey = o => o.x + '|' + o.y;
+
+/* drag-to-select basket: PICK holds the chosen keys, ORDER keeps the order you
+   picked them in, because the hero does the trips one after another.
+   ROWKEYS is the table in display order, so a drag can fill the whole range
+   between the anchor and the mouse instead of only the rows that happened to
+   fire an event. */
+let PICK = {}, ORDER = [], DRAG = null, ROWKEYS = [];
+function pickAdd(k)  { if (!PICK[k]) { PICK[k] = true; ORDER.push(k); } }
+function pickDrop(k) { if (PICK[k]) { delete PICK[k]; ORDER = ORDER.filter(x => x !== k); } }
+function pickClear() { PICK = {}; ORDER = []; }
+
+/* Rebuild from the pre-drag snapshot every time, so pulling back toward the
+   anchor shrinks the selection again and the order stays stable. */
+function dragTo(idx) {
+  if (!DRAG) return;
+  const lo = Math.min(DRAG.anchor, idx), hi = Math.max(DRAG.anchor, idx);
+  const range = ROWKEYS.slice(lo, hi + 1);
+  PICK = {}; ORDER = [];
+  DRAG.before.forEach(pickAdd);
+  if (DRAG.add) range.forEach(pickAdd); else range.forEach(pickDrop);
+  DRAG.nodes.forEach((el, k) => {
+    if (!el || !el.classList) return;
+    if (PICK[k]) el.classList.add('pick'); else el.classList.remove('pick');
+  });
+}
+
+/* Save source data, not calculated combat results. Draft text may differ from the last read hero. */
+const STATE_FORMAT = 'travian-hero-raid-planner-standalone';
+const STATE_INPUTS = ['iHero', 'iSrv', 'iCx', 'iCy', 'iTs', 'iPaste', 'iFloor', 'iCap', 'iGreedN', 'iP'];
+let stateDownloadUrl = null;
+
+function captureState() {
+  return {
+    format:STATE_FORMAT, version:1, savedAt:new Date().toISOString(),
+    inputs:{...Object.fromEntries(STATE_INPUTS.map(id => [id, $(id).value])), iOcc:$('iOcc').checked},
+    heroSource:HERO_SOURCE,
+    map:{tiles:[...TILES.values()], dumps:DUMPS},
+    sent:Object.keys(SENT).filter(key => SENT[key]),
+    picks:ORDER.slice(), sort:{...SORT},
+    manualPrice:$('iP').dataset.touched === '1'
+  };
+}
+
+function prepareState(state) {
+  const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (!record(state) || state.format !== STATE_FORMAT) {
+    throw new InputError('Choose a planner state JSON file created by Export state, not a map dump.');
+  }
+  if (state.version !== 1) throw new InputError('Unsupported planner state version: ' + String(state.version) + '.');
+  if (typeof state.savedAt !== 'string' || !Number.isFinite(Date.parse(state.savedAt))) {
+    throw new InputError('The state file has an invalid save date.');
+  }
+  if (!record(state.inputs) || typeof state.inputs.iOcc !== 'boolean' || typeof state.manualPrice !== 'boolean') {
+    throw new InputError('The state file is missing valid planner settings.');
+  }
+  for (const id of STATE_INPUTS) {
+    if (typeof state.inputs[id] !== 'string') throw new InputError('Missing or invalid setting: ' + id + '.');
+    const input = $(id);
+    if (input.type === 'number' || input.type === 'range') {
+      const probe = input.cloneNode(false);
+      probe.value = state.inputs[id];
+      if (probe.value !== state.inputs[id]) throw new InputError('Invalid numeric setting: ' + id + '.');
+    }
+  }
+  const cfg = settings(state.inputs);
+  hpPrice(state.inputs.iP);
+  if (state.heroSource !== null && typeof state.heroSource !== 'string') {
+    throw new InputError('The state file has an invalid hero profile.');
+  }
+  const hero = state.heroSource === null ? null : parseHeroDump(state.heroSource);
+  if (!record(state.map) || !Array.isArray(state.map.tiles) || state.map.tiles.length > SIZE * SIZE ||
+      !Number.isSafeInteger(state.map.dumps) || state.map.dumps < 0 ||
+      (state.map.dumps === 0 && state.map.tiles.length > 0)) {
+    throw new InputError('The state file has invalid map data or a missing dump count.');
+  }
+  const dump = state.map.dumps > 0 ? parseDump({tiles:state.map.tiles}, cfg.x, cfg.y) : null;
+  if (dump && dump.tiles.length !== state.map.tiles.length) {
+    throw new InputError('The state file contains duplicate map tiles.');
+  }
+  for (const name of ['sent', 'picks']) {
+    const keys = state[name];
+    if (!Array.isArray(keys) || keys.length > SIZE * SIZE || new Set(keys).size !== keys.length ||
+        !keys.every(key => {
+          if (typeof key !== 'string') return false;
+          const parts = key.split('|'), [x, y] = parts.map(Number);
+          return parts.length === 2 && validCoordinate(x) && validCoordinate(y) && key === x + '|' + y;
+        })) {
+      throw new InputError('The state file has invalid ' + name + ' coordinates.');
+    }
+  }
+  const sortKeys = [...document.querySelectorAll('#oTab th[data-s]')].map(th => th.getAttribute('data-s'));
+  if (!record(state.sort) || !sortKeys.includes(state.sort.key) || ![1, -1].includes(state.sort.dir)) {
+    throw new InputError('The state file has an invalid table sort.');
+  }
+  return {state, hero, dump};
+}
+
+function restoreState(text) {
+  let json;
+  try { json = JSON.parse(text.replace(/^\uFEFF/, '')); }
+  catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    throw new InputError('Invalid state JSON: ' + error.message);
+  }
+  const {state, hero, dump} = prepareState(json);
+  for (const id of STATE_INPUTS) $(id).value = state.inputs[id];
+  $('iOcc').checked = state.inputs.iOcc;
+  $('iGreed').value = state.inputs.iGreedN;
+  $('iP').dataset.touched = state.manualPrice ? '1' : '';
+  DUMP = dump;
+  TILES = new Map((dump?.tiles || []).map(tile => [tile.position.x + '|' + tile.position.y, tile]));
+  DUMPS = state.map.dumps;
+  SENT = Object.fromEntries(state.sent.map(key => [key, true]));
+  SORT = {key:state.sort.key, dir:state.sort.dir};
+  DRAG = null;
+  $('oTab').classList.remove('dragging');
+  pickClear();
+  state.picks.forEach(pickAdd);
+  if (hero) applyHeroDump(hero, state.heroSource);
+  else {
+    HERO = null; HERO_SOURCE = null;
+    $('oHero').className = 'st st-idle';
+    $('oHero').textContent = state.inputs.iHero.trim()
+      ? 'Hero text restored as a draft. Click Read hero stats to apply it.' : 'Nothing read yet.';
+  }
+  $('oStatus').className = dump ? 'st st-ok' : 'st st-idle';
+  $('oStatus').textContent = dump
+    ? 'Restored ' + TILES.size + ' tiles from ' + DUMPS + ' dump' + (DUMPS === 1 ? '' : 's') +
+      '; ' + dump.oases.filter(o => o.an.length).length + ' oases with animals.'
+    : 'No dump loaded.';
+  render(); selfCheck();
+  return state;
+}
+
+function stateStatus(message, failed = false) {
+  $('oState').hidden = false;
+  $('oState').className = 'st ' + (failed ? 'st-err' : 'st-ok');
+  $('oState').textContent = message;
+}
+
+function releaseStateDownload() {
+  if (stateDownloadUrl) URL.revokeObjectURL(stateDownloadUrl);
+  stateDownloadUrl = null;
+}
+
+function downloadState() {
+  try {
+    const state = captureState();
+    prepareState(state);
+    const blob = new Blob([JSON.stringify(state, null, 2) + '\n'], {type:'application/json'});
+    releaseStateDownload();
+    stateDownloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = stateDownloadUrl;
+    link.download = 'travian-hero-state-' + state.savedAt.replace(/[:.]/g, '-') + '.json';
+    document.body.appendChild(link);
+    try { link.click(); }
+    finally { link.remove(); }
+    stateStatus('State download requested. Keep the JSON file private: it includes your pasted hero and map data.');
+  } catch (error) {
+    if (!(error instanceof InputError) && !(error instanceof DOMException)) throw error;
+    stateStatus('Could not export: ' + error.message, true);
+  }
+}
+
+async function importStateFile() {
+  const input = $('iStateFile'), file = input.files[0];
+  if (!file) return;
+  $('bImport').disabled = true; $('bExport').disabled = true; input.disabled = true;
+  try {
+    const state = restoreState(await file.text());
+    stateStatus('Restored snapshot saved ' + new Date(state.savedAt).toLocaleString() +
+      '. Check hero health and map freshness before raiding. Unapplied paste text remains a draft.');
+  } catch (error) {
+    if (!(error instanceof InputError) && !(error instanceof DOMException)) throw error;
+    stateStatus('Could not import: ' + error.message + ' Current state was kept.', true);
+  } finally {
+    input.value = '';
+    input.disabled = false; $('bImport').disabled = false; $('bExport').disabled = false;
+  }
+}
+
+/* ─────────────────── the HP shadow price ───────────────────
+   Sort every available first trip by resources per HP, spend the HP budget
+   from the top down, and read off the res/HP of the trip that exhausts it.
+   That marginal rate is exactly what one point of health is worth to you. */
+function shadowPrice(pool, A, dr, mounted, budget) {
+  const opts = [];
+  for (const o of pool) {
+    if (!o.an.length) continue;
+    const f = heroFight(o.an, A, dr, mounted);
+    if (f.kills === 0 || f.lethal) continue;
+    if (f.dmg <= 0) continue;                       // free loot never sets a price
+    opts.push({ rhp: f.bounty / f.dmg, dmg: f.dmg });
+  }
+  if (!opts.length) return 0;
+  opts.sort((a, b) => b.rhp - a.rhp);
+  let acc = 0;
+  for (const o of opts) { acc += o.dmg; if (acc >= budget) return o.rhp; }
+  return opts[opts.length - 1].rhp;                 // budget outruns the map
+}
+
+/* ─────────────────── the greed dial ───────────────────
+   One slider, 0..100, mapped onto the res/HP rates that actually exist on YOUR
+   map, so the ends mean something concrete rather than being magic numbers.
+     100 -> P = 0            health is free, chase raw res/hour
+      50 -> P = shadow price what a point of health is really worth
+       0 -> P = above the best rate on the map, so only free hits survive   */
+function greedToPrice(greed, shadow, maxRate) {
+  const g = Math.max(0, Math.min(100, greed));
+  const S = shadow > 0 ? shadow : (maxRate || 1000);
+  const top = Math.max(maxRate * 1.5, S * 2, 1);
+  if (g >= 50) return S * (100 - g) / 50;                       // linear down to zero
+  return S * Math.pow(top / S, (50 - g) / 50);                  // geometric up to "nothing but free"
+}
+/* The top of the greed scale must be set by rates you would actually agonise
+   over. A 0.2 HP hit scores ~13,500 res/HP purely from rounding noise; letting
+   that define the scale pushes the whole bottom half of the slider above every
+   real rate and makes it inert. So only count trips that cost real health. */
+const NOISE_HP = 1;
+const maxRhp = pool => {
+  let m = 0, mAll = 0;
+  for (const o of pool) {
+    if (!o.an.length) continue;
+    const f = heroFight(o.an, heroAtk(), HERO.effects.dr, isMounted());
+    if (f.kills === 0 || f.lethal || f.dmg <= 0) continue;
+    const r = f.bounty / f.dmg;
+    mAll = Math.max(mAll, r);
+    if (f.dmg >= NOISE_HP) m = Math.max(m, r);
+  }
+  return m > 0 ? m : mAll;
+};
+
+/* Every leg starts at home. Health regenerates on both legs, never after death. */
+function session(pool, A, dr, mounted, hpf, hp0, floor, cap, P, travel) {
+  const remaining = new Map();
+  for (const o of pool) {
+    const f = heroFight(o.an, A, dr, mounted), trip = travelTimes(o.d, hpf, travel);
+    if (!o.an.length || f.kills === 0 || f.lethal || f.dmg > cap || trip.total <= 0) continue;
+    const sc = (f.bounty - P * f.dmg) / trip.total;
+    if (sc > 0) remaining.set(okey(o), {o, f, trip, rt:trip.total, sc});
+  }
+  let hp = hp0, t = 0, res = 0, spent = 0, healed = 0;
+  const steps = [];
+  while (remaining.size && hp > 0) {
+    let best = null;
+    for (const option of remaining.values()) {
+      const health = legHealth(hp, option.f, option.trip, travel.regen);
+      if (health.fatal || health.afterBattle < floor) continue;
+      if (!best || option.sc > best.sc) best = {...option, health};
+    }
+    if (!best) break;
+    remaining.delete(okey(best.o));
+    hp = best.health.home; t += best.rt; res += best.f.bounty; spent += best.f.dmg;
+    healed += best.health.healed;
+    steps.push({ ...best, hpAfter:hp, tAfter:t, resAfter:res });
+  }
+  return { steps, hp, hours:t, res, spent, healed };
+}
+
+/* A single greedy pass is myopic: with 100 HP it will happily blow half the
+   budget on one fat target and end up poorer than it would have been with 60.
+   So run the greedy across a ladder of internal prices and keep whichever plan
+   scores best against the price YOU set. At P = 0 that is simply "most
+   resources for the health available". */
+function bestSession(pool, A, dr, mounted, hpf, hp0, floor, cap, P, travel) {
+  const rates = [];
+  for (const o of pool) {
+    const f = heroFight(o.an, A, dr, mounted);
+    if (f.kills > 0 && !f.lethal && f.dmg > 0) rates.push(f.bounty / f.dmg);
+  }
+  rates.sort((a, b) => a - b);
+  const ladder = new Set([0, P, 1e9]);
+  if (rates.length) for (let q = 1; q <= 9; q++)
+    ladder.add(rates[Math.floor(q / 10 * (rates.length - 1))]);
+
+  let best = null;
+  for (const p of ladder) {
+    const s = session(pool, A, dr, mounted, hpf, hp0, floor, cap, p, travel);
+    s.obj = s.res - P * s.spent;
+    s.price = p;
+    if (!best || s.obj > best.obj + 1e-9 ||
+        (s.obj > best.obj - 1e-9 && s.hours < best.hours)) best = s;
+  }
+  return best;
+}
+
+/* ───────────────────────── render ───────────────────────── */
+function clearResults(message) {
+  ROWS = []; ROWKEYS = [];
+  $('oBody').innerHTML = '<tr><td colspan="14" class="l dim">' + esc(message) + '</td></tr>';
+  for (const id of ['oKpi', 'oPlan', 'oNotes', 'oBasket', 'oP']) $(id).innerHTML = '';
+}
+
+function render() {
+  renderHero();
+  let cfg;
+  try {
+    cfg = settings();
+    hpPrice();
+  } catch (error) {
+    if (!(error instanceof InputError)) throw error;
+    clearResults(error.message);
+    $('oSource').textContent = error.message;
+    $('oSource').className = 'note bad';
+    return;
+  }
+  $('oTs').value = cfg.ts;
+  const did = heroDid();
+  $('oSource').className = did ? 'note good' : 'note warn';
+  $('oSource').textContent = did
+    ? 'Origin [' + cfg.x + '|' + cfg.y + '], village ID ' + did + ' detected from the map. Confirm the source village before sending in game.'
+    : 'No village ID detected at [' + cfg.x + '|' + cfg.y + ']. Paste a dump covering that village to enable send links. Distances still work.';
+  if (!HERO || HERO.blocked || !DUMP) {
+    clearResults(!HERO ? 'Read the full hero page in section 1 to calculate raids.'
+      : HERO.blocked ? 'Planning is blocked: resolve the hero/equipment warning in section 1.'
+      : 'Paste a map dump, then Analyse.');
+    return;
+  }
+  for (const o of DUMP.oases) o.d = Math.hypot(wrap(o.x - cfg.x), wrap(o.y - cfg.y));
+  const A = heroAtk(), dr = HERO.effects.dr, mounted = isMounted();
+  const spd = heroSpeed(), hpf = 1 / spd, travel = travelEffects(HERO, cfg.ts);
+  const hp0 = HERO.hp, {floor, cap} = cfg;
+  const pool = DUMP.oases.filter(o => o.an.length && ($('iOcc').checked || !o.occupied));
+
+  /* one dial drives the price; typing a price directly still wins */
+  const budget = Math.max(hp0 - floor, 1);
+  const shadow = shadowPrice(pool.filter(o => o.d > 0), A, dr, mounted, budget);
+  const greed = cfg.greed;
+  if ($('iP').dataset.touched !== '1') $('iP').value = Math.round(greedToPrice(greed, shadow, maxRhp(pool)));
+  $('iGreedN').value = greed;
+  const P = +$('iP').value || 0;
+
+  ROWS = [];
+  for (const o of pool) {
+    const f = heroFight(o.an, A, dr, mounted);
+    const trip = travelTimes(o.d, hpf, travel), rt = trip.total;
+    const health = legHealth(hp0, f, trip, travel.regen);
+    const rhp = f.dmg > 0 ? f.bounty / f.dmg : Infinity;
+    ROWS.push({
+      o, f, rt, trip, health,
+      rhp, rph:rt > 0 ? f.bounty / rt : 0,
+      nph:rt > 0 ? (f.bounty - P * f.dmg) / rt : 0,
+      pareto: false
+    });
+  }
+
+  /* Pareto front on (res/h, res/HP): rows nobody beats on both axes at once. */
+  for (const r of ROWS) {
+    if (r.health.fatal || r.f.kills === 0 || r.rt <= 0) continue;
+    r.pareto = !ROWS.some(q => q !== r && !q.health.fatal && q.f.kills > 0 && q.rt > 0 &&
+                               q.rph >= r.rph && q.rhp >= r.rhp &&
+                               (q.rph > r.rph || q.rhp > r.rhp));
+  }
+
+  const live = ROWS.filter(r => r.f.kills > 0 && !r.health.fatal && r.rt > 0);
+  const plan = bestSession(pool.filter(o => !SENT[okey(o)]), A, dr, mounted, hpf, hp0, floor, cap, P, travel);
+
+  /* ── KPIs ── */
+  const mapTotal = pool.reduce((s, o) => s + o.an.reduce((t, a) => t + a.c * AN[a.k].s * BOUNTY_PER_SUPPLY, 0), 0);
+  const free = live.filter(r => r.f.dmg <= 0);
+  const rhpTxt = plan.spent > 1e-9 ? nf(plan.res / plan.spent) : (plan.res > 0 ? '&infin;' : '&ndash;');
+  const kpi = (v, l) => '<div><b>' + v + '</b><span>' + l + '</span></div>';
+  $('oKpi').innerHTML =
+      kpi(nf(A), 'hero attack')
+    + kpi(nf1(spd) + ' f/h', 'speed')
+    + kpi(pool.length, 'loaded targets')
+    + kpi(free.length, 'cost zero HP')
+    + kpi(nf(plan.res), 'res in the queue')
+    + kpi(nf(plan.steps.reduce((s, x) => s + xpOf(x.f), 0)), 'XP in the queue')
+    + kpi(nf1(plan.spent) + ' HP', 'battle damage')
+    + kpi(nf1(plan.healed) + ' HP', 'travel regeneration')
+    + kpi(hm(plan.hours), 'hero time')
+    + kpi(nf(plan.hours > 0 ? plan.res / plan.hours : 0), 'res / hour')
+    + kpi(rhpTxt, 'res / HP')
+    + kpi(nf(mapTotal), 'bounty on the map');
+
+  /* ── table: one row per oasis, 14 columns ── */
+  const sorted = sortRows(ROWS.slice());
+  ROWKEYS = sorted.map(r => okey(r.o));
+  const visible = new Set(ROWKEYS);
+  for (const key of ORDER) if (!visible.has(key)) pickDrop(key);
+  let rank = 0;
+  $('oBody').innerHTML = sorted.map(r => {
+    const o = r.o, f = r.f, key = okey(o), done = !!SENT[key];
+    const dead = r.health.fatal || f.kills === 0 || r.rt <= 0;
+    if (!dead) rank++;
+    const tag = f.lone ? '<span class="pill p-dead">TOO WEAK</span>'
+              : r.rt <= 0 ? '<span class="pill p-risk">at origin</span>'
+              : f.lethal ? '<span class="pill p-dead">89+ guard</span>'
+              : r.health.fatal ? '<span class="pill p-dead">FATAL</span>'
+              : f.kills === 0 ? '<span class="pill p-risk">no kills</span>'
+              : f.dmg > cap ? '<span class="pill p-risk">over cap</span>'
+              : r.health.afterBattle < floor ? '<span class="pill p-risk">below floor</span>'
+              : r.pareto ? '<span class="pill p-par">best</span>'
+              : f.dmg <= 0 ? '<span class="pill p-cheap">free</span>'
+              : '<span class="pill p-safe">ok</span>';
+    return '<tr data-p="' + key + '" class="' + (done ? 'done ' : '') + (PICK[key] ? 'pick ' : '') + (dead ? 'dead' : '') + '">'
+      + '<td class="tick"><input type="checkbox" class="sentbox" data-k="' + key + '"' + (done ? ' checked' : '') + '></td>'
+      + '<td>' + (dead ? '<span class="dim">&ndash;</span>' : rank) + '</td>'
+      + '<td class="l ty">' + esc(o.type) + (o.occupied ? ' <span class="dim">(occ)</span>' : '') + '</td>'
+      + '<td class="l">' + coordCell(o) + '</td>'
+      + '<td>' + nf1(o.d) + '</td>'
+      + '<td title="' + tripTitle(r.trip) + '">' + hm(r.rt) + '</td>'
+      + '<td class="l an">' + anStr(o.an) + '</td>'
+      + '<td>' + nf(f.def) + '</td>'
+      + '<td>' + nf(f.bounty) + ' <span class="xp">&middot; ' + nf(xpOf(f)) + ' XP</span></td>'
+      + '<td class="hpc" title="At battle: ' + nf1(r.health.atBattle) + ' HP; after battle: ' +
+        nf1(r.health.afterBattle) + ' HP; home: ' + nf1(r.health.home) + ' HP">' + nf1(f.dmg) + ' ' + tag + '</td>'
+      + '<td>' + (isFinite(r.rhp) ? nf(r.rhp) : '<span class="good">&infin;</span>') + '</td>'
+      + '<td>' + nf(r.rph) + '</td>'
+      + '<td><b>' + nf(r.nph) + '</b></td>'
+      + '<td class="l">' + sendCell(o, dead) + '</td>'
+      + '</tr>';
+  }).join('') || '<tr><td colspan="14" class="dim">No loaded oases with animals match the occupied-oasis setting.</td></tr>';
+
+  renderPlan(plan, P);
+  renderNotes(live, P, hp0, floor);
+  priceText(P, live);
+  renderBasket();
+}
+
+const tripTitle = trip => 'Out: ' + hm(trip.outward) + '; return: ' + hm(trip.homeward);
+
+function sortRows(rows) {
+  const k = SORT.key, d = SORT.dir;
+  const val = r => ({ rank:r.nph, type:r.o.type, coord:r.o.x * 1000 + r.o.y, d:r.o.d, rt:r.rt,
+                      total:r.o.total, def:r.f.def, bounty:r.f.bounty, dmg:r.f.dmg,
+                      rhp:isFinite(r.rhp) ? r.rhp : 1e12, rph:r.rph, nph:r.nph })[k];
+  return rows.sort((a, b) => {
+    /* dead / pointless targets always sink to the bottom */
+    const ad = (a.health.fatal || a.f.kills === 0 || a.rt <= 0) ? 1 : 0;
+    const bd = (b.health.fatal || b.f.kills === 0 || b.rt <= 0) ? 1 : 0;
+    if (ad !== bd) return ad - bd;
+    const x = val(a), y = val(b);
+    if (typeof x === 'string') return d * x.localeCompare(y);
+    return d * ((x || 0) - (y || 0)) || a.o.d - b.o.d;
+  });
+}
+
+function renderPlan(plan, P) {
+  if (!plan.steps.length) {
+    $('oPlan').innerHTML = '<div class="st st-warn">No eligible sends at this HP floor, per-trip cap and HP price, '
+      + 'or all eligible targets are marked sent. The table still shows every loaded target matching the occupied-oasis setting.</div>';
+    return;
+  }
+  const ov = levelOverlay(plan.steps, HERO.hp);
+  const markAt = {};
+  ov.marks.forEach(m => { (markAt[m.at] = markAt[m.at] || []).push(m); });
+  const rows = plan.steps.map((s, i) =>
+    '<div class="step">'
+    + '<span class="n">' + (i + 1) + '</span>'
+    + '<span style="flex:0 0 150px">' + coordCell(s.o) + ' <span class="dim">' + esc(s.o.type) + '</span></span>'
+    + '<span style="flex:0 0 108px" title="' + tripTitle(s.trip) + '">' + hm(s.rt) + ' round trip</span>'
+    + '<span style="flex:0 0 120px"><b>' + nf(s.f.bounty) + '</b> res</span>'
+    + '<span class="xp" style="flex:0 0 62px">+' + nf(s.xpGain) + ' XP</span>'
+    + '<span class="hpc" style="flex:0 0 74px">&minus;' + nf1(s.f.dmg) + ' HP</span>'
+    + '<span class="bar"><i style="width:' + Math.max(0, Math.min(100, s.hpAfter)) + '%"></i></span>'
+    + '<span style="flex:0 0 100px" title="After battle: ' + nf1(s.health.afterBattle) + ' HP">' + nf1(s.hpAfter) + ' HP home</span>'
+    + '<span class="dim" style="flex:0 0 150px">after ' + hm(s.tAfter) + ': ' + nf(s.resAfter) + '</span>'
+    + '<span class="dim" style="flex:1 1 180px">' + (s.f.killed.join(', ') || '&mdash;')
+    + (s.f.left ? ' <span class="warn">(' + s.f.left + ' left)</span>' : ' <span class="good">(clear)</span>') + '</span>'
+    + sendCell(s.o)
+    + '</div>'
+    + (markAt[i] || []).map(m => '<div class="lvlup">Estimated <b>level ' + m.lvl + '</b> here: '
+        + 'a full heal could restore <b class="hpc">' + nf1(m.healed) + ' HP</b>'
+        + (P > 0 ? ' (worth about <b>' + nf(m.healed * P) + '</b> resources at the current price)' : '')
+        + '. This bonus heal is <b>not spent by the queue</b>; re-paste after levelling.</div>').join('')
+  ).join('');
+
+  const oint = Math.ceil(Math.max(0, HERO.hp - plan.hp));
+  const rhpTxt = plan.spent > 1e-9 ? nf(plan.res / plan.spent) + ' res per HP'
+                                   : 'no health at all';
+  const xpTxt = '<br>Experience: <b class="xp">' + nf(ov.xpTotal) + ' XP</b> across the queue'
+    + (ov.known
+        ? (ov.marks.length
+            ? ' &mdash; that is <b>' + ov.marks.length + ' level' + (ov.marks.length === 1 ? '' : 's')
+              + '</b>, reaching <b>level ' + ov.lvlEnd + '</b> on ' + nf(ov.xpEnd) + ' XP.'
+            : ' &mdash; not quite a level: you end on <b>' + nf(ov.xpEnd) + '</b> of the <b>'
+              + nf(ov.need) + '</b> needed for level ' + (ov.lvl + 1) + '.')
+        : '. Level-up estimates are disabled because the pasted level and XP disagree with the threshold formula.');
+  $('oPlan').innerHTML = rows
+    + '<div class="note" style="margin-top:12px;font-size:12.5px">'
+    + '<b>' + plan.steps.length + ' sends</b> &middot; <b class="good">' + nf(plan.res) + ' resources</b> &middot; '
+    + '<b class="hpc">' + nf1(plan.spent) + ' HP battle damage</b> &middot; ' + hm(plan.hours) + ' of hero time &middot; '
+    + 'ends on <b>' + nf1(plan.hp) + ' HP</b><br>'
+    + 'That is <b>' + nf(plan.hours > 0 ? plan.res / plan.hours : 0) + ' res/hour</b> while it runs, at '
+    + '<b>' + rhpTxt + '</b>. '
+    + 'Travel restores about <b>' + nf1(plan.healed) + ' HP</b>. Returning to your starting HP would take <b>' +
+      oint + ' ointment' + (oint === 1 ? '' : 's') + '</b>; none are assumed used.'
+    + xpTxt + '<br>'
+    + 'This is a <b>queue, not an evening</b> &mdash; ' + hm(plan.hours) + ' is the hero walking. Work down it in order and '
+    + 'stop wherever you like. Each oasis appears <b>once</b>, with a return home before the next raid. '
+    + 'Animal counts are the pasted snapshot; respawns, other raiders, waiting time and ointment use are not predicted.'
+    + '</div>';
+}
+
+/* ─────────────────── level-up overlay ───────────────────
+   Deliberately NOT part of session()/bestSession(). Levelling fully heals the
+   hero (articles/49), which at the current price of health is worth tens of
+   thousands of resources — quite enough to make an optimiser contort the whole
+   plan around a threshold that rests on an unverified constant. So this walks
+   a plan that has already been chosen and simply reports where the level lands
+   and what the free heal is worth. The plan stays honest; you get the fact. */
+function levelOverlay(legs, hpStart, hero = HERO) {
+  const st = xpState(hero);
+  const out = { marks: [], known: st.known, need: st.need, lvl: st.lvl };
+  let xp = st.known ? st.xp : 0, lvl = st.lvl, hp = hpStart, total = 0;
+  legs.forEach((l, i) => {
+    const gain = xpOf(l.f, hero);
+    total += gain; xp += gain;
+    const health = legHealth(hp, l.f, l.trip, hero.regen);
+    hp = health.home;
+    l.xpGain = gain; l.xpAfter = st.known ? xp : null;
+    if (st.known) {
+      while (xp >= xpForLvl(lvl + 1)) {
+        lvl++;
+        if (!health.fatal && !l.fatal) {
+          out.marks.push({ at:i, lvl, healed:100 - health.afterBattle, xp:xpForLvl(lvl) });
+          health.afterBattle = 100;
+          hp = 100;
+        }
+      }
+    }
+    l.hpHealed = hp;
+  });
+  out.xpTotal = total;
+  out.xpEnd = st.known ? xp : null;
+  out.lvlEnd = lvl;
+  return out;
+}
+
+/* The basket uses the same trips and battle-time HP floor as the queue. */
+function basketTotals() {
+  const A = heroAtk(), dr = HERO.effects.dr, mounted = isMounted(), cfg = settings();
+  const hpf = 1 / heroSpeed(), travel = travelEffects(HERO, cfg.ts);
+  const hp0 = HERO.hp, {floor, cap} = cfg;
+  const byKey = new Map(ROWS.map(r => [okey(r.o), r]));
+  let hp = hp0, hours = 0, res = 0, spent = 0, healed = 0;
+  let died = false, breached = false, overCap = false, atOrigin = false;
+  const legs = [];
+  for (const k of new Set(ORDER)) {
+    const r = byKey.get(k);
+    if (!r) continue;
+    const f = heroFight(r.o.an, A, dr, mounted), trip = travelTimes(r.o.d, hpf, travel);
+    const health = legHealth(hp, f, trip, travel.regen), fatal = health.fatal;
+    const rt = fatal ? trip.outward : trip.total;
+    if (fatal) died = true;
+    hp = health.home;
+    if (!died && health.afterBattle < floor) breached = true;
+    if (f.dmg > cap) overCap = true;
+    if (r.o.d <= 0) atOrigin = true;
+    hours += rt; res += f.bounty; spent += f.dmg; healed += health.healed;
+    legs.push({ o:r.o, f, rt, trip, health, hpAfter:hp, resAfter:res, tAfter:hours, fatal });
+    if (died) break;
+  }
+  return { legs, hp, hours, res, spent, healed, died, breached, overCap, atOrigin, hp0, floor };
+}
+
+function renderBasket() {
+  const el = $('oBasket');
+  if (!el) return;
+  if (!HERO || HERO.blocked || !ROWS.length || !ORDER.length) {
+    el.innerHTML = '<div class="hint"><b>Drag down the table</b> to pick targets &mdash; press the mouse on a row, '
+      + 'pull across as many as you like, let go. Click a row to toggle it. '
+      + 'The totals for exactly that set &mdash; time, resources and health &mdash; appear here.</div>';
+    return;
+  }
+  const b = basketTotals();
+  const ov = levelOverlay(b.legs, b.hp0);
+  const used = Math.max(0, b.hp0 - b.hp);
+  const pct = v => Math.max(0, Math.min(100, v)) + '%';
+  const cell = (v, l) => '<div><b>' + v + '</b><span class="l">' + l + '</span></div>';
+  const rhp = b.spent > 1e-9 ? nf(b.res / b.spent) : (b.res > 0 ? '&infin;' : '&ndash;');
+
+  const warn = b.died
+      ? '<div class="st st-err" style="margin-top:8px">This run <b>fails the survival check</b>: a hit costs all remaining health '
+        + 'or crosses the conservative 89 HP safety guard. It stops at that battle; no return, regeneration or level-up revival is assumed.</div>'
+    : b.breached
+      ? '<div class="st st-err" style="margin-top:8px">At least one battle leaves the hero <b>below your ' + nf1(b.floor)
+        + ' HP floor</b>, even if return-trip regeneration heals it later.</div>'
+    : b.overCap || b.atOrigin
+      ? '<div class="st st-warn">A selected target exceeds the per-trip HP cap or is at your entered origin. Check those choices.</div>'
+      : '';
+
+  const list = b.legs.map((s, i) => '<div class="step">'
+      + '<span class="n">' + (i + 1) + '</span>'
+      + '<span style="flex:0 0 140px">' + coordCell(s.o) + ' <span class="dim">' + esc(s.o.type) + '</span></span>'
+      + '<span style="flex:0 0 92px" title="' + (s.fatal ? 'Outward only; run stops here' : tripTitle(s.trip)) + '">' + hm(s.rt) + '</span>'
+      + '<span style="flex:0 0 96px"><b>' + nf(s.f.bounty) + '</b></span>'
+      + '<span class="xp" style="flex:0 0 58px">+' + nf(s.xpGain) + ' XP</span>'
+      + '<span class="hpc" style="flex:0 0 70px">&minus;' + nf1(s.f.dmg) + '</span>'
+      + '<span style="flex:0 0 100px" title="After battle: ' + nf1(s.health.afterBattle) + ' HP">' + nf1(s.hpAfter) + ' HP home</span>'
+      + '<span class="dim" style="flex:0 0 150px">' + hm(s.tAfter) + ' &middot; ' + nf(s.resAfter) + '</span>'
+      + (s.fatal ? '<span class="pill p-dead">UNSAFE</span>' : '')
+      + sendCell(s.o, s.fatal || s.o.d <= 0)
+      + '</div>'
+      + ov.marks.filter(m => m.at === i).map(m => '<div class="lvlup">Estimated <b>level ' + m.lvl
+          + '</b> here: a possible <b class="hpc">+' + nf1(m.healed) + ' HP</b> heal, not included in these totals.</div>').join('')
+    ).join('');
+
+  el.innerHTML =
+      '<div class="sum">'
+    + cell(b.legs.length, 'targets picked')
+    + cell(hm(b.hours), 'total time')
+    + cell(nf(b.res), 'resources')
+    + cell('<span class="hpc">' + nf1(b.spent) + '</span>', 'battle damage')
+    + cell(nf1(b.healed), 'travel HP restored')
+    + cell(nf1(b.hp), 'HP left')
+    + cell(nf(b.hours > 0 ? b.res / b.hours : 0), 'res / hour')
+    + cell(rhp, 'res / HP')
+    + cell('<span class="xp">' + nf(ov.xpTotal) + '</span>', 'XP gained')
+    + cell(b.died ? '&mdash;' : Math.ceil(used), 'ointments back to start')
+    + '<div style="flex:1 1 220px">'
+      + '<span class="l">health</span>'
+      + '<span class="dragbar"><i class="hp" style="width:' + pct(used) + '"></i>'
+      + '<i class="left" style="width:' + pct(b.hp) + '"></i></span></div>'
+    + '<div><button class="ghost" id="bPickClear">Clear pick</button></div>'
+    + '</div>'
+    + warn
+    + '<div class="picklist">' + list + '</div>';
+
+  const bc = $('bPickClear');
+  if (bc && bc.addEventListener) bc.addEventListener('click', () => { pickClear(); render(); });
+}
+
+function priceText(P, live) {
+  const byN = live.slice().sort((a, b) => b.nph - a.nph);
+  let txt = 'P = <b>' + nf(P) + '</b> res per HP. ';
+  if (byN.length >= 2) {
+    const a = byN[0], b = byN[1];
+    const num = a.f.bounty / a.rt - b.f.bounty / b.rt;
+    const den = a.f.dmg / a.rt - b.f.dmg / b.rt;
+    const flip = den !== 0 ? num / den : NaN;
+    txt += 'Top pick <b>' + a.o.x + '|' + a.o.y + '</b>, runner-up <b>' + b.o.x + '|' + b.o.y + '</b>. ';
+    txt += (isFinite(flip) && flip > 0)
+      ? 'They swap at <b>P = ' + nf(flip) + '</b>' + (P < flip ? ' (above where you are now)' : ' (below where you are now)') + '.'
+      : 'No positive price flips them &mdash; the top pick wins on both axes.';
+  }
+  $('oP').innerHTML = txt;
+}
+
+function renderNotes(live, P, hp0, floor) {
+  const top = live.slice().sort((a, b) => b.nph - a.nph)[0];
+  const out = [];
+  if (top) out.push('<li><b>Check the first raid against the game:</b> ' + top.o.x + '|' + top.o.y +
+    ', outward <b>' + hm(top.trip.outward) + '</b>, return <b>' + hm(top.trip.homeward) +
+    '</b>, bounty <b>' + nf(top.f.bounty) + '</b>, battle damage <b>' + nf1(top.f.dmg) +
+    ' HP</b>. If these differ, re-paste the hero page and check the equipment summary before using more predictions.</li>');
+  out.push('<li>A solo hero earns animal-kill bounty: <b>' + BOUNTY_PER_SUPPLY +
+    ' resources per killed supply</b>, paid to inventory. It cannot carry stored oasis loot. Raids can leave survivors; '
+    + 'this planner never queues a second visit.</li>');
+  out.push('<li><b>Health:</b> start ' + nf1(hp0) + ' HP; floor ' + nf1(floor) +
+    ' immediately after each battle. Passive regeneration (' + nf1(HERO.regen) +
+    ' HP/day) is estimated during each leg, capped at 100 HP. Return healing cannot save a fatal battle. '
+    + 'The original conservative <b>89 HP single-hit guard</b> is retained; the official death threshold is 90% damage.</li>');
+  out.push('<li><b>Price and time:</b> P = ' + nf(P) +
+    ' resources per point of <b>gross battle damage</b>. Passive healing affects the available HP, not this price. '
+    + 'Maps shorten only the return leg; TS and distance boots affect only the distance beyond 20 fields. '
+    + 'Hover a trip time for the outward/return split. All loaded populated targets remain visible, even when unsafe or low-rate.</li>');
+  out.push('<li><b>Experience:</b> killed supply, boosted by the XP helmet. Estimated level thresholds use '
+    + '<code>25 &times; L &times; (L+1)</code>; level-up heals are informational, not part of the health budget. '
+    + 'Re-paste after a level-up, health change, equipment change or actual raid.</li>');
+  out.push('<li><b>Manual only:</b> sent checkboxes exclude targets from the suggested queue; opening a send link only prefills '
+    + 'a rally point. Confirm the village and raid in game. Dumps are snapshots, not live animal counts. Distances use the '
+    + '401&times;401 world (-200 to 200), wrapping at its edges.</li>');
+
+  $('oNotes').innerHTML = '<h3>Reading this</h3><ul>' + out.join('') + '</ul>';
+}
+
+/* ───────────────────────── self-check ───────────────────────── */
+function selfCheck() {
+  const tests = [], ok = (name, condition) => tests.push({name, pass:!!condition});
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const rejects = fn => {
+    try { fn(); return false; }
+    catch (error) { if (!(error instanceof InputError)) throw error; return true; }
+  };
+  const fixture = 'Example - level 21\nHealth\n61%\nExperience\n12,133\nSpeed\n22 fields/hour\n' +
+    'Fighting strength\n88\n7,765\nOff bonus\n0\n0.0%\nHero equipment benefits\n' +
+    '+15% experience\n+625 fighting strength\n+3 attack and defense for every Swordsman\n' +
+    '+3 damage reduction\nMounts hero\n+10 speed for mounted hero';
+  const hero = parseHeroDump(fixture);
+  const plainTravel = {ts:0, returnSpeed:0, longSpeed:0, regen:10};
+  ok('wrap crosses the world seam', wrap(196 - (-198)) === -7);
+  ok('map ID remains distinct from village ID', mapId(-12, 196) === 1793);
+  ok('known tile ID', mapId(-31, 23) === 71147);
+  ok('reported totals are not re-derived', hero.fs === 7765 && hero.speed === 22);
+  ok('health, XP and level parse', hero.hp === 61 && hero.xp === 12133 && hero.level === 21);
+  ok('active mount, armour and XP helmet parse', hero.mounted && hero.effects.dr === 3 && hero.effects.xp === 15);
+  ok('troop weapon buffs do not affect a solo hero', hero.irrelevant.length === 1 && !hero.blocked);
+  ok('base regeneration is 10 HP/day', hero.regen === 10);
+  ok('partial hero text is rejected', rejects(() => parseHeroDump('Health\n61%')));
+  ok('missing strength is rejected', rejects(() => parseHeroDump(fixture.replace('7,765', 'unknown'))));
+  const fresh = parseHeroDump(fixture.split('Hero equipment benefits')[0] + 'Hero equipment benefits\n');
+  ok('a new equipment section resets every optional effect', Object.values(fresh.effects).every(value => value === 0));
+  ok('no mount is infantry, even with mounted-only spurs', !parseEquipment('+3 speed for mounted hero').mounted);
+  ok('unknown relevant effects block planning', parseHeroDump(fixture + '\n+30% mystery combat bonus').blocked);
+  ok('equipped cages block kill-bounty planning', parseHeroDump(fixture + '\n10 cages').blocked);
+  ok('inventory cages and maps are not equipped benefits',
+    !parseHeroDump('Inventory\n10 cages\nSmall Map\n' + fixture).blocked &&
+    parseHeroDump('Inventory\nSmall Map\n' + fixture).effects.returnSpeed === 0);
+  ok('zero-health hero is blocked', parseHeroDump(fixture.replace('61%', '0%')).blocked);
+  ok('XP discrepancy disables level estimates', !xpState({...hero, xp:1}).known);
+  const regen = parseEquipment('+10 health regeneration per day\n+20 health regeneration per day\n+10 health regeneration per day');
+  ok('all regeneration slots combine', regen.effects.regen === 40);
+  ok('spurs are already in reported speed', parseEquipment('+3 speed for mounted hero').included.length === 1);
+  for (const bonus of [30, 40, 50]) {
+    const equipped = parseHeroDump(fixture + '\n+' + bonus + '% return speed');
+    const trip = travelTimes(22, 1 / equipped.speed, travelEffects(equipped, 0));
+    ok('map +' + bonus + '% is return-only', near(trip.outward, 1) && near(trip.homeward, 1 / (1 + bonus / 100)));
+  }
+  for (const ts of [0, 1, 10, 20]) for (const boots of [0, 25, 50, 75]) {
+    const travel = {...plainTravel, ts, longSpeed:boots};
+    const first = travelTimes(20, 1 / 20, travel);
+    const far = travelTimes(40, 1 / 20, travel);
+    ok('TS ' + ts + ', boots ' + boots + ': first 20 unboosted', near(first.outward, 1));
+    ok('TS ' + ts + ', boots ' + boots + ': bonuses add after 20',
+      near(far.outward, 1 + 1 / (1 + 0.2 * ts + boots / 100)));
+  }
+  const b1 = heroFight([{k:'u31', c:2}], 100.0042, 0, true);
+  ok('raid combat parity', b1.def === 50 && near(b1.bounty, 160) && b1.left === 1);
+  ok('cavalry defence', defOf([{k:'u35', c:10}], true) === 340);
+  ok('infantry defence', defOf([{k:'u35', c:10}], false) === 710);
+  const b2 = heroFight([{k:'u37', c:20}], 6165, 3, true);
+  ok('flat damage reduction', near(b2.raw - b2.dmg, 3));
+  ok('armour never creates negative damage', heroFight([{k:'u31', c:1}], 6165, 3, true).dmg === 0);
+  ok('bounty follows killed supply', b2.bounty === b2.supply * 160);
+  ok('XP follows killed supply and helmet', xpOf(b2, hero) === Math.round(b2.supply * 1.15));
+  ok('lone-hero threshold is preserved', heroFight([{k:'u31', c:1}], 50, 3, true).dmg === 100);
+  ok('conservative damage guard is preserved', heroFight([{k:'u40', c:80}], 900, 3, true).lethal);
+  const trip = {outward:1, homeward:1, total:2};
+  const health = legHealth(50, {dmg:10, lethal:false}, trip, 24);
+  ok('healing before battle and after battle is separate',
+    near(health.atBattle, 51) && near(health.afterBattle, 41) && near(health.home, 42));
+  ok('health never exceeds 100', legHealth(100, {dmg:0, lethal:false}, trip, 100).home === 100);
+  ok('return healing cannot prevent battle death', legHealth(5, {dmg:7, lethal:false}, trip, 24).fatal);
+  ok('regeneration cannot revive', legHealth(0, {dmg:0, lethal:false}, trip, 100).home === 0);
+  const fatalOverlay = levelOverlay([{f:{supply:1000, dmg:70, lethal:false}, trip, fatal:true}], 61, hero);
+  ok('a level-up does not resurrect a fatal battle', fatalOverlay.marks.length === 0);
+  ok('level thresholds invert', lvlForXp(xpForLvl(21)) === 21 && lvlForXp(xpForLvl(21) - 1) === 20);
+  const pool = [{x:0, y:1, d:2, an:[{k:'u31', c:40}, {k:'u32', c:20}]},
+    {x:1, y:1, d:3, an:[{k:'u37', c:25}]}, {x:2, y:2, d:200, an:[{k:'u31', c:1}]}];
+  const plan = bestSession([...pool, pool[0]], 7765, 3, true, 1 / 22, 100, 5, 25, 0, plainTravel);
+  ok('queue has no repeated oases', new Set(plan.steps.map(step => okey(step.o))).size === plan.steps.length);
+  ok('queue respects the post-battle HP floor', plan.steps.every(step => step.health.afterBattle >= 5));
+  ok('queue obeys the damage cap', plan.steps.every(step => step.f.dmg <= 25));
+  ok('distant low-rate target is not filtered out', plan.steps.some(step => step.o.d === 200));
+  ok('queue time sums the shared trips', near(plan.hours, plan.steps.reduce((sum, step) => sum + step.trip.total, 0)));
+  ok('queue health accounts for damage and regeneration', near(100 - plan.spent + plan.healed, plan.hp));
+  ok('greed 100 makes HP free', greedToPrice(100, 600, 4000) === 0);
+  ok('greed 50 uses shadow price', greedToPrice(50, 600, 4000) === 600);
+  ok('greed 0 prices above the best return', greedToPrice(0, 600, 4000) > 4000);
+  const tile = {position:{x:-9, y:198}, title:'{k.fo}',
+    text:'{a:r1} {a.r1} 25%<i class="unit u31"></i><span class="value ">7</span>'};
+  const parsed = parseDump({data:{tiles:[tile]}}, -12, 195);
+  ok('map resource and animals parse', parsed.oases[0].type === 'Wood 25%' && parsed.oases[0].total === 7);
+  ok('latest duplicate tile wins', parseDump({tiles:[tile, {...tile, title:'field'}]}, 0, 0).oases.length === 0);
+  ok('invalid JSON is reported', rejects(() => parseDump('{')));
+  ok('invalid map positions are rejected', rejects(() => parseDump({tiles:[{position:{x:999, y:0}}]})));
+  ok('server path and query are stripped', serverOrigin('example.travian.com/build.php?newdid=5') === 'https://example.travian.com');
+  ok('script URLs are rejected', rejects(() => serverOrigin('javascript:alert(1)')));
+  ok('URL credentials are rejected', rejects(() => serverOrigin('https://user:pass@example.com')));
+  ok('target rows have 14 cells', [...document.querySelectorAll('#oBody tr[data-p]')].every(row => row.cells.length === 14));
+  const html = ['oBody', 'oKpi', 'oPlan', 'oBasket'].map(id => $(id).innerHTML).join('');
+  ok('no invalid numbers in rendered output', !/NaN|undefined|Infinity/.test(html));
+  const bad = tests.filter(test => !test.pass);
+  $('oCheck').innerHTML = '<div class="st ' + (bad.length ? 'st-err' : 'st-ok') + '">'
+    + (bad.length ? bad.length + ' of ' + tests.length + ' checks FAILED' : tests.length + ' / ' + tests.length + ' checks pass')
+    + '</div>' + (bad.length ? '<pre>' + bad.map(test => esc(test.name)).join('\n') + '</pre>' : '');
+  return {total:tests.length, failed:bad.length, tests};
+}
+
+/* ───────────────────────── wiring ───────────────────────── */
+function loadJSON(text, how = 'Pasted') {
+  try {
+    const cfg = settings();
+    let prefix = 'Re-analysed existing dumps.';
+    if (typeof text !== 'string' || text.trim()) {
+      const parsed = parseDump(text, cfg.x, cfg.y);
+      const merged = mergeTiles(parsed.tiles);
+      DUMP = parseDump({tiles:[...TILES.values()]}, cfg.x, cfg.y);
+      prefix = how + ': +' + merged.added + ' new tiles, ' + merged.updated + ' refreshed.';
+    } else if (!DUMP) {
+      throw new InputError('Paste a map JSON dump first.');
+    }
+    $('oStatus').className = 'st st-ok';
+    $('oStatus').textContent = prefix + ' Total ' + DUMP.tiles.length + ' tiles from ' +
+      DUMPS + ' dump' + (DUMPS === 1 ? '' : 's') + '; ' + DUMP.oases.filter(o => o.an.length).length +
+      ' oases with animals. Later copies of the same tile replace earlier ones.';
+    render(); selfCheck();
+    return true;
+  } catch (error) {
+    if (!(error instanceof InputError)) throw error;
+    $('oStatus').className = 'st st-err';
+    $('oStatus').textContent = error.message + (DUMP ? ' Existing dumps were kept.' : '');
+    return false;
+  }
+}
+
+function boot() {
+  $('bExport').addEventListener('click', downloadState);
+  $('bImport').addEventListener('click', () => $('iStateFile').click());
+  $('iStateFile').addEventListener('change', importStateFile);
+  window.addEventListener('pagehide', releaseStateDownload);
+  ['iOcc', 'iSrv', 'iCx', 'iCy', 'iFloor', 'iCap'].forEach(id => $(id).addEventListener('change', render));
+  $('iTs').addEventListener('input', render);
+  const greed = value => {
+    $('iGreedN').value = value;
+    if (value !== '' && Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 100) {
+      $('iGreed').value = value;
+    }
+    $('iP').value = '0'; $('iP').dataset.touched = ''; render();
+  };
+  $('iGreed').addEventListener('input', () => greed($('iGreed').value));
+  $('iGreedN').addEventListener('input', () => greed($('iGreedN').value));
+  $('iP').addEventListener('input', () => { $('iP').dataset.touched = '1'; render(); });
+  $('bAuto').addEventListener('click', () => greed(50));
+
+  $('bGo').addEventListener('click', () => {
+    if (loadJSON($('iPaste').value.trim())) $('iPaste').value = '';
+  });
+  $('bClear').addEventListener('click', () => { $('iPaste').value = ''; DUMP = null;
+    TILES = new Map(); DUMPS = 0; pickClear();
+    $('oStatus').className = 'st st-idle'; $('oStatus').textContent = 'No dump loaded.'; render(); });
+  $('bUncheck').addEventListener('click', () => { SENT = {}; render(); });
+
+  $('bHero').addEventListener('click', () => {
+    const st = $('oHero');
+    try {
+      applyHeroDump(parseHeroDump($('iHero').value.trim()));
+    } catch (error) {
+      if (!(error instanceof InputError)) throw error;
+      HERO = null; HERO_SOURCE = null;
+      st.className = 'st st-err'; st.textContent = 'Could not read that: ' + error.message + ' Previous hero stats were cleared.';
+    }
+    render(); selfCheck();
+  });
+  $('bHeroClear').addEventListener('click', () => {
+    $('iHero').value = ''; HERO = null; HERO_SOURCE = null;
+    $('oHero').className = 'st st-idle'; $('oHero').textContent = 'Nothing read yet.';
+    render();
+  });
+
+  document.querySelectorAll('th[data-s]').forEach(th => th.addEventListener('click', () => {
+    const k = th.getAttribute('data-s');
+    SORT = { key:k, dir: SORT.key === k ? -SORT.dir : -1 };
+    render();
+  }));
+
+  /* delegated, because the tbody is rebuilt on every render */
+  $('oBody').addEventListener('change', e => {
+    const t = e.target;
+    if (!t || !t.classList || !t.classList.contains('sentbox')) return;
+    const k = t.getAttribute('data-k');
+    if (t.checked) SENT[k] = true; else delete SENT[k];
+    render();
+  });
+
+  /* ── drag to select ──
+     Press on a row, pull across as many as you want, let go. The table is NOT
+     re-rendered mid-drag (that would tear the selection out from under the
+     mouse) — rows are toggled in place and only the basket is recomputed. */
+  const rowOf = t => { while (t && t !== document && !(t.tagName === 'TR' && t.getAttribute && t.getAttribute('data-p'))) t = t.parentNode; return t && t.tagName === 'TR' ? t : null; };
+  const skip  = t => { while (t && t !== document) { if (t.classList && (t.classList.contains('sentbox') || t.classList.contains('sendlink') || t.classList.contains('coord'))) return true; t = t.parentNode; } return false; };
+  $('oBody').addEventListener('mousedown', e => {
+    if (e.button !== 0 || skip(e.target)) return;
+    const tr = rowOf(e.target); if (!tr) return;
+    const k = tr.getAttribute('data-p'), idx = ROWKEYS.indexOf(k);
+    if (idx < 0) return;
+    /* cache every row element up front so a fast drag still paints the rows
+       the mouse flew over without ever firing on them */
+    const nodes = new Map();
+    (document.querySelectorAll('#oBody tr[data-p]') || []).forEach(el =>
+      nodes.set(el.getAttribute('data-p'), el));
+    nodes.set(k, tr);
+    DRAG = { add: !PICK[k], anchor: idx, before: ORDER.slice(), nodes };
+    const tb = $('oTab'); if (tb) tb.classList.add('dragging');
+    dragTo(idx); renderBasket();
+    if (e.preventDefault) e.preventDefault();
+  });
+  $('oBody').addEventListener('mouseover', e => {
+    if (!DRAG) return;
+    const tr = rowOf(e.target); if (!tr) return;
+    const k = tr.getAttribute('data-p'), idx = ROWKEYS.indexOf(k);
+    if (idx < 0) return;
+    DRAG.nodes.set(k, tr);
+    dragTo(idx); renderBasket();
+  });
+  document.addEventListener('mouseup', () => {
+    if (!DRAG) return;
+    DRAG = null;
+    const tb = $('oTab'); if (tb) tb.classList.remove('dragging');
+    renderBasket();
+  });
+
+  render(); selfCheck();
+}
+
+if (typeof document !== 'undefined' && document.addEventListener) boot();
+</script>
+</body>
+</html>

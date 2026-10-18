@@ -13,6 +13,7 @@
 .troops{flex-wrap:wrap}.settings>*{min-width:0}.yield-settings{grid-column:1/-1;border-top:1px solid var(--line);padding-top:14px}.yield-settings label{display:block}.yield-settings input{display:block;margin:10px 0;width:100%;max-width:600px;accent-color:var(--green)}.yield-settings output{color:var(--green);font-weight:750}.wood{color:#9dd49e}.crop{color:#efcf7e}.mixed-list td{padding:10px}.kpi strong{font-size:clamp(18px,2vw,29px)}.kpi .budget{font-size:clamp(16px,2vw,22px)}.cost-note{margin:18px 0;font-family:inherit}.cost-note p{margin:6px 0}
 .oasis-enabled{width:17px;height:17px;accent-color:var(--green);cursor:pointer}.farm-list tr.inactive td:not(:first-child){opacity:.5}.farm-list tr.inactive{background:#17202b}
 .preset-group{margin:20px 0}.preset-group h2{font-size:19px;margin:0 0 10px}.preset-group .presets{grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))}
+.target-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.target-tools h3{margin:0}.target-tools label{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.target-tools select{font:inherit;color:var(--ink);background:#0c1a2a;border:1px solid var(--line);border-radius:7px;padding:8px 10px}.target-tools select:focus-visible{outline:3px solid var(--amber);outline-offset:3px}
 .village-settings{grid-column:1/-1;border-top:1px solid var(--line);padding-top:14px}.village-settings input[type=range]{display:block;width:100%;max-width:600px;margin:10px 0;accent-color:var(--green)}.village-settings output{color:var(--green);font-weight:750}.army-inputs{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}.army-inputs label{flex:1 1 100px;max-width:180px}.army-inputs input{width:100%;min-width:0;background:#0c1a2a;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 10px}.army-summary{padding:14px 18px;border:1px solid var(--line);border-radius:8px;margin:14px 0;background:var(--panel)}.army-summary p{margin:5px 0}.budget-marker{display:inline-block;margin-left:7px;padding:1px 5px;font-size:10px;border:1px solid currentColor;border-radius:4px}.funded .budget-marker{color:var(--green)}.over-budget .budget-marker{color:var(--amber)}tr.funded td{background:#123128}tr.over-budget td{background:#2d2621}.farm-list tr.funding-stop td{border-top:3px solid var(--amber)}
 @media print{:root{--bg:#fff;--panel:#fff;--line:#bbb;--ink:#111;--muted:#555;--green:#17563b;--blue:#245483}main{max-width:none;padding:0}.controls,#download-csv,#reactivate-all,#status,footer{display:none}.callout,.formula{background:#f5f5f5}.table-scroll,.list-scroll{max-height:none;overflow:visible}.farm-list th{position:static}.farm-list tr.inactive{background:#eee}th{background:#eee;color:#111}th,td{padding:5px}table{font-size:10px}.clay{color:#945126}.iron{color:#245483}}
 </style>
@@ -102,12 +103,23 @@ has spawn -87 0</pre>
     <span id="raid-note"></span></p>
   <div id="cost-note" class="formula cost-note" hidden></div>
   <div id="plan-warnings" class="callout" hidden></div>
-  <h3 id="order-title">Full add order &mdash; closest first</h3>
+  <div class="target-tools">
+    <h3 id="order-title">Full add order &mdash; closest first</h3>
+    <label id="resource-filter-control" class="controls" for="resource-filter">Show targets
+      <select id="resource-filter">
+        <option value="all">All resources</option>
+        <option value="clay-iron">Clay / iron</option>
+        <option value="wood-crop">Wood / crop</option>
+      </select>
+    </label>
+  </div>
   <p class="small">Times are hours:minutes:seconds, rounded for display. Allocations use full-precision round trips.
     Click a coordinate to open its game details in a new tab.
     Uncheck <strong>Use</strong> to deactivate an oasis. Grey rows show its requirements for reference but do not add to any budget.
     Your selections stay in this tab per village/server; they are not saved after a reload.</p>
+  <p id="resource-filter-note" class="small" role="status"></p>
   <div id="target-table" class="table-scroll list-scroll"></div>
+  <p id="resource-filter-empty" class="small" hidden></p>
   <h3>Horse budget by radius</h3>
   <p class="small">An alternative to priority order: each radius prices all enabled, listed targets inside that circle.
     A partially scanned circle is only a lower bound. A funded distant target does not mean every nearer target fits.</p>
@@ -464,6 +476,11 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   const $ = id => document.getElementById(id);
   let activeSource = null, activeModel = null, activeContext = null, controlsContext = null, currentPlan = null, fileSequence = 0, csvUrl = null;
   const villageSettings = new Map();
+  const RESOURCE_VIEWS = {
+    all:{label:'All resources',groups:['clay','iron','wood','crop']},
+    'clay-iron':{label:'Clay / iron',groups:['clay','iron']},
+    'wood-crop':{label:'Wood / crop',groups:['wood','crop']}
+  };
   const troop = () => document.querySelector('input[name="troop"]:checked').value;
   const selectedTypes = () => troop() === 'mixed' ? ['ei','ec'] : [troop()];
   function settingsFor(context) {
@@ -531,6 +548,25 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   }
   function highlight(id) {
     document.querySelectorAll('[data-preset]').forEach(button => button.setAttribute('aria-pressed',String(button.dataset.preset === id)));
+  }
+
+  function applyResourceFilter(plan) {
+    const picker = $('resource-filter');
+    picker.disabled = !plan.mixed;
+    $('resource-filter-control').hidden = !plan.mixed;
+    const selected = plan.mixed ? picker.value : 'clay-iron';
+    if (!own(RESOURCE_VIEWS,selected)) throw new Error('Choose All resources, Clay / iron or Wood / crop.');
+    const view = RESOURCE_VIEWS[selected];
+    let shown = 0, enabled = 0;
+    $('target-table').querySelectorAll('tbody tr').forEach((tr,index) => {
+      const row = plan.rows[index], visible = view.groups.includes(row.group);
+      tr.hidden = !visible;
+      if (visible) { shown++; if (row.active) enabled++; }
+    });
+    $('resource-filter-note').textContent = `${view.label}: ${shown} of ${plan.rows.length} targets shown; ${enabled} enabled, ${shown-enabled} disabled. `+
+      'View only: original ranks and shared budgets are unchanged. Hidden enabled targets still count; CSV keeps the full list.';
+    $('resource-filter-empty').hidden = shown > 0 || plan.rows.length === 0;
+    $('resource-filter-empty').textContent = `No ${view.label.toLowerCase()} targets in this snapshot. Choose another resource view.`;
   }
 
   function render(plan,server,source,budget) {
@@ -659,6 +695,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       ${source.originHeader ? '<p>This dump had no origin header. The first line was added when bundling, using the supplied village coordinates.</p>' : ''}
       ${source.sha256 ? `<p>Embedded source SHA-256:<br><code>${esc(source.sha256)}</code></p>` : ''}
       <p>Links: <code>${esc(server)}</code>. Custom data is not uploaded or saved by this page.</p>`;
+    applyResourceFilter(plan);
     $('results').hidden = false;
     $('download-csv').disabled = false;
     $('reactivate-all').disabled = plan.disabledCount === 0;
@@ -721,6 +758,15 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       updateVillageControls();
       if (activeSource) calculate(activeSource);
     });
+  });
+  $('resource-filter').addEventListener('change',() => {
+    if (!currentPlan) return;
+    if (!own(RESOURCE_VIEWS,$('resource-filter').value)) {
+      status('Choose All resources, Clay / iron or Wood / crop.','bad');
+      return;
+    }
+    applyResourceFilter(currentPlan);
+    $('target-table').scrollTop = 0;
   });
   $('target-table').addEventListener('change',event => {
     const input = event.target;

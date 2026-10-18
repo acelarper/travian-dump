@@ -13,6 +13,7 @@
 .controls{display:grid;grid-template-columns:minmax(190px,2fr) minmax(190px,2fr) minmax(130px,1fr) minmax(130px,1fr);gap:18px;padding:17px;background:var(--panel);border:1px solid var(--line);border-radius:10px}.controls label{display:block;color:var(--muted);font-size:12px}.controls output{float:right;color:var(--text);font-weight:750}.controls input[type=range]{display:block;width:100%;margin:14px 0 3px;accent-color:var(--ci)}#wood-bonus{accent-color:var(--wc)}.controls input[type=number]{display:block;width:100%;margin-top:8px;padding:8px 10px;background:#101b29;border:1px solid var(--line);border-radius:6px;color:var(--text);min-width:0}.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0}input[type=checkbox]{width:16px;height:16px;accent-color:var(--ci);cursor:pointer}.legend{display:flex;gap:9px}.tag{display:inline-block;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:750;white-space:nowrap}.tag.ci{color:var(--ci);background:#173b3c}.tag.wc{color:var(--wc);background:#3a2851}.small{font-size:12px;color:var(--muted)}#unit-stats{margin:8px 0}#summary{margin:12px 0;padding:10px 13px;background:var(--panel);border:1px solid var(--line);border-radius:7px}#summary.error{border-color:var(--bad);color:var(--bad)}#comparison{margin:8px 0}
 .scroll{max-height:72vh;overflow:auto;border:1px solid var(--line);border-radius:9px}table{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}th,td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{text-transform:uppercase;letter-spacing:.035em;font-size:10px;color:var(--muted);background:var(--panel);position:sticky;top:0;z-index:1}th.left,td.left{text-align:left}td a{font-weight:650}.family-ci td{background:#152f32}.family-wc td{background:#2c243c}.family-ci td:first-child{border-left:4px solid var(--ci)}.family-wc td:first-child{border-left:4px solid var(--wc)}tr.off td:not(:first-child):not(.kind){color:var(--muted)}tr.off .amount{opacity:.6}.kind .small{display:block;margin-top:3px}tr.first-short td{border-top:3px solid var(--warn)}.cumulative{font-weight:650}.cumulative.fits{color:var(--good)}.cumulative.short{color:var(--warn)}footer{margin-top:12px;font-size:11px;color:var(--muted)}[hidden]{display:none!important}
 .village-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.village-tabs button{text-align:left}.village-tabs button[aria-selected=true]{background:#214449;border-color:var(--ci);color:var(--ci)}.village-tabs small{display:block;color:var(--muted);font-size:11px}
+.type-filter{display:flex;align-items:center;gap:8px;margin-left:auto;color:var(--muted);font-size:12px}.type-filter select{font:inherit;color:var(--text);background:#101b29;border:1px solid var(--line);border-radius:6px;padding:7px 9px}.type-filter select:focus-visible{outline:3px solid var(--warn);outline-offset:3px}th[aria-sort]{cursor:pointer}th .sort-button{display:block;width:100%;text-align:right;border:0;border-radius:0;background:none;padding:0;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit}th .sort-button:hover{color:var(--text)}#view-note{margin:8px 0}
 @media(max-width:950px){.controls{grid-template-columns:repeat(2,minmax(0,1fr))}.legend{margin-left:0;flex-wrap:wrap}}
 @media(max-width:480px){main{padding:14px}h1{font-size:23px}.controls{gap:14px;padding:13px}.controls .slider{grid-column:1/-1}header p{font-size:12px}.scroll{max-height:70vh}}
 @media print{.controls,.toolbar,.village-tabs,header button{display:none}.scroll{max-height:none;overflow:visible}th{position:static}body{background:white;color:black}th,td{font-size:10px;padding:4px}main{padding:0}}
@@ -43,18 +44,31 @@
   </section>
   <div class="toolbar">
     <div class="legend"><span class="tag ci">Clay / iron: 1 TT</span><span class="tag wc">Wood / crop: 1 TT + 1 Haeduan</span></div>
+    <label class="type-filter" for="resource-filter">Show
+      <select id="resource-filter">
+        <option value="all">All</option>
+        <option value="clay-iron">Clay / iron</option>
+        <option value="wood-crop">Wood / crop</option>
+      </select>
+    </label>
   </div>
   <p id="unit-stats" class="small"></p>
-  <p id="comparison" class="small">Lower cost/yield ranks first. Hover a score for the exact pair comparison.</p>
+  <p id="comparison" class="small">Cost/yield: lowest first. Cumulative totals follow this order; filters only hide rows.</p>
   <div id="summary" role="status" aria-live="polite">Loading the embedded list...</div>
+  <p id="view-note" class="small" role="status" hidden></p>
   <div id="list" class="scroll" hidden>
     <table>
       <thead><tr>
         <th class="left">Use</th><th>#</th><th class="left">Oasis</th><th class="left">Target</th>
         <th>Fields</th><th>Round trip</th><th class="left">Per raid</th>
         <th title="Troops in rotation for this target, not the number per raid.">Units</th>
-        <th title="Total rotation troops through enabled targets in this order. Green fits the entered army; amber exceeds it.">Cumulative</th>
-        <th title="Rotation training cost divided by assumed relative yield. Lower is better.">Cost / yield</th>
+        <th title="Total rotation troops through enabled targets in the selected sort order, including hidden types. Green fits the entered army; amber exceeds it.">Cumulative</th>
+        <th id="yield-heading" aria-sort="none" title="Assumed relative yield, not measured loot. 1.00x for clay/iron; 1.80x for wood/crop at +80%.">
+          <button id="sort-yield" class="sort-button" type="button">Yield <span id="yield-arrow" aria-hidden="true"></span></button>
+        </th>
+        <th id="cost-heading" aria-sort="ascending" title="Rotation training cost divided by assumed relative yield. Click to restore cost ordering.">
+          <button id="sort-cost" class="sort-button" type="button">Cost / yield <span id="cost-arrow" aria-hidden="true">&#9652;</span></button>
+        </th>
       </tr></thead><tbody id="rows"></tbody>
     </table>
   </div>
@@ -142,6 +156,11 @@
     const origin = readOrigin(options.origin === undefined ? ORIGIN : options.origin);
     const ts = integer(options.ts === undefined ? 0 : options.ts,0,20,'Tournament Square');
     const bonus = integer(options.bonus === undefined ? 80 : options.bonus,0,400,'Wood/crop percentage');
+    const sortBy = options.sortBy === undefined ? 'cost' : options.sortBy;
+    const sortDirection = options.sortDirection === undefined ? (sortBy === 'yield' ? 'desc' : 'asc') : options.sortDirection;
+    if (!['cost','yield'].includes(sortBy) || !['asc','desc'].includes(sortDirection)) {
+      throw new Error('Choose cost or yield sorting with an ascending or descending direction.');
+    }
     const ttAvailable = availableCount(options.ttAvailable,'TT available');
     const haeAvailable = availableCount(options.haeAvailable,'Haeduan available');
     const known = new Set(farms.map(key));
@@ -158,7 +177,12 @@
       return {...farm,key:key(farm),squared,distance:fields,speed,tt,hae,cost,weight,score:cost*100/weight,
         oneWaySeconds:travelSeconds(fields,speed,ts),roundTripSeconds:2*travelSeconds(fields,speed,ts),
         pairBreakEven: farm.paired ? 100*(cost/soloCost-1) : null};
-    }).sort((a,b) => a.cost*b.weight-b.cost*a.weight || a.squared-b.squared || a.x-b.x || a.y-b.y)
+    }).sort((a,b) => {
+      const costOrder = a.cost*b.weight-b.cost*a.weight;
+      const primary = sortBy === 'yield' ? a.weight-b.weight : costOrder;
+      return (sortDirection === 'asc' ? primary : -primary) ||
+        (sortBy === 'yield' ? costOrder : 0) || a.squared-b.squared || a.x-b.x || a.y-b.y;
+    })
       .map((row,index) => {
         const active = enabled.has(row.key);
         if (active) { totalTT += row.tt; totalHae += row.hae; activeCount++; }
@@ -174,7 +198,7 @@
         farthest = Math.max(farthest ?? 0,row.distance);
       }
     }
-    return {rows,origin,ts,bonus,ttAvailable,haeAvailable,poolKnown,activeCount,totalTT,totalHae,
+    return {rows,origin,ts,bonus,sortBy,sortDirection,ttAvailable,haeAvailable,poolKnown,activeCount,totalTT,totalHae,
       fitted,usedTT,usedHae,farthest,firstShort:rows.find(row => row.fits === false) || null};
   }
   function duration(seconds) {
@@ -217,6 +241,7 @@
     $('ts').value = state.ts; $('wood-bonus').value = state.bonus;
     $('tt-available').value = state.ttAvailable ?? '';
     $('hae-available').value = state.haeAvailable ?? '';
+    $('resource-filter').value = state.filter;
     $('village-name').textContent = village.name;
     $('home-link').textContent = coord(village.origin);
     $('home-link').href = targetUrl(village.origin);
@@ -237,6 +262,13 @@
     return availableCount(input.value.trim() === '' ? null : Number(input.value),label);
   }
   function paint(result) {
+    for (const kind of ['yield','cost']) {
+      const selected = result.sortBy === kind;
+      $(kind+'-heading').setAttribute('aria-sort',selected ? result.sortDirection === 'asc' ? 'ascending' : 'descending' : 'none');
+      $(kind+'-arrow').textContent = selected ? result.sortDirection === 'asc' ? '\u25b4' : '\u25be' : '';
+    }
+    $('comparison').textContent = `${result.sortBy === 'yield' ? 'Yield' : 'Cost/yield'}: ${result.sortDirection === 'asc' ? 'lowest' : 'highest'} first. `+
+      'Cumulative totals follow this order; filters only hide rows.';
     $('summary').className = '';
     $('summary').setAttribute('role','status');
     $('summary').textContent = !result.rows.length ? 'No free oases in this snapshot.'
@@ -260,10 +292,25 @@
         <td class="left">${row.paired ? '1 TT + 1 Haeduan' : '1 TT'}</td>
         <td class="amount">${units(row.tt,row.hae)}</td>
         <td class="amount cumulative${availability}" title="${esc(cumulative)}">${units(row.cumulativeTT,row.cumulativeHae)}</td>
+        <td class="amount yield">${(row.weight/100).toFixed(2)}x</td>
         <td class="amount" title="${esc(math)}">${scoreText(row.score)}</td></tr>`;
     }).join('');
+    applyResourceFilter(result);
     $('list').hidden = false;
     $('download').disabled = result.activeCount === 0;
+  }
+  function applyResourceFilter(result) {
+    const filter = states[activeVillage].filter;
+    if (!['all','clay-iron','wood-crop'].includes(filter)) throw new Error('Choose All, Clay / iron or Wood / crop.');
+    let shown = 0, active = 0;
+    [...$('rows').children].forEach((tr,index) => {
+      const row = result.rows[index];
+      const visible = filter === 'all' || (filter === 'wood-crop' ? row.paired : !row.paired);
+      tr.hidden = !visible;
+      if (visible) { shown++; if (row.active) active++; }
+    });
+    $('view-note').hidden = filter === 'all' || !result.rows.length;
+    $('view-note').textContent = `${shown} / ${result.rows.length} targets shown (${active} enabled). Totals and CSV retain hidden enabled targets.`;
   }
   function recompute() {
     $('ts-value').textContent = $('ts').value;
@@ -271,20 +318,38 @@
     try {
       if (activeVillage < 0) throw new Error('Select a village first.');
       const result = plan(farms,{origin:villages[activeVillage].origin,ts:Number($('ts').value),bonus:Number($('wood-bonus').value),
+        sortBy:states[activeVillage].sortBy,sortDirection:states[activeVillage].sortDirection,
         ttAvailable:inputCount('tt-available','TT available'),haeAvailable:inputCount('hae-available','Haeduan available'),
         enabled:[...enabled]});
       paint(result);
       Object.assign(states[activeVillage],{ts:result.ts,bonus:result.bonus,
-        ttAvailable:result.ttAvailable,haeAvailable:result.haeAvailable});
+        ttAvailable:result.ttAvailable,haeAvailable:result.haeAvailable,
+        sortBy:result.sortBy,sortDirection:result.sortDirection});
       current = result;
     } catch (error) {
       current = null;
       $('list').hidden = true; $('download').disabled = true;
+      $('view-note').hidden = true;
       $('summary').className = 'error'; $('summary').textContent = error.message || String(error);
       $('summary').setAttribute('role','alert');
     }
   }
   for (const id of ['ts','wood-bonus','tt-available','hae-available']) $(id).addEventListener('input',recompute);
+  for (const kind of ['yield','cost']) $(kind+'-heading').addEventListener('click',() => {
+    if (activeVillage < 0) return;
+    const state = states[activeVillage];
+    state.sortDirection = state.sortBy === kind ? state.sortDirection === 'asc' ? 'desc' : 'asc'
+      : kind === 'yield' ? 'desc' : 'asc';
+    state.sortBy = kind;
+    recompute();
+    $('list').scrollTop = 0;
+  });
+  $('resource-filter').addEventListener('change',() => {
+    if (activeVillage < 0) return;
+    states[activeVillage].filter = $('resource-filter').value;
+    recompute();
+    $('list').scrollTop = 0;
+  });
   $('village-tabs').addEventListener('click',event => {
     const button = event.target.closest('button[data-village]');
     if (button) selectVillage(Number(button.dataset.village));
@@ -323,7 +388,8 @@
   $('unit-stats').textContent = `Kirilloid T4.6: TT ${number(TT.cost)} res / ${TT.speed} fields/h; Haeduan ${number(HAEDUAN.cost)} res / ${HAEDUAN.speed} fields/h. Pair: ${number(TT.cost+HAEDUAN.cost)} res / ${Math.min(TT.speed,HAEDUAN.speed)} fields/h (base speeds).`;
   try {
     villages = readVillages(JSON.parse($('village-data').textContent));
-    states = villages.map(village => ({ts:0,bonus:80,ttAvailable:null,haeAvailable:null,enabled:new Set(village.farms.map(key))}));
+    states = villages.map(village => ({ts:0,bonus:80,ttAvailable:null,haeAvailable:null,
+      sortBy:'cost',sortDirection:'asc',filter:'all',enabled:new Set(village.farms.map(key))}));
     villages.forEach((village,index) => {
       const button = document.createElement('button');
       button.type = 'button'; button.id = 'village-tab-'+index; button.dataset.village = index;
@@ -335,7 +401,7 @@
   } catch (error) {
     $('summary').className = 'error'; $('summary').textContent = `Cannot load the list: ${error.message || error}`;
     $('summary').setAttribute('role','alert');
-    document.querySelectorAll('.controls input,.village-tabs button').forEach(input => { input.disabled = true; });
+    document.querySelectorAll('.controls input,.village-tabs button,#resource-filter,.sort-button').forEach(input => { input.disabled = true; });
   }
 })();
 </script>

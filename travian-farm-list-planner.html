@@ -23,7 +23,8 @@
   <div class="eyebrow">Travian / standalone farm rotation planner</div>
   <h1>EI, TT or EI + EC.</h1>
   <p class="lead">Pick a built-in village or open your own dump. The origin comes from the <strong>first line</strong>.
-  Farm every <strong>6 minutes</strong>: EI/TT lists clay/iron nearest-first; EI + EC includes wood/crop and ranks additions by <strong>troop cost per relative yield</strong>.</p>
+  Choose a <strong>6-minute</strong> plan or <strong>EI + EC every 10 minutes</strong>.
+  EI/TT lists clay/iron nearest-first; both EI + EC plans include all free oasis types and rank by <strong>troop cost per relative yield</strong>.</p>
 </header>
 <div class="controls">
   <form id="settings" class="settings">
@@ -31,9 +32,10 @@
       <div class="troops">
         <label><input type="radio" name="troop" value="ei" checked> <span><strong>EI</strong> &middot; 14 fields/h</span></label>
         <label><input type="radio" name="troop" value="tt"> <span><strong>TT</strong> &middot; 19 fields/h</span></label>
-        <label><input type="radio" name="troop" value="mixed"> <span><strong>EI + EC</strong> &middot; cost ranking</span></label>
+        <label><input type="radio" name="troop" value="mixed"> <span><strong>EI + EC</strong> &middot; 6 min</span></label>
+        <label><input type="radio" name="troop" value="paired10"> <span><strong>EI + EC</strong> &middot; 10 min</span></label>
       </div>
-      <span class="locked">Fixed interval: 6 minutes. Tournament Square below; no other speed bonuses.</span>
+      <span id="interval-note" class="locked">Fixed interval: 6 minutes. Tournament Square below; no other speed bonuses.</span>
     </fieldset>
     <label><span class="field-label">Game server / game URL (for click-only coordinate links)</span>
       <input id="server" type="url" value="https://ts7.x1.europe.travian.com" required spellcheck="false">
@@ -56,7 +58,7 @@
     <div id="yield-settings" class="yield-settings" hidden>
       <label for="yield-bonus">Wood/crop extra resources: <output id="yield-value" for="yield-bonus">+80% (1.80x yield)</output></label>
       <input id="yield-bonus" type="range" min="0" max="400" step="5" value="80" disabled>
-      <p class="small">0% = equal yield; 80% = 1.8 times the resources. Clay/iron: <strong>1 EI at base 14 fields/h</strong>.
+      <p id="yield-note" class="small">0% = equal yield; 80% = 1.8 times the resources. Clay/iron: <strong>1 EI at base 14 fields/h</strong>.
       Wood/crop: <strong>1 EI + 1 EC together at base 10 fields/h</strong>. All targets still get one raid every six minutes.</p>
     </div>
   </form>
@@ -134,7 +136,7 @@ has spawn -87 0</pre>
 </section>
 <footer>Calculations run locally. Cloudflare Web Analytics records page visits and performance statistics.
 No automatic game requests, farming timers, polling or troop sending.
-The six-minute interval is only used in the calculation. Map geometry: 401 &times; 401, wrapping at -200/+200.
+The selected six- or ten-minute interval is only used in the calculation. Map geometry: 401 &times; 401, wrapping at -200/+200.
 Occupied oases are excluded. EI/TT only include clay/iron; EI + EC includes all free oases.
 Clay/crop and iron/crop still use the clay/iron recipe and count once each.</footer>
 <noscript><p>This calculator needs JavaScript enabled; calculations run locally.</p></noscript>
@@ -154,7 +156,10 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   });
   const MODES = Object.freeze({
     ei:UNITS.ei, tt:UNITS.tt,
-    mixed:Object.freeze({ key:'mixed', short:'EI + EC', name:'EI/EC mixture' })
+    mixed:Object.freeze({ key:'mixed', short:'EI + EC', name:'EI/EC mixture', mixed:true,
+      intervalSeconds:360,defaultYieldBonus:DEFAULT_YIELD_BONUS,pairedAll:false }),
+    paired10:Object.freeze({ key:'paired10', short:'EI + EC (10 min)', name:'EI/EC pairs every ten minutes', mixed:true,
+      intervalSeconds:600,defaultYieldBonus:20,pairedAll:true })
   });
   const RESOURCES = { r1:'Wood', r2:'Clay', r3:'Iron', r4:'Crop' };
   const ANIMALS = {
@@ -282,8 +287,9 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     return 3600*effectiveFields/speed;
   }
 
-  function rotationUnits(fields, speed, tsLevel = 0) {
-    return Math.max(1,Math.ceil(2*travelSeconds(fields,speed,tsLevel)/INTERVAL_SECONDS - 1e-12));
+  function rotationUnits(fields, speed, tsLevel = 0, intervalSeconds = INTERVAL_SECONDS) {
+    if (!Number.isSafeInteger(intervalSeconds) || intervalSeconds <= 0) throw new Error('Raid interval must be a positive whole number of seconds.');
+    return Math.max(1,Math.ceil(2*travelSeconds(fields,speed,tsLevel)/intervalSeconds - 1e-12));
   }
 
   function coverage(known, origin, radius) {
@@ -311,11 +317,13 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     return Math.ceil(Math.sqrt(nearestMissingSquared))-1;
   }
 
-  function buildPlan(model, unitKey, yieldBonusPercent = DEFAULT_YIELD_BONUS, inactiveKeys = [], tsLevel = 0) {
+  function buildPlan(model, unitKey, yieldBonusPercent, inactiveKeys = [], tsLevel = 0) {
     if (!model || !Array.isArray(model.tiles)) throw new Error('Load a valid map dump first.');
-    if (!own(MODES,unitKey)) throw new Error('Select EI or TT, or the EI + EC mixture.');
+    if (!own(MODES,unitKey)) throw new Error('Select EI or TT, or an EI + EC plan.');
     validateTS(tsLevel);
-    const mixed = unitKey === 'mixed';
+    const unit = MODES[unitKey], mixed = unit.mixed === true;
+    const intervalSeconds = unit.intervalSeconds ?? INTERVAL_SECONDS;
+    if (yieldBonusPercent === undefined) yieldBonusPercent = unit.defaultYieldBonus ?? DEFAULT_YIELD_BONUS;
     if (mixed && (!Number.isFinite(yieldBonusPercent) || yieldBonusPercent < 0 || yieldBonusPercent > MAX_YIELD_BONUS)) {
       throw new Error(`Wood/crop extra resources must be a number from 0 to ${MAX_YIELD_BONUS}%.`);
     }
@@ -327,7 +335,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       }
       return `${Number(match[1])}|${Number(match[2])}`;
     }));
-    const unit = MODES[unitKey], known = new Set(model.tiles.map(key));
+    const known = new Set(model.tiles.map(key));
     const home = model.tiles.find(t => t.x === model.origin.x && t.y === model.origin.y);
     if (home && !['village','empty'].includes(home.kind)) throw new Error('The first-line origin points to an oasis or terrain, not a village site. Check its coordinates.');
     const warnings = [];
@@ -336,22 +344,25 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     let total = 0, totalEi = 0, totalEc = 0, totalTt = 0, totalCost = 0, activeCount = 0;
     const rows = model.tiles.filter(t => t.free && (mixed || ['clay','iron'].includes(t.group))).map(t => {
       const dx = wrap(t.x-model.origin.x), dy = wrap(t.y-model.origin.y);
-      const fields = Math.hypot(dx,dy), paired = mixed && ['wood','crop'].includes(t.group);
-      const speed = paired ? UNITS.ec.speed : mixed ? UNITS.ei.speed : unit.speed;
-      const rotation = rotationUnits(fields,speed,tsLevel);
+      const fields = Math.hypot(dx,dy), woodCrop = ['wood','crop'].includes(t.group);
+      const paired = mixed && (unit.pairedAll || woodCrop);
+      const speed = paired ? Math.min(UNITS.ei.speed,UNITS.ec.speed) : mixed ? UNITS.ei.speed : unit.speed;
+      const rotation = rotationUnits(fields,speed,tsLevel,intervalSeconds);
       const oneWaySeconds = travelSeconds(fields,speed,tsLevel);
       const ei = mixed || unitKey === 'ei' ? rotation : 0;
       const ec = paired ? rotation : 0, tt = unitKey === 'tt' ? rotation : 0;
       const trainingCost = ei*UNITS.ei.cost + ec*UNITS.ec.cost + tt*UNITS.tt.cost;
-      const yieldMultiplier = paired ? 1+yieldBonusPercent/100 : 1;
+      const yieldWeight = mixed && woodCrop ? 100+yieldBonusPercent : 100;
+      const yieldMultiplier = yieldWeight/100;
       return {
         ...t, squared:dx*dx+dy*dy, distance:fields, speed, rotation, ei, ec, tt,
         perRaidEi:ei ? 1 : 0, perRaidEc:ec ? 1 : 0,
         raidLabel:paired ? '1 EI + 1 EC' : `1 ${mixed ? 'EI' : unit.short}`,
-        units:ei+ec+tt, trainingCost, yieldMultiplier, adjustedCost:trainingCost/yieldMultiplier,
+        units:ei+ec+tt, trainingCost, yieldWeight, yieldMultiplier, adjustedCost:trainingCost*100/yieldWeight,
         oneWaySeconds, roundTripSeconds:2*oneWaySeconds
       };
-    }).sort((a,b) => (mixed ? a.adjustedCost-b.adjustedCost : 0) || a.squared-b.squared || a.x-b.x || a.y-b.y).map((t,index) => {
+    }).sort((a,b) => (mixed ? a.trainingCost*b.yieldWeight-b.trainingCost*a.yieldWeight : 0) ||
+      a.squared-b.squared || a.x-b.x || a.y-b.y).map((t,index) => {
       const active = !inactive.has(key(t));
       if (active) {
         activeCount++;
@@ -385,7 +396,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       };
     });
     return {
-      model,unit,mixed,tsLevel,yieldBonusPercent:mixed ? yieldBonusPercent : 0,
+      model,unit,mixed,intervalSeconds,tsLevel,yieldBonusPercent:mixed ? yieldBonusPercent : 0,
       rows,activeCount,disabledCount:rows.length-activeCount,total,totalEi,totalEc,totalTt,totalCost,warnings,bands,completeRadius:complete,
       clay:activeRows.filter(t => t.group === 'clay').length,
       iron:activeRows.filter(t => t.group === 'iron').length,
@@ -459,7 +470,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     for (const row of plan.rows) rows.push([
       row.order,row.x,row.y,oasisName(row),row.distance.toFixed(8),
       row.oneWaySeconds.toFixed(6),row.roundTripSeconds.toFixed(6),
-      plan.mixed ? row.ec ? 'EI + EC' : 'EI' : plan.unit.short,row.speed,6,row.units,row.cumulative,
+      plan.mixed ? row.ec ? 'EI + EC' : 'EI' : plan.unit.short,row.speed,plan.intervalSeconds/60,row.units,row.cumulative,
       ...(plan.mixed ? [row.perRaidEi,row.perRaidEc,row.ei,row.ec,row.cumulativeEi,row.cumulativeEc,
         row.trainingCost,row.cumulativeCost,row.yieldMultiplier,row.adjustedCost.toFixed(8),plan.yieldBonusPercent] : []),
       row.active,row.activeOrder ?? '',plan.tsLevel
@@ -476,13 +487,15 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   const $ = id => document.getElementById(id);
   let activeSource = null, activeModel = null, activeContext = null, controlsContext = null, currentPlan = null, fileSequence = 0, csvUrl = null;
   const villageSettings = new Map();
+  const yieldByMode = new Map(Object.values(MODES).filter(mode => mode.mixed).map(mode => [mode.key,mode.defaultYieldBonus]));
   const RESOURCE_VIEWS = {
     all:{label:'All resources',groups:['clay','iron','wood','crop']},
     'clay-iron':{label:'Clay / iron',groups:['clay','iron']},
     'wood-crop':{label:'Wood / crop',groups:['wood','crop']}
   };
   const troop = () => document.querySelector('input[name="troop"]:checked').value;
-  const selectedTypes = () => troop() === 'mixed' ? ['ei','ec'] : [troop()];
+  const selectedMode = () => MODES[troop()];
+  const selectedTypes = () => selectedMode().mixed ? ['ei','ec'] : [troop()];
   function settingsFor(context) {
     if (!villageSettings.has(context)) villageSettings.set(context,{
       inactive:new Set(),tsLevel:0,available:{ei:null,ec:null,tt:null}
@@ -494,8 +507,8 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     const level = Number($('tournament-square').value);
     $('ts-value').textContent = level;
     $('ts-hint').textContent = `The first 20 fields stay at base speed; beyond that, speed is ${(1+TS_STEP*level).toFixed(1)}x. `+
-      (troop() === 'mixed'
-        ? 'Mixed mode re-ranks rounded EI/EC costs, so priorities can change.'
+      (selectedMode().mixed
+        ? 'EI + EC modes re-rank rounded troop costs, so priorities can change.'
         : 'Closest-first order stays the same; distant targets need fewer rotation troops.');
     for (const type of ['ei','ec','tt']) {
       $('available-'+type+'-field').hidden = !selectedTypes().includes(type);
@@ -528,11 +541,20 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     }
     return available;
   }
-  function updateYieldControl() {
-    $('yield-settings').hidden = troop() !== 'mixed';
-    $('yield-bonus').disabled = troop() !== 'mixed';
+  function updateYieldControl(restore=false) {
+    const mode = selectedMode(), mixed = mode.mixed === true;
+    $('yield-settings').hidden = !mixed;
+    $('yield-bonus').disabled = !mixed;
+    if (restore && mixed) $('yield-bonus').value = yieldByMode.get(mode.key);
     const bonus = $('yield-bonus').valueAsNumber;
     $('yield-value').textContent = `+${bonus}% (${(1+bonus/100).toFixed(2)}x yield)`;
+    const minutes = (mode.intervalSeconds ?? INTERVAL_SECONDS)/60;
+    $('interval-note').textContent = `Fixed interval: ${minutes} minutes. Tournament Square below; no other speed bonuses.`;
+    $('yield-note').innerHTML = `0% = equal yield; ${bonus}% = ${(1+bonus/100).toFixed(2)} times the resources. `+
+      (mode.pairedAll
+        ? '<strong>1 EI + 1 EC together to every oasis type, at base 10 fields/h.</strong> '
+        : 'Clay/iron: <strong>1 EI at base 14 fields/h</strong>. Wood/crop: <strong>1 EI + 1 EC together at base 10 fields/h</strong>. ')+
+      `One raid every ${minutes} minutes. The extra-yield bonus applies only to wood/crop.`;
   }
   function status(message,kind='') {
     $('status').textContent = message;
@@ -571,6 +593,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
 
   function render(plan,server,source,budget) {
     const {model,unit,rows,mixed} = plan;
+    const minutes = plan.intervalSeconds/60;
     const funded = new Set(budget.known ? budget.fundedKeys : []);
     const marker = row => budget.known && row.active
       ? `<span class="budget-marker">${funded.has(key(row)) ? 'Fits' : 'Over pool'}</span>` : '';
@@ -579,8 +602,10 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     const firstCost = first?.cumulative || 0;
     $('result-title').innerHTML = `${esc(model.label)} &mdash; ${link(model.origin,server)}`;
     $('result-subtitle').textContent = (mixed
-      ? `1 EI to clay/iron (base 14 fields/h); 1 EI + 1 EC to wood/crop (base 10 fields/h). Every 6 minutes. ${plan.clay} clay, ${plan.iron} iron, ${plan.wood} wood, ${plan.crop} crop. `
-      : `1 ${unit.short} per raid, every 6 minutes, at base ${unit.speed} fields/hour. `) +
+      ? (unit.pairedAll ? '1 EI + 1 EC to every oasis type (base 10 fields/h). '
+        : '1 EI to clay/iron (base 14 fields/h); 1 EI + 1 EC to wood/crop (base 10 fields/h). ')+
+        `Every ${minutes} minutes. ${plan.clay} clay, ${plan.iron} iron, ${plan.wood} wood, ${plan.crop} crop. `
+      : `1 ${unit.short} per raid, every ${minutes} minutes, at base ${unit.speed} fields/hour. `) +
       `Tournament Square ${plan.tsLevel}. ${model.sourceName}; origin read from the first line.`;
     const stats = mixed ? [
       [`${number(plan.activeCount)} / ${number(rows.length)}`,'enabled / available oases'],
@@ -597,7 +622,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       $('army-summary').textContent = 'No enabled targets to fund. Enable targets to check your troop coverage.';
     } else if (!budget.known) {
       $('army-summary').innerHTML = `<strong>Highlight your raiding range:</strong> enter ${budget.missing.map(type => UNITS[type].short).join(' and ')} availability above.
-        Blank is unknown, not unlimited; mixed mode needs both EI and EC counts.`;
+        Blank is unknown, not unlimited; EI + EC modes need both troop counts.`;
     } else {
       const counts = values => budget.types.map(type => `${number(values[type])} ${UNITS[type].short}`).join(' + ');
       const shortage = budget.types.filter(type => budget.shortfall[type] > 0)
@@ -609,7 +634,8 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
         <p class="small">Green/Fits rows form an ordered prefix. The first shortage stops it; later cheaper targets are not silently substituted.
         Use the checkboxes to choose another set. This is rotation staffing, without a reserve for losses or delays; CSV still includes the full list.</p>`;
     }
-    $('raid-note').textContent = mixed ? 'Send 1 EI to clay/iron; send 1 EI + 1 EC together to wood/crop.' : `Send just 1 ${unit.short} per raid.`;
+    $('raid-note').textContent = unit.pairedAll ? 'Send 1 EI + 1 EC together to every oasis, once per 10 minutes.'
+      : mixed ? 'Send 1 EI to clay/iron; send 1 EI + 1 EC together to wood/crop.' : `Send just 1 ${unit.short} per raid.`;
     $('order-title').textContent = mixed ? 'Add order - lowest yield-adjusted cost first' : 'Full add order - closest first';
     $('cost-note').hidden = !mixed;
     $('cost-note').innerHTML = mixed ? `<p><strong>Rank score = actual troop purchase cost / relative resource yield. Lower is better.</strong>
@@ -617,9 +643,10 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       All four resources are valued equally. A ${plan.yieldBonusPercent}% bonus changes the ranking, not the price you pay.</p>
       <p>Both troops in a pair have base speed 10 fields/h. Square ${plan.tsLevel} speeds only the distance past 20 fields.
       The slower return needs more EI/EC pairs in rotation, not a faster raid timer.
-      Clay/crop and iron/crop use the 1-EI recipe and no extra-yield bonus.</p>
+      ${unit.pairedAll ? 'Clay/crop and iron/crop also use a pair, but keep baseline 1x yield.' : 'Clay/crop and iron/crop use the 1-EI recipe and no extra-yield bonus.'}</p>
       <p>This is a <strong>relative payback ranking</strong>, assuming equal base income per oasis and your chosen wood/crop uplift.
-      It is not measured loot or payback in hours; losses, upkeep, clearing costs and training time are excluded.</p>` : '';
+      It is not measured loot or payback in hours; losses, upkeep, clearing costs and training time are excluded.
+      ${unit.pairedAll ? 'Compare targets within this ten-minute plan: fewer rotation troops do not prove higher income than a six-minute plan.' : ''}</p>` : '';
     $('plan-warnings').innerHTML = plan.warnings.map(w => `<p>${esc(w)}</p>`).join('');
     $('plan-warnings').hidden = plan.warnings.length === 0;
     $('target-table').innerHTML = table(
@@ -673,15 +700,16 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     const travelFormula = `TS ${plan.tsLevel}: one-way minutes = 60 &times; (min(distance, 20) + max(distance - 20, 0) / ${(1+TS_STEP*plan.tsLevel).toFixed(1)}) / base speed<br>
       round-trip minutes = 2 &times; one-way minutes<br>`;
     $('formula').innerHTML = travelFormula + (mixed
-      ? `n = ceil(round-trip minutes / 6)<br>Clay/iron: n EI, speed 14; cost = n &times; 1,410<br>
-        Wood/crop: n EI + n EC, speed 10; cost = n &times; (1,410 + 2,170)<br>
-        Rank score = cost / ${((1+plan.yieldBonusPercent/100)).toFixed(2)} for wood/crop, or cost for clay/iron.<br>
-        Example: 6 EI = ${number(6*UNITS.ei.cost)} resources.<br>
-        3 EI + 3 EC = ${number(3*(UNITS.ei.cost+UNITS.ec.cost))} resources; adjusted = ${money(3*(UNITS.ei.cost+UNITS.ec.cost)/(1+plan.yieldBonusPercent/100))}.<br><br>
+      ? `n = ceil(round-trip minutes / ${minutes})<br>`+
+        (unit.pairedAll ? 'Every oasis: n EI + n EC, speed 10; cost = n &times; (1,410 + 2,170)<br>'
+          : 'Clay/iron: n EI, speed 14; cost = n &times; 1,410<br>Wood/crop: n EI + n EC, speed 10; cost = n &times; (1,410 + 2,170)<br>')+
+        `Rank score = cost / ${((1+plan.yieldBonusPercent/100)).toFixed(2)} for wood/crop, or cost for clay/iron.<br>`+
+        (unit.pairedAll ? '' : `Example: 6 EI = ${number(6*UNITS.ei.cost)} resources.<br>`)+
+        `3 EI + 3 EC = ${number(3*(UNITS.ei.cost+UNITS.ec.cost))} resources; wood/crop adjusted = ${money(3*(UNITS.ei.cost+UNITS.ec.cost)/(1+plan.yieldBonusPercent/100))}.<br><br>
         Base stable costs (wood/clay/iron/crop):<br>EI: 550 + 440 + 320 + 100 = 1,410<br>EC: 550 + 640 + 800 + 180 = 2,170.<br>
         Sources: <a href="https://travian.fandom.com/wiki/Equites_Imperatoris" target="_blank" rel="noopener noreferrer">EI</a>,
         <a href="https://travian.fandom.com/wiki/Equites_Caesaris" target="_blank" rel="noopener noreferrer">EC</a>. No Great Stable surcharge.`
-      : `${unit.short} for one target = ceil(round-trip minutes / 6)<br>base speed = ${unit.speed} fields/hour<br>cumulative = sum of the individually rounded allocations`);
+      : `${unit.short} for one target = ceil(round-trip minutes / ${minutes})<br>base speed = ${unit.speed} fields/hour<br>cumulative = sum of the individually rounded allocations`);
     const covered = model.tiles.length === SIZE*SIZE ? 'The entire world is covered.'
       : plan.completeRadius > 0 ? `Complete circular coverage through <strong>${plan.completeRadius} fields</strong>.`
       : 'No fully scanned surrounding circle is available.';
@@ -689,7 +717,8 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       The list includes all recorded ${mixed ? 'free oases' : 'free clay/iron targets'}, including those farther away; unseen targets are not invented.</p>
       <p>${plan.disabledCount} listed oasis/oases are deactivated. Totals, cumulative columns and radius budgets count enabled targets only.
       Inactive rows and CSV records retain their requirements for reference, with active=false in the CSV; their cumulative totals do not increase.
-      The CSV records tournament_square; fields_per_hour remains the base speed. Troop availability only highlights the page, not which rows are exported.</p>
+      The CSV records the selected interval_minutes and tournament_square; fields_per_hour remains the base speed.
+      Troop availability only highlights the page, not which rows are exported.</p>
       <p><strong>+</strong> means the circle is incompletely scanned. ${plan.ownedOases} occupied oasis/oases were excluded.
       There is no maximum farming distance.</p><p>Source: <strong>${esc(model.sourceName)}</strong>.<br>Header: <code>${esc(model.header)}</code>.</p>
       ${source.originHeader ? '<p>This dump had no origin header. The first line was added when bundling, using the supplied village coordinates.</p>' : ''}
@@ -722,6 +751,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       render(plan,server,source,budget);
       settings.tsLevel = tsLevel;
       settings.available = available;
+      if (plan.mixed) yieldByMode.set(plan.unit.key,plan.yieldBonusPercent);
       currentPlan = plan;
       activeContext = context;
       status(`${model.label} ${coord(model.origin)}: ` + (plan.mixed
@@ -745,11 +775,12 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     else status('Choose a preset or analyze a custom dump first.','bad');
   });
   document.querySelectorAll('input[name="troop"]').forEach(input => input.addEventListener('change',() => {
-    updateYieldControl();
+    updateYieldControl(true);
     updateVillageControls();
     if (activeSource) calculate(activeSource);
   }));
   $('yield-bonus').addEventListener('input',() => {
+    if (selectedMode().mixed) yieldByMode.set(troop(),$('yield-bonus').valueAsNumber);
     updateYieldControl();
     if (activeSource) calculate(activeSource);
   });
@@ -851,6 +882,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   });
   window.addEventListener('pagehide',() => { if (csvUrl) URL.revokeObjectURL(csvUrl); });
 
+  updateYieldControl(true);
   try {
     const presets = JSON.parse($('preset-data').textContent);
     if (!Array.isArray(presets) || !presets.length) throw new Error('No built-in presets are embedded. Custom input is still available.');

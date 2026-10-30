@@ -184,7 +184,7 @@
       <div class="input-grid">
         <div>
           <label for="travel">Travel duration <span class="field-hint">H / H:MM / H:MM:SS</span></label>
-          <input id="travel" type="text" placeholder="in 10:42:19 hrs." autocomplete="off" spellcheck="false" aria-describedby="input-message">
+          <input id="travel" type="text" placeholder="00:00:00" autocomplete="off" spellcheck="false" aria-describedby="input-message">
         </div>
         <fieldset class="arrival-field">
           <legend>Desired arrival <span class="field-hint">Date + time</span></legend>
@@ -240,7 +240,7 @@
     <footer>
       <p class="footer-warning">Travian resolves arrivals to whole seconds. Browser, network, and game delays mean precise arrival cannot be guaranteed. Nothing is sent to the game.</p>
       <!-- Update this fixed timestamp when revising the file. -->
-      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-10-30T14:49:41Z">2026-10-30 14:49:41 UTC</time></p>
+      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-10-30T15:07:24Z">2026-10-30 15:07:24 UTC</time></p>
       <details>
         <summary>Timing notes &amp; GitHub Pages setup</summary>
         <div class="notes">
@@ -262,7 +262,8 @@
           <p><strong>Dates and sound.</strong> The arrival date starts at today in the selected timezone.
             Both time fields accept hours alone, hours and minutes, or a full time with optional .mmm.
             Missing minutes or seconds are zero: both <code>1</code> and <code>1:00</code> mean <code>01:00:00</code>.
-            Pasted text such as <code>in 10:42:19 hrs.</code> is cleaned immediately.
+            A single time is extracted from pasted text in any language, such as <code>in 10:42:19 hrs.</code>
+            or <code>Dans 2:32:37 heures</code>, and the field is cleaned immediately.
             Typed values are padded when you press Enter or leave the field, without interrupting typing.
             Travel is elapsed time, including across midnight and daylight-saving
             changes. London uses the browser's IANA timezone data, including BST (UTC+1).
@@ -311,7 +312,14 @@
     }
 
     function parseTimeParts(value) {
-      const match = /^(?:in\s+)?(\d+)(?::([0-5]?\d)(?::([0-5]?\d)(?:\.(\d{1,3}))?)?)?(?:\s*(?:hrs?|hours?|h)\.?)?$/i.exec(value.trim());
+      let timeValue = value.trim();
+      if (/[^\d\s:.,+\-\u2212]/.test(timeValue)) {
+        // Validate whole numeric tokens, never a valid-looking fragment of an invalid time.
+        const candidates = timeValue.match(/(?:[+\-\u2212]\s*)?[.,]?\d[\d:.,]*/g) || [];
+        if (candidates.length !== 1) throw new Error("Include exactly one time, such as 2:32:37.");
+        timeValue = candidates[0];
+      }
+      const match = /^(\d+)(?::([0-5]?\d)(?::([0-5]?\d)(?:\.(\d{1,3}))?)?)?$/.exec(timeValue);
       if (!match) throw new Error("Use H, H:MM, or H:MM:SS, optionally .mmm after seconds; minutes and seconds must be 00-59.");
       const hour = Number(match[1]);
       if (!Number.isSafeInteger(hour)) throw new Error("That hours value is too large.");

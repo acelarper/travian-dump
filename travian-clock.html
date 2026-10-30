@@ -84,6 +84,10 @@
     .volume-control { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .75rem; }
     input[type="range"] { width: 95px; margin: 0; accent-color: var(--accent); }
     .volume-value { width: 4ch; text-align: right; font-family: var(--mono); }
+    .reminder-controls { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .73rem; }
+    .reminder-option { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: #141d27; cursor: pointer; font-size: .75rem; font-weight: 400; }
+    .reminder-option input { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+    .reminder-option:has(input:checked) { color: var(--accent); border-color: #437e70; background: #0e2823; }
     .audio-note { flex: 1 1 240px; color: var(--muted); font-size: .73rem; }
     .audio-note[data-error="true"] { color: var(--warning); }
     .sync-panel { padding-top: 12px; border-top: 1px solid var(--line); font-size: .74rem; }
@@ -221,7 +225,13 @@
         <input id="volume" type="range" min="0" max="100" step="1" value="40">
         <output class="volume-value" id="volume-value" for="volume">40%</output>
       </label>
-      <div class="audio-note" id="audio-note" role="status">Sound is off. Keep this page visible for the live countdown.</div>
+      <div class="reminder-controls" role="group" aria-label="Optional sound reminders before send time">
+        <span>Remind at</span>
+        <label class="reminder-option"><input id="reminder-10m" name="sound-reminder" type="checkbox" value="600000" autocomplete="off" aria-label="10 minutes before send time">10m</label>
+        <label class="reminder-option"><input id="reminder-5m" name="sound-reminder" type="checkbox" value="300000" autocomplete="off" aria-label="5 minutes before send time">5m</label>
+        <label class="reminder-option"><input id="reminder-1m" name="sound-reminder" type="checkbox" value="60000" autocomplete="off" aria-label="1 minute before send time">1m</label>
+      </div>
+      <div class="audio-note" id="audio-note" role="status">Sound is off. Select reminders, then enable sound.</div>
     </div>
 
     <section class="sync-panel" id="sync-panel" data-synced="false" aria-label="Clock synchronization">
@@ -240,7 +250,7 @@
     <footer>
       <p class="footer-warning">Travian resolves arrivals to whole seconds. Browser, network, and game delays mean precise arrival cannot be guaranteed. Nothing is sent to the game.</p>
       <!-- Update this fixed timestamp when revising the file. -->
-      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-10-30T20:15:06Z">2026-10-30 20:15:06 UTC</time></p>
+      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-10-30T20:56:00Z">2026-10-30 20:56:00 UTC</time></p>
       <details>
         <summary>Timing notes &amp; GitHub Pages setup</summary>
         <div class="notes">
@@ -269,6 +279,8 @@
             changes. London uses the browser's IANA timezone data, including BST (UTC+1).
             Nonexistent spring times are rejected; repeated autumn times require an explicit choice.
             Sound is off on every page load. Enabling it unlocks browser audio and schedules 3, 2, 1, and send cues.
+            The 10m, 5m, and 1m checkboxes add one reminder at each selected amount of time remaining before send.
+            You can select reminders while sound is off; they only play after you enable sound. Elapsed reminders are not replayed.
             The target cue briefly reads SEND NOW, then MISSED with elapsed time; neither confirms a game action.
             Keep the page visible, preferably beside Travian: background tabs, sleeping devices, muted browsers,
             and audio output latency can delay or prevent cues.</p>
@@ -462,6 +474,7 @@
       sound: document.getElementById("sound-toggle"),
       volume: document.getElementById("volume"),
       volumeValue: document.getElementById("volume-value"),
+      reminders: [...document.querySelectorAll('input[name="sound-reminder"]')],
       audioNote: document.getElementById("audio-note"),
       syncPanel: document.getElementById("sync-panel"),
       syncStatus: document.getElementById("sync-status"),
@@ -514,11 +527,15 @@
       audioCues.clear();
     }
 
+    function selectedReminderLeads() {
+      return ui.reminders.filter(input => input.checked).map(input => Number(input.value));
+    }
+
     function scheduleAudioCues() {
       cancelAudioCues();
       if (!soundEnabled || !audioContext || audioContext.state !== "running" || target === null) return;
       const now = clockNow();
-      for (const lead of [3000, 2000, 1000, 0]) {
+      for (const lead of [...selectedReminderLeads(), 3000, 2000, 1000, 0]) {
         const key = `${target}:${lead}`;
         if (playedCues.has(key)) continue;
         const remaining = target - lead - now;
@@ -527,7 +544,7 @@
           continue;
         }
         const start = audioContext.currentTime + Math.max(0, remaining) / 1000;
-        const length = lead === 0 ? .28 : .075;
+        const length = lead === 0 ? .28 : lead >= 60000 ? .18 : .075;
         const oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
         oscillator.type = lead === 0 ? "triangle" : "sine";
@@ -552,13 +569,14 @@
 
     function updateAudioStatus(error = "") {
       const running = soundEnabled && audioContext && audioContext.state === "running";
+      const reminders = selectedReminderLeads().map(lead => `${lead / 60000}m`).join(", ");
       ui.sound.setAttribute("aria-pressed", String(Boolean(running)));
       setText(ui.sound, running ? "Sound on" : soundEnabled ? "Resume sound" : "Enable sound");
       ui.audioNote.dataset.error = String(Boolean(error) || (soundEnabled && !running));
       setText(ui.audioNote, error || (running
-        ? "3, 2, 1 + send tone. Browser and audio output delays still apply."
+        ? `${reminders ? reminders + " + " : ""}3s, 2s, 1s + send tone. Browser/audio delays still apply.`
         : soundEnabled ? "Audio was paused by the browser. Click Resume sound to reactivate it."
-          : "Sound is off. Keep this page visible for the live countdown."));
+          : "Sound is off. Select reminders, then enable sound."));
     }
 
     async function toggleSound() {
@@ -995,6 +1013,12 @@
       renderClock(clockNow());
     });
     ui.sound.addEventListener("click", toggleSound);
+    for (const input of ui.reminders) {
+      input.addEventListener("change", () => {
+        scheduleAudioCues();
+        updateAudioStatus();
+      });
+    }
     ui.volume.addEventListener("input", () => {
       const volume = Number(ui.volume.value) / 100;
       setText(ui.volumeValue, `${ui.volume.value}%`);

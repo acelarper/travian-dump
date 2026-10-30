@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="A measured UTC clock, Travian send-time calculator, and optional audio countdown. Entirely static; nothing is sent to the game.">
+  <title>Travian Precision Clock</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #eef4fa;
+      background: #0a0e14;
+      --muted: #a0adbf;
+      --line: #283340;
+      --accent: #70efd0;
+      --warning: #ffd184;
+      --danger: #ff9aab;
+      --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: radial-gradient(ellipse at 50% 0, #15252b 0, #0a0e14 65%); }
+    button, input, select { font: inherit; }
+    button, select, input { color: inherit; }
+    button, select { cursor: pointer; }
+    button:disabled { cursor: wait; opacity: .65; }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    .app { width: min(1000px, calc(100% - 40px)); margin: 0 auto; padding: 22px 0 16px; }
+    .topbar, .zone-control, .sound-row, .sync-heading { display: flex; align-items: center; gap: 12px; }
+    .topbar, .sync-heading { justify-content: space-between; }
+    h1 { margin: 0; font-size: 1rem; font-weight: 650; letter-spacing: -.025em; }
+    h1 span { color: var(--muted); font-weight: 400; }
+    .zone-control { gap: 8px; font-size: .78rem; color: var(--muted); }
+    select, button { border: 1px solid var(--line); border-radius: 9px; background: #141d27; padding: 8px 11px; }
+    select { max-width: 100%; }
+    .eyebrow { color: var(--muted); font-size: .7rem; font-weight: 650; letter-spacing: .15em; text-transform: uppercase; }
+    .digits { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -.045em; }
+    .clock-panel { text-align: center; padding: 16px 0 20px; }
+    .live-clock { display: block; font-size: clamp(2rem, 10.1vw, 6.25rem); font-weight: 600; line-height: 1.12; }
+    .fraction { color: var(--accent); }
+    .clock-date { margin-top: 6px; color: var(--muted); font-size: .8rem; }
+    .inputs-panel { padding: 16px 18px 10px; background: #111923; border: 1px solid var(--line); border-radius: 14px; }
+    .input-grid { display: grid; grid-template-columns: 1fr 1.65fr; gap: 18px; }
+    label, legend { display: block; font-size: .8rem; font-weight: 550; }
+    .arrival-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+    .arrival-field legend { width: 100%; padding: 0; }
+    .arrival-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .field-hint { float: right; color: var(--muted); font-size: .72rem; font-weight: 400; }
+    input[type="text"], input[type="date"] {
+      width: 100%; min-width: 0; height: 44px; margin-top: 7px; padding: 10px 12px;
+      border: 1px solid #344251; border-radius: 8px; background: #0b1119;
+      font-family: var(--mono); font-size: 1rem; font-variant-numeric: tabular-nums;
+    }
+    input::placeholder { color: #758397; opacity: 1; }
+    input[aria-invalid="true"] { border-color: var(--danger); }
+    .input-message { min-height: 18px; margin: 8px 0 0; color: var(--muted); font-size: .75rem; }
+    .input-message[data-error="true"] { color: var(--danger); }
+    .fold-field { margin-top: 12px; color: var(--warning); }
+    .fold-field select { display: block; width: 100%; margin-top: 7px; font-size: .85rem; }
+    .send-block { text-align: center; margin: 16px 0 14px; }
+    .send-time { display: block; margin: 2px 0; font-size: clamp(1.9rem, 6.5vw, 3.8rem); line-height: 1.08; font-weight: 600; }
+    .send-meta { min-height: 19px; color: var(--muted); font-size: .8rem; }
+    .target-state { margin-left: 9px; font-size: .72rem; color: var(--accent); }
+    .target-state[data-passed="true"] { color: var(--danger); }
+    .countdown-panel { padding: 12px 16px; border: 1px solid #315c55; border-radius: 14px; background: #0e201f; text-align: center; }
+    .cue { height: 30px; display: grid; place-items: center; font-size: .72rem; font-weight: 700; letter-spacing: .14em; color: var(--accent); }
+    .countdown { display: block; font-size: clamp(1.9rem, 7.8vw, 4.5rem); line-height: 1.12; font-weight: 600; }
+    .countdown.long { font-size: clamp(1.25rem, 5.2vw, 3.4rem); }
+    .countdown-note { margin-top: 5px; font-size: .73rem; color: var(--muted); }
+    .countdown-panel[data-phase="urgent"] { border-color: var(--warning); background: #262114; }
+    .countdown-panel[data-phase="urgent"] .cue { color: var(--warning); font-size: 1.8rem; }
+    .countdown-panel[data-phase="now"] { border-color: var(--accent); background: #17473b; }
+    .countdown-panel[data-phase="now"] .cue { font-size: 1.35rem; }
+    .countdown-panel[data-phase="missed"] { border-color: #74434e; background: #24151c; }
+    .countdown-panel[data-phase="missed"] .cue { color: var(--danger); }
+    .sound-row { flex-wrap: wrap; margin: 12px 0; gap: 10px 16px; }
+    .sound-button { min-width: 120px; font-size: .8rem; }
+    .sound-button[aria-pressed="true"] { color: var(--accent); border-color: #437e70; }
+    .volume-control { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .75rem; }
+    input[type="range"] { width: 95px; margin: 0; accent-color: var(--accent); }
+    .volume-value { width: 4ch; text-align: right; font-family: var(--mono); }
+    .audio-note { flex: 1 1 240px; color: var(--muted); font-size: .73rem; }
+    .audio-note[data-error="true"] { color: var(--warning); }
+    .sync-panel { padding-top: 12px; border-top: 1px solid var(--line); font-size: .74rem; }
+    .sync-status { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .status-dot { flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--warning); }
+    .sync-panel[data-synced="true"] .status-dot { background: var(--accent); }
+    .sync-button { flex-shrink: 0; padding: 6px 10px; font-size: .72rem; }
+    .sync-metrics { display: flex; flex-wrap: wrap; gap: 5px 18px; margin-top: 7px; color: var(--muted); }
+    .sync-metrics strong { color: #e0e8f2; font-weight: 500; font-family: var(--mono); }
+    .sync-detail { color: var(--muted); margin-top: 5px; font-size: .7rem; overflow-wrap: anywhere; }
+    footer { color: var(--muted); font-size: .7rem; line-height: 1.5; margin-top: 12px; }
+    footer p { margin: 0 0 5px; }
+    summary { cursor: pointer; width: fit-content; color: #c1ccda; }
+    .notes { max-width: 80ch; padding: 10px 0; font-size: .8rem; }
+    .notes p { margin: 0 0 10px; }
+    .notes ol { padding-left: 20px; }
+    .notes li { margin: 5px 0; }
+    noscript { display: block; padding: 20px; color: var(--warning); text-align: center; }
+
+    @media (min-width: 720px) and (max-height: 780px) {
+      .app { padding-top: 12px; padding-bottom: 10px; }
+      .clock-panel { padding: 8px 0 12px; }
+      .live-clock { font-size: 5.1rem; }
+      .send-block { margin: 11px 0; }
+      .send-time { font-size: 3.3rem; }
+      .countdown-panel { padding: 8px 16px; }
+      .countdown { font-size: 3.7rem; }
+      .sound-row { margin: 10px 0; }
+      footer { margin-top: 8px; }
+    }
+
+    @media (min-width: 720px) and (max-height: 740px) {
+      .clock-panel { padding: 4px 0 8px; }
+      .live-clock { font-size: 4.7rem; }
+      .clock-date { margin-top: 3px; }
+      .inputs-panel { padding: 12px 18px 8px; }
+      input[type="text"], input[type="date"] { height: 40px; }
+      .input-message { margin-top: 6px; }
+      .send-block { margin: 8px 0; }
+      .send-time { font-size: 3.05rem; }
+      .cue { height: 26px; }
+      .countdown { font-size: 3.5rem; }
+      .sound-row { margin: 8px 0; }
+      .sync-panel { padding-top: 9px; }
+      footer { margin-top: 6px; }
+    }
+
+    @media (max-width: 600px) {
+      .app { width: calc(100% - 28px); padding-top: 16px; }
+      .topbar { align-items: flex-start; gap: 12px; }
+      h1 { max-width: 145px; line-height: 1.5; font-size: .9rem; }
+      h1 span { display: block; }
+      .zone-control { flex-direction: column; align-items: flex-start; gap: 4px; font-size: .7rem; }
+      .zone-control select { padding: 7px 8px; font-size: .8rem; }
+      .clock-panel { padding: 20px 0; }
+      .input-grid { grid-template-columns: 1fr; gap: 14px; }
+      .inputs-panel { padding: 14px 12px 10px; }
+      .field-hint { font-size: .67rem; }
+      input[type="text"], input[type="date"] { font-size: .95rem; }
+      .send-block { margin: 20px 0; }
+      .send-meta { font-size: .73rem; }
+      .target-state { display: block; margin: 3px 0 0; }
+      .countdown-panel { padding: 12px 8px; }
+      .sound-row { gap: 12px; margin: 16px 0; }
+      .audio-note { flex-basis: 100%; }
+      .sync-heading { gap: 8px; }
+      .sync-metrics { gap: 5px 12px; }
+    }
+
+    @media (max-width: 360px) {
+      .arrival-inputs { grid-template-columns: 1fr; gap: 0; }
+    }
+  </style>
+</head>
+<body>
+  <noscript>Enable JavaScript to run the clock and calculator. No installation or account is required.</noscript>
+  <main class="app">
+    <header class="topbar">
+      <h1>TRAVIAN <span>/ Precision clock</span></h1>
+      <div class="zone-control">
+        <label for="timezone">Display &amp; arrival timezone</label>
+        <select id="timezone">
+          <option value="UTC" selected>UTC</option>
+          <option value="Europe/London">Europe/London</option>
+        </select>
+      </div>
+    </header>
+
+    <section class="clock-panel" aria-label="Live clock">
+      <div class="eyebrow" id="clock-zone">LIVE UTC</div>
+      <time class="live-clock digits" id="clock" aria-live="off"><span id="clock-seconds">--:--:--</span><span class="fraction" id="clock-millis">.---</span></time>
+      <div class="clock-date" id="clock-date">Connecting to time source...</div>
+    </section>
+
+    <section class="inputs-panel" aria-label="Send-time calculator">
+      <div class="input-grid">
+        <div>
+          <label for="travel">Travel duration <span class="field-hint">H:MM:SS</span></label>
+          <input id="travel" type="text" placeholder="0:09:28" autocomplete="off" spellcheck="false" maxlength="24" aria-describedby="input-message">
+        </div>
+        <fieldset class="arrival-field">
+          <legend>Desired arrival <span class="field-hint">Date + H:MM:SS</span></legend>
+          <div class="arrival-inputs">
+            <label class="visually-hidden" for="arrival-date">Arrival date</label>
+            <input id="arrival-date" type="date" min="0001-01-01" max="9999-12-31" autocomplete="off" aria-describedby="input-message">
+            <label class="visually-hidden" for="arrival-time">Arrival time</label>
+            <input id="arrival-time" type="text" placeholder="13:10:01" autocomplete="off" spellcheck="false" maxlength="12" aria-describedby="input-message">
+          </div>
+        </fieldset>
+      </div>
+      <div class="fold-field" id="fold-field" hidden>
+        <label for="arrival-fold">London clocks go back: this arrival time occurs twice.</label>
+        <select id="arrival-fold" aria-describedby="input-message"></select>
+      </div>
+      <p class="input-message" id="input-message" aria-live="polite">Arrival uses UTC. Paste H:MM:SS from Travian; .mmm is optional.</p>
+    </section>
+
+    <section class="send-block" aria-label="Calculated send time">
+      <div class="eyebrow">Send at</div>
+      <output class="send-time digits" id="send-time">--:--:--<span class="fraction">.---</span></output>
+      <div class="send-meta"><span id="send-date">Enter your arrival and travel time</span><span class="target-state" id="target-state"></span></div>
+    </section>
+
+    <section class="countdown-panel" id="countdown-panel" data-phase="empty" aria-label="Send countdown">
+      <div class="cue" id="cue" role="status" aria-live="polite">Set a send time</div>
+      <output class="countdown digits" id="countdown" role="timer" aria-live="off">--:--:--.---</output>
+      <div class="countdown-note" id="countdown-note">A timing aid only. You send manually in Travian.</div>
+    </section>
+
+    <div class="sound-row">
+      <button class="sound-button" id="sound-toggle" type="button" aria-pressed="false" aria-describedby="audio-note">Enable sound</button>
+      <label class="volume-control" for="volume">Volume
+        <input id="volume" type="range" min="0" max="100" step="1" value="40">
+        <output class="volume-value" id="volume-value" for="volume">40%</output>
+      </label>
+      <div class="audio-note" id="audio-note" role="status">Sound is off. Keep this page visible for the live countdown.</div>
+    </div>
+
+    <section class="sync-panel" id="sync-panel" data-synced="false" aria-label="Clock synchronization">
+      <div class="sync-heading">
+        <div class="sync-status"><span class="status-dot" aria-hidden="true"></span><span id="sync-status" role="status">UNSYNCHRONIZED - computer clock</span></div>
+        <button class="sync-button" id="sync-button" type="button">Sync now</button>
+      </div>
+      <div class="sync-metrics">
+        <span title="Estimated difference from this computer's system clock">Offset <strong id="sync-offset">unknown</strong></span>
+        <span title="Network estimate plus assumed holdover drift, not a guaranteed UTC error bound">Uncertainty <strong id="sync-uncertainty">unknown</strong></span>
+        <span>Best round trip <strong id="sync-rtt">--</strong></span>
+      </div>
+      <div class="sync-detail" id="sync-detail">No successful measurements yet. Source clock error is unknown.</div>
+    </section>
+
+    <footer>
+      <p>Travian resolves arrivals to whole seconds. Browser, network, and game delays mean precise arrival cannot be guaranteed. Nothing is sent to the game.</p>
+      <details>
+        <summary>Timing notes &amp; GitHub Pages setup</summary>
+        <div class="notes">
+          <p><strong>Measured, not magic.</strong> Each browser independently makes five uncached HTTPS requests to
+            <a href="https://timeapi.io/" target="_blank" rel="noopener noreferrer">TimeAPI.io</a>'s CORS-enabled
+            <code>/api/time/current/zone?timeZone=UTC</code> endpoint. Its UTC timestamp has fractional seconds.
+            No account, API key, backend, or direct NTP connection is used.</p>
+          <p>For each response, the server timestamp is compared with the midpoint of the request's
+            <code>performance.now()</code> round trip. At least three usable samples are required.
+            The median offset of the three fastest samples calibrates a monotonic clock reference.
+            The uncertainty estimate includes their half-round-trip delays, offset spread, timestamp rounding,
+            and an assumed 100 ppm of drift (6 ms per minute) between synchronizations.</p>
+          <p>This estimates network uncertainty, <strong>not certified millisecond accuracy</strong>.
+            Network paths can be asymmetric; the service's own UTC error and your device's actual oscillator drift
+            are unknown. Milliseconds describe display resolution. The clock updates at the screen's refresh rate.
+            Synchronization repeats every five minutes while visible, retries after a minute on failure,
+            and refreshes after returning to the page. Unavailable, expired, or interrupted calibration
+            falls back to the computer clock and is clearly marked unsynchronized.</p>
+          <p><strong>Dates and sound.</strong> The arrival date starts at today in the selected timezone.
+            Both time fields accept single- or double-digit hours, such as <code>0:09:28</code>, and optional .mmm.
+            Travel is elapsed time, including across midnight and daylight-saving
+            changes. London uses the browser's IANA timezone data, including BST (UTC+1).
+            Nonexistent spring times are rejected; repeated autumn times require an explicit choice.
+            Sound is off on every page load. Enabling it unlocks browser audio and schedules 3, 2, 1, and send cues.
+            The target cue briefly reads SEND NOW, then MISSED with elapsed time; neither confirms a game action.
+            Keep the page visible, preferably beside Travian: background tabs, sleeping devices, muted browsers,
+            and audio output latency can delay or prevent cues.</p>
+          <p><strong>Publish this one file:</strong></p>
+          <ol>
+            <li>Create a public GitHub repository and upload <code>travian-clock.html</code> to its root on the <code>main</code> branch.</li>
+            <li>Open <strong>Settings &gt; Pages</strong>. Under Build and deployment, choose <strong>Deploy from a branch</strong>, then <strong>main</strong> and <strong>/ (root)</strong>. Save.</li>
+            <li>After GitHub finishes publishing, append <code>travian-clock.html</code> to your repository's Pages URL, for example <code>https://username.github.io/repository/travian-clock.html</code>, and share that address. No build command, npm installation, or server configuration is needed.</li>
+          </ol>
+          <p>You can also open this file locally. Without an accessible time service it still calculates send times,
+            but its clock is unsynchronized. No calculator inputs are uploaded or saved.
+            Cloudflare Web Analytics records page visits and performance statistics.</p>
+        </div>
+      </details>
+    </footer>
+  </main>
+
+  <script>
+    "use strict";
+
+    const TIME_URL = "https://timeapi.io/api/time/current/zone?timeZone=UTC";
+    const SAMPLE_COUNT = 5;
+    const MIN_SAMPLES = 3;
+    const REQUEST_TIMEOUT = 3500;
+    const SYNC_INTERVAL = 5 * 60 * 1000;
+    const RETRY_INTERVAL = 60 * 1000;
+    const MAX_CALIBRATION_AGE = 10 * 60 * 1000;
+    const ASSUMED_DRIFT = 100 / 1000000;
+    const SEND_NOW_WINDOW = 250;
+    const formatters = new Map();
+
+    function pad(value, width = 2) {
+      return String(value).padStart(width, "0");
+    }
+
+    function utcFromParts(parts) {
+      const date = new Date(0);
+      date.setUTCFullYear(parts.year, parts.month - 1, parts.day);
+      date.setUTCHours(parts.hour, parts.minute, parts.second, parts.millisecond || 0);
+      return date.getTime();
+    }
+
+    function parseClockTime(value) {
+      const match = /^([01]?\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?$/.exec(value.trim());
+      if (!match) throw new Error("Arrival time must be H:MM:SS (0-23 hours), optionally followed by .mmm.");
+      return {
+        hour: Number(match[1]), minute: Number(match[2]), second: Number(match[3]),
+        millisecond: Number((match[4] || "").padEnd(3, "0"))
+      };
+    }
+
+    function parseWallTime(value) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})[ T](.+)$/.exec(value.trim());
+      if (!match) throw new Error("Use YYYY-MM-DD H:MM:SS, optionally followed by .mmm.");
+      const parts = {
+        year: Number(match[1]), month: Number(match[2]), day: Number(match[3]),
+        ...parseClockTime(match[4])
+      };
+      const epoch = utcFromParts(parts);
+      const date = new Date(epoch);
+      if (parts.year < 1 || date.getUTCFullYear() !== parts.year || date.getUTCMonth() + 1 !== parts.month ||
+          date.getUTCDate() !== parts.day || date.getUTCHours() !== parts.hour ||
+          date.getUTCMinutes() !== parts.minute || date.getUTCSeconds() !== parts.second) {
+        throw new Error("Enter a real calendar date (years 0001-9999).");
+      }
+      return parts;
+    }
+
+    function parseDuration(value) {
+      const match = /^(\d+):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?$/.exec(value.trim());
+      if (!match) throw new Error("Travel duration must be H:MM:SS (e.g. 0:09:28), optionally .mmm; minutes and seconds must be 00-59.");
+      const duration = Number(match[1]) * 3600000 + Number(match[2]) * 60000 +
+        Number(match[3]) * 1000 + Number((match[4] || "").padEnd(3, "0"));
+      if (!Number.isSafeInteger(duration)) throw new Error("That travel duration is too large.");
+      return duration;
+    }
+
+    function wallParts(epoch, zone) {
+      if (!formatters.has(zone)) {
+        formatters.set(zone, new Intl.DateTimeFormat("en-GB", {
+          timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
+        }));
+      }
+      const parts = {};
+      for (const part of formatters.get(zone).formatToParts(new Date(Math.floor(epoch)))) {
+        if (part.type !== "literal") parts[part.type] = Number(part.value);
+      }
+      parts.millisecond = ((Math.floor(epoch) % 1000) + 1000) % 1000;
+      return parts;
+    }
+
+    function offsetAt(epoch, zone) {
+      return utcFromParts(wallParts(epoch, zone)) - Math.floor(epoch);
+    }
+
+    function possibleInstants(parts, zone) {
+      const wall = utcFromParts(parts);
+      if (zone === "UTC") return [wall];
+      // Sampling both sides of a transition finds both offsets without guessing the user's timezone.
+      const offsets = new Set([-86400000, 0, 86400000].map(delta => offsetAt(wall + delta, zone)));
+      return [...offsets].map(offset => wall - offset).filter(epoch => {
+        const actual = wallParts(epoch, zone);
+        return Object.keys(parts).every(key => parts[key] === actual[key]);
+      }).sort((a, b) => a - b);
+    }
+
+    function dateText(parts) {
+      return `${pad(parts.year, 4)}-${pad(parts.month)}-${pad(parts.day)}`;
+    }
+
+    function timeText(parts) {
+      return `${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
+    }
+
+    function zoneText(epoch, zone) {
+      if (zone === "UTC") return "UTC";
+      const offset = offsetAt(epoch, zone);
+      const seconds = Math.abs(offset) / 1000;
+      const offsetText = `${offset < 0 ? "-" : "+"}${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}` +
+        (seconds % 60 ? `:${pad(seconds % 60)}` : "");
+      const name = offset === 3600000 ? "BST" : offset === 0 ? "GMT" : "London";
+      return `${name} (UTC${offsetText})`;
+    }
+
+    function durationText(milliseconds) {
+      const value = Math.max(0, Math.floor(milliseconds));
+      return `${pad(Math.floor(value / 3600000))}:${pad(Math.floor(value / 60000) % 60)}:` +
+        `${pad(Math.floor(value / 1000) % 60)}.${pad(value % 1000, 3)}`;
+    }
+
+    function parseServiceTimestamp(data) {
+      if (!data || data.timeZone !== "UTC" || typeof data.dateTime !== "string") {
+        throw new Error("Time source did not return a UTC timestamp.");
+      }
+      const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d{1,9})Z?$/.exec(data.dateTime);
+      if (!match) throw new Error("Time source did not return a fractional-second timestamp.");
+      const parts = parseWallTime(`${match[1]}.${match[2].slice(0, 3).padEnd(3, "0")}`);
+      return utcFromParts(parts);
+    }
+
+    function estimateCalibration(samples) {
+      if (samples.length < MIN_SAMPLES) throw new Error(`Only ${samples.length}/${SAMPLE_COUNT} usable measurements; at least ${MIN_SAMPLES} are needed.`);
+      const fastest = [...samples].sort((a, b) => a.rtt - b.rtt).slice(0, MIN_SAMPLES);
+      const bases = fastest.map(sample => sample.base).sort((a, b) => a - b);
+      const base = bases[1];
+      const lower = Math.max(...fastest.map(sample => sample.base - sample.rtt / 2 - 1));
+      const upper = Math.min(...fastest.map(sample => sample.base + sample.rtt / 2 + 1));
+      if (lower > upper) throw new Error("Time samples disagree; a cached or unstable response cannot be trusted.");
+      return {
+        base,
+        uncertainty: Math.max(...fastest.map(sample => sample.rtt / 2 + Math.abs(sample.base - base))) + 1,
+        rtt: fastest[0].rtt,
+        samples: samples.length
+      };
+    }
+
+    const ui = {
+      zone: document.getElementById("timezone"),
+      clock: document.getElementById("clock"),
+      clockSeconds: document.getElementById("clock-seconds"),
+      clockMillis: document.getElementById("clock-millis"),
+      clockZone: document.getElementById("clock-zone"),
+      clockDate: document.getElementById("clock-date"),
+      arrivalDate: document.getElementById("arrival-date"),
+      arrivalTime: document.getElementById("arrival-time"),
+      travel: document.getElementById("travel"),
+      message: document.getElementById("input-message"),
+      foldField: document.getElementById("fold-field"),
+      fold: document.getElementById("arrival-fold"),
+      sendTime: document.getElementById("send-time"),
+      sendDate: document.getElementById("send-date"),
+      targetState: document.getElementById("target-state"),
+      countdownPanel: document.getElementById("countdown-panel"),
+      countdown: document.getElementById("countdown"),
+      countdownNote: document.getElementById("countdown-note"),
+      cue: document.getElementById("cue"),
+      sound: document.getElementById("sound-toggle"),
+      volume: document.getElementById("volume"),
+      volumeValue: document.getElementById("volume-value"),
+      audioNote: document.getElementById("audio-note"),
+      syncPanel: document.getElementById("sync-panel"),
+      syncStatus: document.getElementById("sync-status"),
+      syncButton: document.getElementById("sync-button"),
+      syncOffset: document.getElementById("sync-offset"),
+      syncUncertainty: document.getElementById("sync-uncertainty"),
+      syncRtt: document.getElementById("sync-rtt"),
+      syncDetail: document.getElementById("sync-detail")
+    };
+
+    let reference = { epoch: Date.now(), mono: performance.now() };
+    let calibration = null;
+    let target = null;
+    let zone = "UTC";
+    let arrivalDatePristine = true;
+    let foldKey = "";
+    let clockSecond = null;
+    let syncGeneration = 0;
+    let syncing = false;
+    let syncController = null;
+    let syncProgress = 0;
+    let nextSyncAt = 0;
+    let syncFailure = "No successful measurements yet.";
+    let requestSequence = 0;
+    let watch = { wall: Date.now(), mono: performance.now() };
+    let hiddenAt = null;
+    let audioContext = null;
+    let masterGain = null;
+    let soundEnabled = false;
+    const audioCues = new Map();
+    const playedCues = new Set();
+
+    function setText(element, text) {
+      if (element.textContent !== text) element.textContent = text;
+    }
+
+    function clockNow(mono = performance.now()) {
+      return reference.epoch + mono - reference.mono;
+    }
+
+    function cancelAudioCues() {
+      for (const [key, cue] of audioCues) {
+        if (audioContext.currentTime >= cue.start) playedCues.add(key);
+        cue.oscillator.onended = null;
+        cue.oscillator.stop();
+        cue.oscillator.disconnect();
+        cue.gain.disconnect();
+      }
+      audioCues.clear();
+    }
+
+    function scheduleAudioCues() {
+      cancelAudioCues();
+      if (!soundEnabled || !audioContext || audioContext.state !== "running" || target === null) return;
+      const now = clockNow();
+      for (const lead of [3000, 2000, 1000, 0]) {
+        const key = `${target}:${lead}`;
+        if (playedCues.has(key)) continue;
+        const remaining = target - lead - now;
+        if (remaining < -100) {
+          playedCues.add(key);
+          continue;
+        }
+        const start = audioContext.currentTime + Math.max(0, remaining) / 1000;
+        const length = lead === 0 ? .28 : .075;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = lead === 0 ? "triangle" : "sine";
+        oscillator.frequency.setValueAtTime(lead === 0 ? 880 : 660, start);
+        if (lead === 0) oscillator.frequency.exponentialRampToValueAtTime(1760, start + .2);
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(.32, start + .005);
+        gain.gain.exponentialRampToValueAtTime(.001, start + length);
+        oscillator.connect(gain);
+        gain.connect(masterGain);
+        audioCues.set(key, { oscillator, gain, start });
+        oscillator.onended = () => {
+          playedCues.add(key);
+          audioCues.delete(key);
+          oscillator.disconnect();
+          gain.disconnect();
+        };
+        oscillator.start(start);
+        oscillator.stop(start + length + .01);
+      }
+    }
+
+    function updateAudioStatus(error = "") {
+      const running = soundEnabled && audioContext && audioContext.state === "running";
+      ui.sound.setAttribute("aria-pressed", String(Boolean(running)));
+      setText(ui.sound, running ? "Sound on" : soundEnabled ? "Resume sound" : "Enable sound");
+      ui.audioNote.dataset.error = String(Boolean(error) || (soundEnabled && !running));
+      setText(ui.audioNote, error || (running
+        ? "3, 2, 1 + send tone. Browser and audio output delays still apply."
+        : soundEnabled ? "Audio was paused by the browser. Click Resume sound to reactivate it."
+          : "Sound is off. Keep this page visible for the live countdown."));
+    }
+
+    async function toggleSound() {
+      if (soundEnabled && audioContext && audioContext.state === "running") {
+        soundEnabled = false;
+        cancelAudioCues();
+        updateAudioStatus();
+        return;
+      }
+      ui.sound.disabled = true;
+      let activationTimeout;
+      try {
+        const Audio = window.AudioContext || window.webkitAudioContext;
+        if (!Audio) throw new Error("Web Audio is not available in this browser.");
+        if (!audioContext || audioContext.state === "closed") {
+          audioContext = new Audio({ latencyHint: "interactive" });
+          masterGain = audioContext.createGain();
+          masterGain.gain.value = Number(ui.volume.value) / 100;
+          masterGain.connect(audioContext.destination);
+          audioContext.addEventListener("statechange", () => {
+            if (audioContext.state === "running") scheduleAudioCues();
+            else cancelAudioCues();
+            updateAudioStatus();
+          });
+        }
+        await Promise.race([
+          audioContext.resume(),
+          new Promise((resolve, reject) => {
+            activationTimeout = setTimeout(() => reject(new Error("Audio activation timed out. Click Enable sound to try again.")), 3000);
+          })
+        ]);
+        if (audioContext.state !== "running") throw new Error("The browser blocked audio. Click Enable sound to try again.");
+        soundEnabled = true;
+        scheduleAudioCues();
+        updateAudioStatus();
+      } catch (error) {
+        soundEnabled = false;
+        cancelAudioCues();
+        updateAudioStatus(`Sound unavailable: ${error.message}`);
+      } finally {
+        clearTimeout(activationTimeout);
+        ui.sound.disabled = false;
+      }
+    }
+
+    function setTarget(epoch) {
+      const changed = target !== epoch;
+      target = epoch;
+      if (epoch === null) {
+        ui.sendTime.replaceChildren(document.createTextNode("--:--:--.---"));
+        setText(ui.sendDate, "Enter your arrival and travel time");
+      } else {
+        const parts = wallParts(epoch, zone);
+        const fraction = document.createElement("span");
+        fraction.className = "fraction";
+        fraction.textContent = `.${pad(parts.millisecond, 3)}`;
+        ui.sendTime.replaceChildren(document.createTextNode(timeText(parts)), fraction);
+        setText(ui.sendDate, `${dateText(parts)} / ${zoneText(epoch, zone)}`);
+      }
+      if (changed) scheduleAudioCues();
+      renderCountdown(clockNow());
+    }
+
+    function prefillArrivalDate() {
+      if (!arrivalDatePristine) return false;
+      const today = dateText(wallParts(clockNow(), zone));
+      if (ui.arrivalDate.value === today) return false;
+      ui.arrivalDate.value = today;
+      return true;
+    }
+
+    function recalculate() {
+      const arrivalDate = ui.arrivalDate.value;
+      const arrivalTime = ui.arrivalTime.value.trim();
+      const travel = ui.travel.value.trim();
+      const key = `${zone}|${arrivalDate}|${arrivalTime}`;
+      if (key !== foldKey) {
+        foldKey = key;
+        ui.fold.replaceChildren();
+      }
+      ui.foldField.hidden = true;
+      ui.arrivalDate.setAttribute("aria-invalid", "false");
+      ui.arrivalTime.setAttribute("aria-invalid", "false");
+      ui.travel.setAttribute("aria-invalid", "false");
+      ui.message.dataset.error = "false";
+      let dateParts;
+      let timeParts;
+      let duration;
+      if (!arrivalDate) {
+        ui.arrivalDate.setAttribute("aria-invalid", "true");
+        ui.message.dataset.error = "true";
+        setText(ui.message, "Choose a valid arrival date.");
+        setTarget(null);
+        return;
+      }
+      try {
+        dateParts = parseWallTime(`${arrivalDate} 00:00:00`);
+      } catch (error) {
+        ui.arrivalDate.setAttribute("aria-invalid", "true");
+        ui.message.dataset.error = "true";
+        setText(ui.message, error.message);
+        setTarget(null);
+        return;
+      }
+      try {
+        if (arrivalTime) timeParts = parseClockTime(arrivalTime);
+      } catch (error) {
+        ui.arrivalTime.setAttribute("aria-invalid", "true");
+        ui.message.dataset.error = "true";
+        setText(ui.message, error.message);
+        setTarget(null);
+        return;
+      }
+      try {
+        if (travel) duration = parseDuration(travel);
+      } catch (error) {
+        ui.travel.setAttribute("aria-invalid", "true");
+        ui.message.dataset.error = "true";
+        setText(ui.message, error.message);
+        setTarget(null);
+        return;
+      }
+      if (!timeParts || duration === undefined) {
+        setText(ui.message, `Arrival uses ${zone}. Paste H:MM:SS from Travian; .mmm is optional.`);
+        setTarget(null);
+        return;
+      }
+      const instants = possibleInstants({ ...dateParts, ...timeParts }, zone);
+      if (instants.length === 0) {
+        ui.arrivalTime.setAttribute("aria-invalid", "true");
+        ui.message.dataset.error = "true";
+        setText(ui.message, "This London time does not exist when clocks go forward. Choose a different arrival.");
+        setTarget(null);
+        return;
+      }
+      let arrivalEpoch = instants[0];
+      if (instants.length > 1) {
+        ui.foldField.hidden = false;
+        if (!ui.fold.options.length) {
+          ui.fold.add(new Option("Choose which occurrence...", ""));
+          instants.forEach((epoch, index) => {
+            const utc = wallParts(epoch, "UTC");
+            ui.fold.add(new Option(
+              `${index === 0 ? "First" : "Second"}: ${zoneText(epoch, zone)} / ${dateText(utc)} ${timeText(utc)} UTC`,
+              String(epoch)
+            ));
+          });
+        }
+        if (!ui.fold.value) {
+          setText(ui.message, "Choose the first or second occurrence above; no send time is assumed.");
+          setTarget(null);
+          return;
+        }
+        arrivalEpoch = Number(ui.fold.value);
+      }
+      const send = arrivalEpoch - duration;
+      const year = new Date(send).getUTCFullYear();
+      if (!Number.isSafeInteger(send) || !Number.isFinite(year) || year < 1 || year > 9999) {
+        ui.travel.setAttribute("aria-invalid", "true");
+        ui.message.dataset.error = "true";
+        setText(ui.message, "The calculated send time is outside the supported calendar (years 0001-9999).");
+        setTarget(null);
+        return;
+      }
+      setText(ui.message, `Arrival uses ${zone}. Travel is elapsed time, including across midnight and DST.`);
+      setTarget(send);
+    }
+
+    function renderClock(now) {
+      const second = Math.floor(now / 1000);
+      if (second !== clockSecond) {
+        clockSecond = second;
+        const parts = wallParts(now, zone);
+        setText(ui.clockSeconds, timeText(parts));
+        setText(ui.clockDate, `${dateText(parts)} / ${zoneText(now, zone)}`);
+        setText(ui.clockZone, zone === "UTC" ? "LIVE UTC" : "LIVE EUROPE/LONDON");
+        ui.clock.dateTime = new Date(Math.floor(now)).toISOString();
+      }
+      setText(ui.clockMillis, `.${pad(((Math.floor(now) % 1000) + 1000) % 1000, 3)}`);
+    }
+
+    function renderCountdown(now) {
+      let phase = "empty";
+      let cue = "Set a send time";
+      let note = "A timing aid only. You send manually in Travian.";
+      let digits = "--:--:--.---";
+      if (target !== null) {
+        const remaining = target - now;
+        digits = durationText(remaining > 0 ? Math.ceil(remaining) : -remaining);
+        if (remaining > 3000) {
+          phase = "waiting";
+          cue = "Time until send";
+          note = "Calculated from the live clock, not a decrementing timer.";
+        } else if (remaining > 0) {
+          phase = "urgent";
+          cue = String(Math.ceil(remaining / 1000));
+          note = "Get ready to send manually.";
+        } else if (remaining > -SEND_NOW_WINDOW) {
+          phase = "now";
+          cue = "SEND NOW";
+          note = "Target reached / elapsed time shown below the cue.";
+        } else {
+          phase = "missed";
+          cue = "MISSED";
+          note = "Elapsed since send time. This page cannot detect a game action.";
+        }
+        setText(ui.targetState, remaining > 0 ? "Upcoming" : "Passed");
+        ui.targetState.dataset.passed = String(remaining <= 0);
+      } else {
+        setText(ui.targetState, "");
+      }
+      ui.countdownPanel.dataset.phase = phase;
+      ui.countdown.classList.toggle("long", digits.length > 12);
+      setText(ui.countdown, digits);
+      setText(ui.cue, cue);
+      setText(ui.countdownNote, note);
+    }
+
+    async function measureTime(parentSignal) {
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      parentSignal.addEventListener("abort", abort, { once: true });
+      if (parentSignal.aborted) controller.abort();
+      const timeout = setTimeout(abort, REQUEST_TIMEOUT);
+      try {
+        const url = new URL(TIME_URL);
+        url.searchParams.set("_clock", `${Date.now()}-${++requestSequence}`);
+        const start = performance.now();
+        const response = await fetch(url, {
+          mode: "cors", cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer",
+          signal: controller.signal
+        });
+        if (!response.ok) throw new Error(`Time service returned HTTP ${response.status}.`);
+        const body = await response.text();
+        const end = performance.now();
+        const rtt = end - start;
+        if (rtt <= 0 || rtt > REQUEST_TIMEOUT) throw new Error("Measurement was delayed or the browser was suspended.");
+        const serverTime = parseServiceTimestamp(JSON.parse(body));
+        return { rtt, base: serverTime + .5 - (start + end) / 2 };
+      } catch (error) {
+        if (controller.signal.aborted) throw new Error(parentSignal.aborted ? "Synchronization interrupted." : "Time request timed out.");
+        if (error instanceof TypeError) throw new Error("Time service unreachable (network or CORS).");
+        if (error instanceof SyntaxError) throw new Error("Time service returned invalid JSON.");
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+        parentSignal.removeEventListener("abort", abort);
+      }
+    }
+
+    function useComputerClock(reason) {
+      reference = { epoch: Date.now(), mono: performance.now() };
+      calibration = null;
+      syncFailure = reason;
+      clockSecond = null;
+      scheduleAudioCues();
+    }
+
+    function interruptSync(reason) {
+      syncGeneration++;
+      if (syncController) syncController.abort();
+      syncController = null;
+      syncing = false;
+      nextSyncAt = performance.now();
+      useComputerClock(reason);
+      renderSync();
+    }
+
+    async function synchronize() {
+      if (syncing || document.hidden) return;
+      if (navigator.onLine === false) {
+        useComputerClock("This browser is offline.");
+        nextSyncAt = performance.now() + RETRY_INTERVAL;
+        renderSync();
+        return;
+      }
+      const generation = ++syncGeneration;
+      const controller = new AbortController();
+      syncController = controller;
+      syncing = true;
+      syncProgress = 0;
+      renderSync();
+      const samples = [];
+      let lastFailure = "";
+      try {
+        for (let index = 0; index < SAMPLE_COUNT; index++) {
+          try {
+            samples.push(await measureTime(controller.signal));
+          } catch (error) {
+            if (controller.signal.aborted) throw error;
+            lastFailure = error.message;
+          }
+          if (generation !== syncGeneration) return;
+          syncProgress = index + 1;
+          renderSync();
+          if (index < SAMPLE_COUNT - 1) {
+            await new Promise(resolve => setTimeout(resolve, 150));
+            if (controller.signal.aborted) throw new Error("Synchronization interrupted.");
+          }
+        }
+        const estimate = estimateCalibration(samples);
+        const mono = performance.now();
+        reference = { epoch: estimate.base + mono, mono };
+        calibration = { ...estimate, mono };
+        syncFailure = "";
+        clockSecond = null;
+        nextSyncAt = mono + SYNC_INTERVAL;
+        if (prefillArrivalDate()) recalculate();
+        scheduleAudioCues();
+      } catch (error) {
+        if (generation !== syncGeneration) return;
+        useComputerClock(`${error.message}${lastFailure && lastFailure !== error.message ? ` ${lastFailure}` : ""}`);
+        nextSyncAt = performance.now() + RETRY_INTERVAL;
+      } finally {
+        if (generation === syncGeneration) {
+          syncing = false;
+          syncController = null;
+          renderSync();
+        }
+      }
+    }
+
+    function renderSync() {
+      const mono = performance.now();
+      ui.syncPanel.dataset.synced = String(Boolean(calibration));
+      ui.syncButton.disabled = syncing;
+      setText(ui.syncButton, syncing ? "Measuring..." : "Sync now");
+      setText(ui.syncStatus, syncing
+        ? `Measuring ${syncProgress}/${SAMPLE_COUNT} / ${calibration ? "previous calibration active" : "UNSYNCHRONIZED"}`
+        : calibration ? "Synchronized / TimeAPI.io" : "UNSYNCHRONIZED / computer clock");
+      if (calibration) {
+        const offset = Math.round(clockNow(mono) - Date.now());
+        const age = Math.max(0, mono - calibration.mono);
+        const uncertainty = Math.ceil(calibration.uncertainty + age * ASSUMED_DRIFT);
+        setText(ui.syncOffset, `${offset >= 0 ? "+" : ""}${offset} ms`);
+        setText(ui.syncUncertainty, `est. +/-${uncertainty} ms`);
+        setText(ui.syncRtt, `${Math.round(calibration.rtt)} ms`);
+        setText(ui.syncDetail, `${calibration.samples}/${SAMPLE_COUNT} samples / updated ${Math.floor(age / 1000)}s ago / network estimate; source clock error unknown.`);
+      } else {
+        setText(ui.syncOffset, "unknown");
+        setText(ui.syncUncertainty, "unknown");
+        setText(ui.syncRtt, "--");
+        setText(ui.syncDetail, `${syncFailure} Source clock error is unknown.`);
+      }
+    }
+
+    function maintainClock() {
+      const mono = performance.now();
+      const wall = Date.now();
+      const gap = mono - watch.mono;
+      if (Math.abs((wall - watch.wall) - gap) > 250 || gap > 15000) {
+        interruptSync("Sleep, a long pause, or a computer clock change was detected.");
+      }
+      watch = { mono, wall };
+      if (calibration && mono - calibration.mono > MAX_CALIBRATION_AGE) {
+        interruptSync("Calibration expired.");
+      }
+      if (!document.hidden && !syncing && mono >= nextSyncAt) void synchronize();
+      renderSync();
+    }
+
+    function frame() {
+      const now = clockNow();
+      renderClock(now);
+      renderCountdown(now);
+      requestAnimationFrame(frame);
+    }
+
+    for (const input of [ui.arrivalDate, ui.arrivalTime]) {
+      input.addEventListener("input", () => {
+        arrivalDatePristine = false;
+        recalculate();
+      });
+    }
+    ui.travel.addEventListener("input", recalculate);
+    ui.fold.addEventListener("change", recalculate);
+    ui.zone.addEventListener("change", () => {
+      zone = ui.zone.value;
+      clockSecond = null;
+      prefillArrivalDate();
+      recalculate();
+      renderClock(clockNow());
+    });
+    ui.sound.addEventListener("click", toggleSound);
+    ui.volume.addEventListener("input", () => {
+      const volume = Number(ui.volume.value) / 100;
+      setText(ui.volumeValue, `${ui.volume.value}%`);
+      if (masterGain) masterGain.gain.setTargetAtTime(volume, audioContext.currentTime, .01);
+    });
+    ui.syncButton.addEventListener("click", synchronize);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        hiddenAt = performance.now();
+        return;
+      }
+      const mono = performance.now();
+      const wall = Date.now();
+      const clockDiscontinuity = Math.abs((wall - watch.wall) - (mono - watch.mono)) > 250;
+      if ((hiddenAt !== null && mono - hiddenAt > 15000) || clockDiscontinuity) {
+        interruptSync("The page was in the background; refreshing calibration.");
+      }
+      hiddenAt = null;
+      watch = { mono, wall };
+      nextSyncAt = mono;
+      maintainClock();
+      scheduleAudioCues();
+    });
+    window.addEventListener("online", () => {
+      nextSyncAt = performance.now();
+      maintainClock();
+    });
+    window.addEventListener("offline", () => {
+      interruptSync("This browser is offline.");
+      nextSyncAt = performance.now() + RETRY_INTERVAL;
+    });
+    window.addEventListener("pageshow", event => {
+      if (event.persisted) {
+        interruptSync("Page restored; refreshing calibration.");
+        maintainClock();
+      }
+    });
+
+    prefillArrivalDate();
+    recalculate();
+    frame();
+    void synchronize();
+    setInterval(maintainClock, 1000);
+  </script>
+  <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "340927ebc211466b92ab0a2bde9e1496"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

@@ -240,7 +240,7 @@
     <footer>
       <p class="footer-warning">Travian resolves arrivals to whole seconds. Browser, network, and game delays mean precise arrival cannot be guaranteed. Nothing is sent to the game.</p>
       <!-- Update this fixed timestamp when revising the file. -->
-      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-10-30T15:07:24Z">2026-10-30 15:07:24 UTC</time></p>
+      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-10-30T20:15:06Z">2026-10-30 20:15:06 UTC</time></p>
       <details>
         <summary>Timing notes &amp; GitHub Pages setup</summary>
         <div class="notes">
@@ -472,6 +472,7 @@
       syncDetail: document.getElementById("sync-detail")
     };
 
+    const defaultTitle = document.title;
     let reference = { epoch: Date.now(), mono: performance.now() };
     let calibration = null;
     let target = null;
@@ -764,7 +765,16 @@
       setText(ui.clockMillis, `.${pad(((Math.floor(now) % 1000) + 1000) % 1000, 3)}`);
     }
 
+    function renderTabTitle(now) {
+      const remaining = target === null ? 0 : target - now;
+      const title = remaining > 0
+        ? `${durationText(Math.ceil(remaining / 1000) * 1000).slice(0, -4)} till attack`
+        : defaultTitle;
+      if (document.title !== title) document.title = title;
+    }
+
     function renderCountdown(now) {
+      renderTabTitle(now);
       let phase = "empty";
       let cue = "Set a send time";
       let note = "A timing aid only. You send manually in Travian.";
@@ -941,6 +951,7 @@
         interruptSync("Calibration expired.");
       }
       if (!document.hidden && !syncing && mono >= nextSyncAt) void synchronize();
+      renderTabTitle(clockNow());
       renderSync();
     }
 

@@ -47,6 +47,8 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .village{border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0;align-self:start}
 .village:has(.anvil:checked){border-color:#437e70}
 .village-name{font-weight:600;font-size:13px;overflow-wrap:anywhere}
+.village-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.village-title .village-name{flex:1;min-width:0}
 .village fieldset{margin-top:10px}
 .ts{display:flex;align-items:center;gap:10px;margin-bottom:10px}.ts input{margin-top:0!important;padding:4px 8px;max-width:65px}
 .hero{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
@@ -58,6 +60,8 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .buffer{display:flex;align-items:center;gap:7px;font-weight:400}.buffer input{width:62px;margin:0!important}
 .attack-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
 .target-control{position:relative;min-width:0}#target-query{height:44px;font-size:14px}
+.target-meta{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+#target-map-link{margin-top:10px;font-size:12px}#target-detail{flex:1;min-width:140px}
 .target-inputs{display:grid;grid-template-columns:minmax(0,1fr) 76px 76px;gap:8px}
 #target-x,#target-y{height:44px;padding:9px 5px;text-align:center;font-family:var(--mono)}
 .target-options{position:absolute;z-index:10;top:66px;left:0;right:0;max-height:300px;overflow:auto;background:#141f2b;border:1px solid #437e70;border-radius:9px;box-shadow:0 12px 30px #0008}
@@ -79,9 +83,18 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
 .equipment{font-size:11px;margin-top:5px}.equipment summary{color:var(--green)}
 .alternative-summary{padding:9px 12px;color:var(--green);font-size:12px}
 .result-village tr:last-child td{border-bottom:0}
-.leader-table td{overflow-wrap:anywhere}.leader-table td:first-child{min-width:110px;max-width:170px}
-.leader-table td:nth-child(2){min-width:160px}.leader-table .village-start td{border-top:2px solid #437e70}
-.leader-table .player-start{background:#12221f}.leader-table .player-start td{border-top:3px solid var(--green)}
+.leader-player{margin-top:20px;border:1px solid #437e70;border-radius:12px;background:var(--field);overflow:hidden}
+.leader-player+.leader-player{margin-top:24px}
+.leader-player-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;background:#0e2823;border-bottom:1px solid #437e70}
+.leader-player-heading>div,.leader-village-heading>div{flex:1;min-width:0}
+.leader-player-heading h3{font-size:16px;overflow-wrap:anywhere}
+.leader-player-heading .player-score{font-size:18px;font-weight:650}
+.leader-village+.leader-village{border-top:1px solid #437e70}
+.leader-village-heading{display:flex;align-items:center;justify-content:space-between;gap:6px 12px;flex-wrap:wrap;padding:10px 12px;background:#141d27}
+.leader-village-heading h4{margin:0;font-size:13px;overflow-wrap:anywhere}
+.leader-village-heading .muted{font-size:11px}
+.leader-table td{overflow-wrap:anywhere}.leader-table td:first-child{min-width:180px;max-width:none}
+.leader-table tr:last-child td{border-bottom:0}
 .leader-table .hero-required{min-width:125px}.leader-table .troop-count{white-space:nowrap;font-weight:600}
 #leader-warning-list{padding-left:18px;margin:8px 0 0;max-height:180px;overflow:auto}
 #result-meta{margin-top:10px}#copy-text{margin-top:10px;min-height:130px}
@@ -100,16 +113,15 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   .result-village td:nth-child(2)::before{content:"Travel ";color:var(--dim);font:11px system-ui,sans-serif}
   .result-village td:last-child{grid-column:2;grid-row:3;align-self:center;justify-self:end}
   .leader-table tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px 12px;padding:12px;border-bottom:1px solid var(--line)}
-  .leader-table tr.village-start{border-top:2px solid #437e70}
-  .leader-table tr.player-start{border-top:3px solid var(--green)}
-  .leader-table td,.leader-table .village-start td{padding:0;border:0;min-width:0!important;max-width:none!important}
-  .leader-table td:first-child,.leader-table td:nth-child(2){grid-column:1/-1}
-  .leader-table td:nth-child(3){grid-column:1;grid-row:3}
-  .leader-table td:nth-child(4){grid-column:2;grid-row:3;max-width:130px!important}
-  .leader-table td.time{grid-column:1;grid-row:4}
-  .leader-table td:last-child{grid-column:2;grid-row:4;align-self:center;justify-self:end}
+  .leader-table tr:last-child{border:0}
+  .leader-table td{padding:0;border:0;min-width:0!important;max-width:none!important}
+  .leader-table td:first-child{grid-column:1;grid-row:1}
+  .leader-table td.hero-required{grid-column:2;grid-row:1;max-width:130px!important}
+  .leader-table td.time{grid-column:1;grid-row:2}
+  .leader-table td:last-child{grid-column:2;grid-row:2;align-self:center;justify-self:end}
 }
 @media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list,.fields{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.setup-switch button{padding:7px 9px}.arrival-inputs input{padding:9px;font-size:14px}}
+@media(max-width:380px){.leader-table td.time{grid-column:1/-1}.leader-table td:last-child{grid-row:3}}
 @media print{body{background:white;color:black}.setup,td:last-child,th:last-child{display:none}.panel{border:0}.result-village{break-inside:avoid}.sub,.muted,th{color:#444}.good,.warn,.bad,.send-time{color:black}}
 </style>
 </head>
@@ -184,7 +196,10 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
           <label for="target-y">Y<input id="target-y" type="number" min="-200" max="200" step="1" autocomplete="off"></label>
         </div>
         <div id="target-options" class="target-options" role="listbox" aria-label="Matching villages" hidden></div>
-        <p id="target-detail" class="status" role="status" hidden></p>
+        <div class="target-meta">
+          <a id="target-map-link" class="coordinate-link mono" target="_blank" rel="noopener noreferrer" title="Open on the TS12 map" hidden></a>
+          <p id="target-detail" class="status" role="status" hidden></p>
+        </div>
       </div>
       <fieldset>
         <legend>Attack lands <span class="muted">(UTC)</span></legend>
@@ -735,6 +750,15 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
 
   const $ = id => document.getElementById(id);
   const escape = value => String(value).replace(/[&<>"']/g,ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const mapUrl = point => `${SERVER}/karte.php?x=${point.x}&y=${point.y}`;
+  const coordinateLink = (point,label = coordText(point)) =>
+    `<a class="coordinate-link mono" href="${escape(mapUrl(point))}" target="_blank" rel="noopener noreferrer" title="Open on the TS12 map">${escape(label)}</a>`;
+  function linkedCoordinates(text) {
+    return escape(text).replace(/\(([+-]?\d{1,3})\s*\|\s*([+-]?\d{1,3})\)/g,(label,x,y) => {
+      const point = {x:Number(x),y:Number(y)};
+      return Math.abs(point.x) <= 200 && Math.abs(point.y) <= 200 ? coordinateLink(point,label) : label;
+    });
+  }
   let villages = [], players = [], selectedId = null, profiles = new Map(), lastPlan = null;
   let mapBusy = false, fetchController = null, sendTimer = null;
   let activeView = 'players', leaderBusy = false, leaderRoster = {candidates:[],warnings:[],rowCount:0};
@@ -742,7 +766,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   const currentProfile = () => profiles.get(selectedId);
   const currentPlayer = () => players.find(p => p.id === selectedId);
   function status(id,message,error = false) {
-    $(id).textContent = message;
+    $(id).innerHTML = linkedCoordinates(message);
     $(id).classList.toggle('error',error);
     $(id).hidden = !message;
   }
@@ -813,7 +837,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       status('leader-status',`${count} qualifying ${count === 1 ? 'village' : 'villages'} / ${next.rowCount} CSV rows; ${total.toLocaleString()} troops - ${file.name}.`);
       $('leader-warnings').hidden = !next.warnings.length;
       $('leader-warning-count').textContent = `${next.warnings.length} map ${next.warnings.length === 1 ? 'warning' : 'warnings'}`;
-      $('leader-warning-list').innerHTML = next.warnings.slice(0,50).map(warning => `<li>${escape(warning)}</li>`).join('')
+      $('leader-warning-list').innerHTML = next.warnings.slice(0,50).map(warning => `<li>${linkedCoordinates(warning)}</li>`).join('')
         + (next.warnings.length > 50 ? `<li>${next.warnings.length-50} more warnings. Update map.sql and import again.</li>` : '');
     } catch (error) { status('leader-status',`CSV import failed: ${error.message} Previous roster kept.`,true); }
     finally { leaderBusy = false; enableControls(); }
@@ -839,7 +863,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       const config = profile.villages.find(v => v.did === village.did);
       const tribe = TRIBES[village.tribe];
       return `<article class="village">
-        <label class="check village-name"><input class="anvil" type="checkbox" data-village="${village.did}" data-kind="enabled"${config.enabled ? ' checked' : ''}${!tribe ? ' disabled' : ''}>${escape(village.name)} ${coordText(village)}</label>
+        <div class="village-title"><label class="check village-name"><input class="anvil" type="checkbox" data-village="${village.did}" data-kind="enabled"${config.enabled ? ' checked' : ''}${!tribe ? ' disabled' : ''}>${escape(village.name)}</label>${coordinateLink(village)}</div>
         <fieldset id="fields-${village.did}"${config.enabled ? '' : ' hidden disabled'}>
           <label class="ts">Tournament Square <input type="number" min="0" max="20" step="1" value="${config.ts}" data-village="${village.did}" data-kind="ts" aria-label="Tournament Square for ${escape(village.name)}"></label>
           <fieldset><legend>Defenders</legend><div class="checks">${tribe ? checkChips(tribe.units.slice(0,6),config.defenders,village.did,'defenders') : ''}</div></fieldset>
@@ -945,9 +969,19 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       $('target-x').value = point.x;
       $('target-y').value = point.y;
     }
+    $('target-map-link').href = mapUrl(point);
+    $('target-map-link').textContent = coordText(point);
+    $('target-map-link').hidden = false;
     status('target-detail',village ? village.alliance || 'No alliance' : 'Not found in map.sql. Using these coordinates.');
     $('target-detail').classList.toggle('warn',!village);
     hideSuggestions();
+  }
+  function clearTargetSelection() {
+    targetPoint = null;
+    $('target-map-link').hidden = true;
+    $('target-map-link').removeAttribute('href');
+    $('target-map-link').textContent = '';
+    $('target-detail').classList.remove('warn');
   }
   function coordinateTarget() {
     return {x:integer($('target-x').valueAsNumber,-200,200,'Target X'),
@@ -964,7 +998,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     if (!suggestions.length) return;
     $('target-options').innerHTML = suggestions.map((v,index) =>
       `<div class="target-option" role="option" id="target-option-${index}" data-target-index="${index}" aria-selected="false">
-        <div class="option-name"><strong>${escape(v.name)}</strong><span class="mono">${coordText(v)}</span></div>
+        <div class="option-name"><strong>${escape(v.name)}</strong>${coordinateLink(v)}</div>
         <div class="option-owner">${escape(v.player)}${v.alliance ? ' ['+escape(v.alliance)+']' : ''}</div>
       </div>`).join('') + (result.count > suggestions.length ? `<div class="target-count" role="presentation">${suggestions.length} / ${result.count} matches</div>` : '');
     $('target-options').hidden = false;
@@ -979,16 +1013,14 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     hideSuggestions();
   }
   $('target-query').addEventListener('input',() => {
-    targetPoint = null;
+    clearTargetSelection();
     $('target-x').value = ''; $('target-y').value = '';
-    $('target-detail').classList.remove('warn');
     status('target-detail','');
     invalidate(); showSuggestions();
   });
   for (const id of ['target-x','target-y']) $(id).addEventListener('input',() => {
-    targetPoint = null;
+    clearTargetSelection();
     $('target-query').value = '';
-    $('target-detail').classList.remove('warn');
     invalidate(); hideSuggestions();
     if ($('target-x').value === '' || $('target-y').value === '') {
       status('target-detail','Enter both coordinates.');
@@ -1024,6 +1056,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     if (event.target.closest('[data-target-index]')) event.preventDefault();
   });
   $('target-options').addEventListener('click',event => {
+    if (event.target.closest('a.coordinate-link')) return;
     const option = event.target.closest('[data-target-index]');
     if (option) pickSuggestion(Number(option.dataset.targetIndex));
   });
@@ -1101,21 +1134,34 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
         <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index+offset}">Copy</button></td></tr>`;
     }).join('')}</tbody></table></div>`;
   }
-  function leaderTable(groups,now) {
-    return `<div class="table-wrap"><table class="leader-table"><thead><tr><th>Player</th><th>Village</th><th>Defenders</th><th>Hero required</th><th>Send (UTC)</th><th></th></tr></thead><tbody>${groups.map((group,groupIndex) => {
-      const {origin} = group;
-      const playerStart = groupIndex === 0 || groups[groupIndex-1].playerKey !== group.playerKey;
-      const player = origin.uid ? `<a href="${SERVER}/profile/${origin.uid}" target="_blank" rel="noopener noreferrer">${escape(origin.player)}</a>` : escape(origin.player);
-      const village = `<a href="${SERVER}/karte.php?d=${origin.tileId}" target="_blank" rel="noopener noreferrer">${escape(origin.name)}</a>`;
-      return leaderChoices(group).map(({option,index},rowIndex) => `<tr data-leader-village="${origin.did}"${rowIndex ? '' : ` class="village-start${playerStart ? ' player-start' : ''}"`}>
-        <td>${player}<span class="sub player-score">Score ${group.playerScore.toLocaleString()}</span></td>
-        <td>${village}<span class="sub mono">${coordText(origin)}</span><span class="sub" title="${group.troopTotal.toLocaleString()} qualifying troops">TS ${group.ts} (${group.tsPercentage}%) &middot; score ${group.score.toLocaleString()}</span>${origin.mapOwnerMismatch ? '<span class="sub warn">Verify map owner</span>' : ''}</td>
-        <td><span class="troop-count">${option.count.toLocaleString()}</span> ${escape(option.load.label)}</td>
-        <td class="hero-required ${option.withHero ? 'warn' : 'good'}">${option.withHero ? `Yes<span class="sub">${escape(option.equipment[0].label)}</span>` : 'No hero'}</td>
-        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><span class="sub mono send-wait" data-send-at="${option.sendAt}" title="Live countdown">Send in ${duration(Math.ceil((option.sendAt-now)/1000))}</span></td>
-        <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index}">Copy</button></td>
-      </tr>`).join('');
-    }).join('')}</tbody></table></div>`;
+  function leaderSections(groups,now) {
+    const players = new Map();
+    for (const [index,group] of groups.entries()) {
+      if (!players.has(group.playerKey)) players.set(group.playerKey,{origin:group.origin,score:group.playerScore,total:0,villages:[]});
+      const player = players.get(group.playerKey);
+      player.total += group.troopTotal;
+      player.villages.push({group,index});
+    }
+    return [...players.values()].map(player => {
+      const name = player.origin.uid ? `<a href="${SERVER}/profile/${player.origin.uid}" target="_blank" rel="noopener noreferrer">${escape(player.origin.player)}</a>` : escape(player.origin.player);
+      return `<article class="leader-player">
+        <header class="leader-player-heading"><div><h3>${name}</h3><span class="sub">${player.villages.length} ${player.villages.length === 1 ? 'village' : 'villages'} &middot; ${player.total.toLocaleString()} troops</span></div><span class="player-score good mono">Score ${player.score.toLocaleString()}</span></header>
+        ${player.villages.map(({group,index:groupIndex}) => {
+          const {origin} = group;
+          return `<section class="leader-village" data-leader-village="${origin.did}">
+            <div class="leader-village-heading"><div><h4><a href="${SERVER}/karte.php?d=${origin.tileId}" target="_blank" rel="noopener noreferrer">${escape(origin.name)}</a> <span class="muted">${coordinateLink(origin)}</span></h4>${origin.mapOwnerMismatch ? '<span class="sub warn">Verify map owner</span>' : ''}</div><span class="muted" title="${group.troopTotal.toLocaleString()} qualifying troops">TS ${group.ts} (${group.tsPercentage}%) &middot; score ${group.score.toLocaleString()}</span></div>
+            <div class="table-wrap"><table class="leader-table"><thead><tr><th>Defenders</th><th>Hero required</th><th>Send (UTC)</th><th></th></tr></thead><tbody>
+              ${leaderChoices(group).map(({option,index}) => `<tr data-leader-village="${origin.did}">
+                <td><span class="troop-count">${option.count.toLocaleString()}</span> ${escape(option.load.label)}</td>
+                <td class="hero-required ${option.withHero ? 'warn' : 'good'}">${option.withHero ? `Yes<span class="sub">${escape(option.equipment[0].label)}</span>` : 'No hero'}</td>
+                <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><span class="sub mono send-wait" data-send-at="${option.sendAt}" title="Live countdown">Send in ${duration(Math.ceil((option.sendAt-now)/1000))}</span></td>
+                <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index}">Copy</button></td>
+              </tr>`).join('')}
+            </tbody></table></div>
+          </section>`;
+        }).join('')}
+      </article>`;
+    }).join('');
   }
   function renderPlan(resetCopy = true,now = Date.now()) {
     if (!lastPlan) return;
@@ -1126,7 +1172,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     $('calculated-at').textContent = `Calculated ${formatClock(plan.settings.calculatedAt)} UTC`;
     const total = plan.groups.reduce((n,g) => n+(leader ? leaderTotal(g) : g.options.length),0);
     const targetText = plan.target ? `${plan.target.name} - ${plan.target.player}` : 'Unknown village';
-    $('result-meta').innerHTML = `<p><strong>${escape(targetText)} ${coordText(plan.settings.target)}</strong></p>
+    $('result-meta').innerHTML = `<p><strong>${escape(targetText)} ${coordinateLink(plan.settings.target)}</strong></p>
       <div class="timing-summary">
         <div><span class="eyebrow">Attack lands</span><span class="digits">${formatClock(plan.settings.attackMs)}</span><span class="sub">${formatDay(plan.settings.attackMs)} UTC</span></div>
         <div><span class="eyebrow">Defence lands</span><span class="digits good">${formatClock(plan.cutoff)}</span><span class="sub">${formatDay(plan.cutoff)} UTC</span></div>
@@ -1134,10 +1180,10 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       ${total ? `<p class="muted"><strong class="good">${leader ? `${plan.groups.length} villages &middot; ${total.toLocaleString()} troops` : `${total} available ${total === 1 ? 'option' : 'options'}`}</strong></p>` : ''}
       ${!total && !plan.notices.length ? '<p class="notice">No available options for this landing time.</p>' : ''}
       ${!plan.target ? '<p class="notice">Target not found in this map. Check the coordinates or load a newer map.</p>' : ''}
-      ${plan.notices.map(n => `<p class="notice">${escape(n)}</p>`).join('')}`;
-    $('result-list').innerHTML = leader ? (plan.groups.length ? leaderTable(plan.groups,now) : '') : plan.groups.map((group,index) => {
+      ${plan.notices.map(n => `<p class="notice">${linkedCoordinates(n)}</p>`).join('')}`;
+    $('result-list').innerHTML = leader ? leaderSections(plan.groups,now) : plan.groups.map((group,index) => {
       const head = group.options.slice(0,3), rest = group.options.slice(3);
-      return `<article class="result-village"><div class="result-heading"><h3>${escape(group.origin.name)} ${coordText(group.origin)}</h3><span class="muted">${group.fields.toFixed(2)} fields &middot; TS ${group.ts} &middot; ${group.options.length} options</span></div>
+      return `<article class="result-village"><div class="result-heading"><h3>${escape(group.origin.name)} ${coordinateLink(group.origin)}</h3><span class="muted">${group.fields.toFixed(2)} fields &middot; TS ${group.ts} &middot; ${group.options.length} options</span></div>
         ${optionTable(head,index,0,now)}
         ${rest.length ? `<details data-details-key="alternatives-${group.origin.did}"><summary class="alternative-summary">${rest.length} more options</summary>${optionTable(rest,index,3,now)}</details>` : ''}</article>`;
     }).join('');

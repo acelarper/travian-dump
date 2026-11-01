@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://static.cloudflareinsights.com/beacon.min.js; style-src 'unsafe-inline'; connect-src 'self' https://cloudflareinsights.com/cdn-cgi/rum; base-uri 'none'; form-action 'none'">
 <title>Travian Defence</title>
 <style>
 :root{--bg:#0a0e14;--panel:#111923;--field:#0b1119;--line:#283340;--text:#eef4fa;--dim:#a0adbf;--green:#70efd0;--gold:#ffd184;--red:#ff9aab;--mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace}
@@ -81,6 +81,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
 .result-village tr:last-child td{border-bottom:0}
 .leader-table td{overflow-wrap:anywhere}.leader-table td:first-child{min-width:110px;max-width:170px}
 .leader-table td:nth-child(2){min-width:160px}.leader-table .village-start td{border-top:2px solid #437e70}
+.leader-table .player-start{background:#12221f}.leader-table .player-start td{border-top:3px solid var(--green)}
 .leader-table .hero-required{min-width:125px}.leader-table .troop-count{white-space:nowrap;font-weight:600}
 #leader-warning-list{padding-left:18px;margin:8px 0 0;max-height:180px;overflow:auto}
 #result-meta{margin-top:10px}#copy-text{margin-top:10px;min-height:130px}
@@ -100,6 +101,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   .result-village td:last-child{grid-column:2;grid-row:3;align-self:center;justify-self:end}
   .leader-table tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px 12px;padding:12px;border-bottom:1px solid var(--line)}
   .leader-table tr.village-start{border-top:2px solid #437e70}
+  .leader-table tr.player-start{border-top:3px solid var(--green)}
   .leader-table td,.leader-table .village-start td{padding:0;border:0;min-width:0!important;max-width:none!important}
   .leader-table td:first-child,.leader-table td:nth-child(2){grid-column:1/-1}
   .leader-table td:nth-child(3){grid-column:1;grid-row:3}
@@ -163,6 +165,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     <h2>Defence roster</h2>
     <label class="spaced" for="leader-csv">Travco CSV<input id="leader-csv" type="file" accept=".csv,text/csv,text/plain" disabled></label>
     <p class="hint">Minimum per village: 1,000 infantry or 500 cavalry. Roman infantry counts are combined.</p>
+    <p class="hint">Order: player total, then village total. Score: infantry &times;1, cavalry &times;2.</p>
     <p class="hint">CSV TS conversion: 100% = level 0; 180% = level 4.</p>
     <p id="leader-status" class="status" role="status" hidden></p>
     <details id="leader-warnings" class="notice" hidden>
@@ -214,6 +217,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     <textarea id="copy-text" aria-label="Plan text to copy manually" readonly hidden></textarea>
   </section>
 
+  <footer class="hint spaced">Cloudflare Web Analytics records page visits and performance statistics.</footer>
 </main>
 <script>
 'use strict';
@@ -404,9 +408,9 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       return {row,player,name,x,y,ts:(tsPercentage-100)/20,tsPercentage,counts};
     });
   }
+  const accountKey = name => name.normalize('NFC').toLocaleLowerCase();
   function makeLeaderRoster(rows,villages) {
     const byCoordinates = new Map(villages.map(v => [`${v.x}|${v.y}`,v]));
-    const accountKey = name => name.normalize('NFC').toLocaleLowerCase();
     const accounts = new Map();
     for (const village of villages) {
       const key = accountKey(village.player), previous = accounts.get(key);
@@ -684,10 +688,27 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     return [...choices.values()];
   }
   const leaderTotal = group => leaderChoices(group).reduce((sum,choice) => sum+choice.option.count,0);
+  const leaderScore = group => leaderChoices(group).reduce((sum,{option}) =>
+    sum+option.count*(DEFENCE_SLOTS[group.origin.tribe].cavalry.includes(option.unitId) ? 2 : 1),0);
   function availablePlanGroups(plan,now) {
     const groups = plan.groups.map(group => ({...group,options:group.options.filter(option => option.sendAt >= now)}))
       .filter(group => group.options.length > 0);
-    return groups.sort((a,b) => (plan.kind === 'leaders' ? leaderTotal(b)-leaderTotal(a) : compareOptions(a.options[0],b.options[0]))
+    if (plan.kind === 'leaders') {
+      const byPlayer = new Map();
+      for (const group of groups) {
+        const key = group.origin.uid ? `uid:${group.origin.uid}` : `name:${accountKey(group.origin.player)}`;
+        if (!byPlayer.has(key)) byPlayer.set(key,{key,name:group.origin.player,score:0,total:0,groups:[]});
+        const player = byPlayer.get(key), score = leaderScore(group), troopTotal = leaderTotal(group);
+        player.score += score; player.total += troopTotal;
+        player.groups.push({...group,score,troopTotal,playerKey:key});
+      }
+      return [...byPlayer.values()].sort((a,b) => b.score-a.score || b.total-a.total
+        || a.name.localeCompare(b.name,undefined,{numeric:true}) || a.key.localeCompare(b.key))
+        .flatMap(player => player.groups.sort((a,b) => b.score-a.score || b.troopTotal-a.troopTotal
+          || a.origin.name.localeCompare(b.origin.name,undefined,{numeric:true}) || a.origin.did-b.origin.did)
+          .map(group => ({...group,playerScore:player.score})));
+    }
+    return groups.sort((a,b) => compareOptions(a.options[0],b.options[0])
       || a.origin.player.localeCompare(b.origin.player) || a.origin.did-b.origin.did);
   }
   function validateSettings(settings) {
@@ -709,7 +730,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     for (const key of Object.keys(profile.hero)) profile.hero[key] = value.profile.hero[key];
     return {profile,settings:validateSettings(value.version >= 7 ? value.settings : value.draft)};
   }
-  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,normalizeClockTime,parseUTC,formatUTC,formatClock,distance,travelSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,availablePlanGroups,restoreSetup});
+  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,normalizeClockTime,parseUTC,formatUTC,formatClock,distance,travelSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,leaderScore,availablePlanGroups,restoreSetup});
   if (typeof document === 'undefined') return;
 
   const $ = id => document.getElementById(id);
@@ -1082,12 +1103,13 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   }
   function leaderTable(groups,now) {
     return `<div class="table-wrap"><table class="leader-table"><thead><tr><th>Player</th><th>Village</th><th>Defenders</th><th>Hero required</th><th>Send (UTC)</th><th></th></tr></thead><tbody>${groups.map((group,groupIndex) => {
-      const {origin} = group, total = leaderTotal(group);
+      const {origin} = group;
+      const playerStart = groupIndex === 0 || groups[groupIndex-1].playerKey !== group.playerKey;
       const player = origin.uid ? `<a href="${SERVER}/profile/${origin.uid}" target="_blank" rel="noopener noreferrer">${escape(origin.player)}</a>` : escape(origin.player);
       const village = `<a href="${SERVER}/karte.php?d=${origin.tileId}" target="_blank" rel="noopener noreferrer">${escape(origin.name)}</a>`;
-      return leaderChoices(group).map(({option,index},rowIndex) => `<tr data-leader-village="${origin.did}"${rowIndex ? '' : ' class="village-start"'}>
-        <td>${player}</td>
-        <td>${village}<span class="sub mono">${coordText(origin)}</span><span class="sub">TS ${group.ts} (${group.tsPercentage}%) &middot; ${total.toLocaleString()} troops</span>${origin.mapOwnerMismatch ? '<span class="sub warn">Verify map owner</span>' : ''}</td>
+      return leaderChoices(group).map(({option,index},rowIndex) => `<tr data-leader-village="${origin.did}"${rowIndex ? '' : ` class="village-start${playerStart ? ' player-start' : ''}"`}>
+        <td>${player}<span class="sub player-score">Score ${group.playerScore.toLocaleString()}</span></td>
+        <td>${village}<span class="sub mono">${coordText(origin)}</span><span class="sub" title="${group.troopTotal.toLocaleString()} qualifying troops">TS ${group.ts} (${group.tsPercentage}%) &middot; score ${group.score.toLocaleString()}</span>${origin.mapOwnerMismatch ? '<span class="sub warn">Verify map owner</span>' : ''}</td>
         <td><span class="troop-count">${option.count.toLocaleString()}</span> ${escape(option.load.label)}</td>
         <td class="hero-required ${option.withHero ? 'warn' : 'good'}">${option.withHero ? `Yes<span class="sub">${escape(option.equipment[0].label)}</span>` : 'No hero'}</td>
         <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><span class="sub mono send-wait" data-send-at="${option.sendAt}" title="Live countdown">Send in ${duration(Math.ceil((option.sendAt-now)/1000))}</span></td>
@@ -1206,5 +1228,6 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   loadMap();
 })();
 </script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "340927ebc211466b92ab0a2bde9e1496"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

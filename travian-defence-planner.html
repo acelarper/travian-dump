@@ -820,11 +820,12 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   function optionTable(options,groupIndex,offset) {
     return `<div class="table-wrap"><table><thead><tr><th>Troops / hero</th><th>Travel</th><th>Send (UTC)</th><th></th></tr></thead><tbody>${options.map((option,index) => {
       const equipment = option.equipment;
+      const waitSeconds = Math.ceil((option.sendAt-lastPlan.settings.referenceMs)/1000);
       const equipmentHTML = equipment.length === 1 ? `<span class="sub">${option.withHero ? 'Hero: ' : ''}${escape(equipment[0].label)}</span>`
         : `<details class="equipment"><summary>Hero: ${equipment.length} equipment options</summary>${equipment.map(e => `<div>${escape(e.label)}</div>`).join('')}</details>`;
       return `<tr><td><span class="army">${escape(option.load.label)}</span>${option.load.detail ? `<span class="sub">${escape(option.load.detail)}</span>` : ''}${equipmentHTML}</td>
         <td class="mono">${duration(option.seconds)}<span class="sub">${option.speed} fields/h base</span></td>
-        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span></td>
+        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><span class="sub mono send-wait" title="From the calculation time">Send in ${duration(waitSeconds)}</span></td>
         <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index+offset}">Copy</button></td></tr>`;
     }).join('')}</tbody></table></div>`;
   }

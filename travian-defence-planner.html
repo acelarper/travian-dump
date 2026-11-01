@@ -33,7 +33,9 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
 .account-row{display:flex;align-items:end;gap:8px;margin-top:16px;flex-wrap:wrap}.account-row label{flex:1;min-width:180px}
 .setup-switch{display:flex;gap:5px}.setup-switch button{font-size:13px}
-.setup-switch button[aria-pressed=true]{color:var(--green);border-color:#437e70;background:#0e2823}
+.setup-switch button[aria-pressed=true],.view-tabs button[aria-selected=true]{color:var(--green);border-color:#437e70;background:#0e2823}
+.view-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.view-tabs{display:flex;gap:6px}.view-bar+.map-summary{margin:0 0 16px}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
 .check{display:flex;align-items:center;gap:6px;font-weight:400}.checks{display:flex;gap:6px;flex-wrap:wrap}
 .chip{display:flex;align-items:center;gap:5px;font-weight:400;font-size:11px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--field)}
@@ -56,6 +58,8 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .buffer{display:flex;align-items:center;gap:7px;font-weight:400}.buffer input{width:62px;margin:0!important}
 .attack-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
 .target-control{position:relative;min-width:0}#target-query{height:44px;font-size:14px}
+.target-inputs{display:grid;grid-template-columns:minmax(0,1fr) 76px 76px;gap:8px}
+#target-x,#target-y{height:44px;padding:9px 5px;text-align:center;font-family:var(--mono)}
 .target-options{position:absolute;z-index:10;top:66px;left:0;right:0;max-height:300px;overflow:auto;background:#141f2b;border:1px solid #437e70;border-radius:9px;box-shadow:0 12px 30px #0008}
 .target-option{padding:9px 11px;cursor:pointer;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
 .target-option[aria-selected=true],.target-option:hover{background:#203b3a}
@@ -75,6 +79,10 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
 .equipment{font-size:11px;margin-top:5px}.equipment summary{color:var(--green)}
 .alternative-summary{padding:9px 12px;color:var(--green);font-size:12px}
 .result-village tr:last-child td{border-bottom:0}
+.leader-table td{overflow-wrap:anywhere}.leader-table td:first-child{min-width:110px;max-width:170px}
+.leader-table td:nth-child(2){min-width:160px}.leader-table .village-start td{border-top:2px solid #437e70}
+.leader-table .hero-required{min-width:125px}.leader-table .troop-count{white-space:nowrap;font-weight:600}
+#leader-warning-list{padding-left:18px;margin:8px 0 0;max-height:180px;overflow:auto}
 #result-meta{margin-top:10px}#copy-text{margin-top:10px;min-height:130px}
 .timing-summary{display:flex;gap:28px;flex-wrap:wrap;margin:12px 0}.timing-summary .digits{display:block;font-size:28px;line-height:1.2}
 .eyebrow{font-size:10px;color:var(--dim);font-weight:600;letter-spacing:.1em;text-transform:uppercase}
@@ -90,6 +98,14 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   .result-village td:nth-child(2){grid-column:1;grid-row:3}
   .result-village td:nth-child(2)::before{content:"Travel ";color:var(--dim);font:11px system-ui,sans-serif}
   .result-village td:last-child{grid-column:2;grid-row:3;align-self:center;justify-self:end}
+  .leader-table tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px 12px;padding:12px;border-bottom:1px solid var(--line)}
+  .leader-table tr.village-start{border-top:2px solid #437e70}
+  .leader-table td,.leader-table .village-start td{padding:0;border:0;min-width:0!important;max-width:none!important}
+  .leader-table td:first-child,.leader-table td:nth-child(2){grid-column:1/-1}
+  .leader-table td:nth-child(3){grid-column:1;grid-row:3}
+  .leader-table td:nth-child(4){grid-column:2;grid-row:3;max-width:130px!important}
+  .leader-table td.time{grid-column:1;grid-row:4}
+  .leader-table td:last-child{grid-column:2;grid-row:4;align-self:center;justify-self:end}
 }
 @media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list,.fields{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.setup-switch button{padding:7px 9px}.arrival-inputs input{padding:9px;font-size:14px}}
 @media print{body{background:white;color:black}.setup,td:last-child,th:last-child{display:none}.panel{border:0}.result-village{break-inside:avoid}.sub,.muted,th{color:#444}.good,.warn,.bad,.send-time{color:black}}
@@ -103,6 +119,16 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   </header>
   <noscript><p class="notice">JavaScript is required.</p></noscript>
 
+  <div class="view-bar setup">
+    <div class="view-tabs" role="tablist" aria-label="Planner view">
+      <button id="players-tab" type="button" role="tab" aria-selected="true" aria-controls="player-panel">Players</button>
+      <button id="leaders-tab" type="button" role="tab" aria-selected="false" aria-controls="leader-panel" tabindex="-1">Leaders</button>
+    </div>
+    <button id="cancel-fetch" type="button" class="small" hidden>Cancel map load</button>
+  </div>
+  <p id="map-status" class="status map-summary setup" role="status" hidden></p>
+
+  <div id="player-panel" role="tabpanel" aria-labelledby="players-tab">
   <section id="setup-panel" class="panel setup" aria-label="Your setup">
     <div class="section-heading">
       <div class="setup-switch" role="group" aria-label="Setup method">
@@ -120,9 +146,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     <div id="manual-panel">
       <div class="account-row">
         <label for="player-select">Playing as<select id="player-select" disabled><option value="">Loading accounts...</option></select></label>
-        <button id="cancel-fetch" type="button" hidden>Cancel</button>
       </div>
-      <p id="map-status" class="status" role="status" hidden></p>
       <h3 id="anvil-heading" class="spaced" hidden>Anvils</h3>
       <div id="village-list"></div>
       <div id="hero-panel" class="hero" hidden>
@@ -133,14 +157,31 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     </div>
     <p id="setup-status" class="status" role="status" hidden></p>
   </section>
+  </div>
+
+  <section id="leader-panel" class="panel setup" role="tabpanel" aria-labelledby="leaders-tab" hidden>
+    <h2>Defence roster</h2>
+    <label class="spaced" for="leader-csv">Travco CSV<input id="leader-csv" type="file" accept=".csv,text/csv,text/plain" disabled></label>
+    <p class="hint">Minimum per village: 1,000 infantry or 500 cavalry. Roman infantry counts are combined.</p>
+    <p class="hint">CSV TS conversion: 100% = level 0; 180% = level 4.</p>
+    <p id="leader-status" class="status" role="status" hidden></p>
+    <details id="leader-warnings" class="notice" hidden>
+      <summary id="leader-warning-count"></summary>
+      <ul id="leader-warning-list"></ul>
+    </details>
+  </section>
 
   <section class="panel setup" aria-labelledby="attack-heading">
     <h2 id="attack-heading">Incoming attack</h2>
     <div class="attack-grid">
       <div class="target-control">
-        <label for="target-query">Target<input id="target-query" type="text" role="combobox" aria-autocomplete="list" aria-controls="target-options" aria-expanded="false" placeholder="Player, village or (x|y)" autocomplete="off" spellcheck="false"></label>
+        <div class="target-inputs">
+          <label for="target-query">Target<input id="target-query" type="text" role="combobox" aria-autocomplete="list" aria-controls="target-options" aria-expanded="false" placeholder="Player or village" autocomplete="off" spellcheck="false"></label>
+          <label for="target-x">X<input id="target-x" type="number" min="-200" max="200" step="1" autocomplete="off"></label>
+          <label for="target-y">Y<input id="target-y" type="number" min="-200" max="200" step="1" autocomplete="off"></label>
+        </div>
         <div id="target-options" class="target-options" role="listbox" aria-label="Matching villages" hidden></div>
-        <p id="target-detail" class="hint" hidden></p>
+        <p id="target-detail" class="status" role="status" hidden></p>
       </div>
       <fieldset>
         <legend>Attack lands <span class="muted">(UTC)</span></legend>
@@ -188,6 +229,11 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   for (const tribe of Object.values(TRIBES)) {
     tribe.units = tribe.units.map(([name, speed], index) => ({id:index + 1, name, speed}));
   }
+  const DEFENCE_SLOTS = {
+    1:{infantry:[3,2],cavalry:[]},
+    2:{infantry:[2],cavalry:[5]},
+    3:{infantry:[1],cavalry:[5]}
+  };
   const integer = (n, min, max, name) => {
     if (!Number.isSafeInteger(n) || n < min || n > max) throw new Error(`${name} must be an integer from ${min} to ${max}.`);
     return n;
@@ -295,6 +341,102 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       if (player) player.villages.push(village);
     }
     return [...players.values()].sort((a,b) => a.name.localeCompare(b.name,undefined,{numeric:true}));
+  }
+  function parseTravcoCsv(text) {
+    if (typeof text !== 'string' || text.length > MAP_LIMIT) throw new Error('CSV must be a text file smaller than 40 MB.');
+    text = text.replace(/^\uFEFF/,'');
+    const records = [];
+    let fields = [], field = '', quoted = false, closed = false;
+    const endField = () => { fields.push(field); field = ''; closed = false; };
+    const endRow = () => {
+      endField();
+      if (fields.some(value => value.trim())) records.push(fields);
+      fields = [];
+    };
+    for (let i=0;i<text.length;i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === '"') {
+          if (text[i+1] === '"') { field += '"'; i++; }
+          else { quoted = false; closed = true; }
+        } else field += ch;
+        continue;
+      }
+      if (closed && (ch === ' ' || ch === '\t')) continue;
+      if (closed && ![',','\r','\n'].includes(ch)) throw new Error(`Invalid CSV near character ${i+1}: unexpected text after a quote.`);
+      if (ch === '"') {
+        if (field) throw new Error(`Invalid CSV near character ${i+1}: unexpected quote.`);
+        quoted = true;
+      } else if (ch === ',') endField();
+      else if (ch === '\r' || ch === '\n') {
+        endRow();
+        if (ch === '\r' && text[i+1] === '\n') i++;
+      } else field += ch;
+    }
+    if (quoted) throw new Error('Invalid CSV: unfinished quoted field.');
+    if (field || closed || fields.length) endRow();
+    if (records.length < 2) throw new Error('CSV must contain a header and at least one village.');
+    const headers = records[0].map(value => value.trim().toLowerCase());
+    if (new Set(headers).size !== headers.length || headers.some(value => !value)) throw new Error('CSV contains empty or duplicate column names.');
+    const required = ['travian_account','village_name','x','y','ts_percentage','troop_count1','troop_count2','troop_count3','troop_count5'];
+    const missing = required.filter(name => !headers.includes(name));
+    if (missing.length) throw new Error(`Missing CSV columns: ${missing.join(', ')}.`);
+    const columns = new Map(headers.map((name,index) => [name,index])), seen = new Set();
+    return records.slice(1).map((record,index) => {
+      const row = index+2;
+      if (record.length !== headers.length) throw new Error(`CSV row ${row}: expected ${headers.length} columns, found ${record.length}.`);
+      const cell = name => record[columns.get(name)].trim();
+      const number = (name,min,max) => {
+        const value = cell(name);
+        if (!/^[+-]?\d+$/.test(value)) throw new Error(`CSV row ${row}: ${name} must be a whole number.`);
+        return integer(Number(value),min,max,`CSV row ${row}: ${name}`);
+      };
+      const player = cell('travian_account'), name = cell('village_name');
+      if (!player || !name || player.length > 200 || name.length > 200) throw new Error(`CSV row ${row}: invalid player or village name.`);
+      const x = number('x',-200,200), y = number('y',-200,200);
+      const key = `${x}|${y}`;
+      if (seen.has(key)) throw new Error(`CSV row ${row}: duplicate village at (${key}).`);
+      seen.add(key);
+      const tsPercentage = number('ts_percentage',100,500);
+      if ((tsPercentage-100)%20) throw new Error(`CSV row ${row}: TS percentage must be 100, 120, ... 500.`);
+      const counts = {};
+      for (const slot of [1,2,3,5]) counts[slot] = number(`troop_count${slot}`,0,1e9);
+      return {row,player,name,x,y,ts:(tsPercentage-100)/20,tsPercentage,counts};
+    });
+  }
+  function makeLeaderRoster(rows,villages) {
+    const byCoordinates = new Map(villages.map(v => [`${v.x}|${v.y}`,v]));
+    const accountKey = name => name.normalize('NFC').toLocaleLowerCase();
+    const accounts = new Map();
+    for (const village of villages) {
+      const key = accountKey(village.player), previous = accounts.get(key);
+      if (!accounts.has(key)) accounts.set(key,village);
+      else if (previous && (previous.uid !== village.uid || previous.tribe !== village.tribe)) accounts.set(key,null);
+    }
+    const candidates = [], warnings = [];
+    for (const row of rows) {
+      const origin = byCoordinates.get(`${row.x}|${row.y}`);
+      const description = `CSV row ${row.row}, ${row.player} / ${row.name} ${coordText(row)}`;
+      if (!origin) { warnings.push(`${description}: missing from map.sql; skipped.`); continue; }
+      const sameOwner = accountKey(origin.player) === accountKey(row.player);
+      const account = sameOwner ? origin : accounts.get(accountKey(row.player));
+      const tribe = account ? account.tribe : origin.tribe;
+      if (!sameOwner) warnings.push(`${description}: owner differs from map.sql; verify the CSV/map match.${!account ? ' Player link unavailable; tribe taken from the coordinates.' : ''}`);
+      const slots = DEFENCE_SLOTS[tribe];
+      if (!slots) { warnings.push(`${description}: unsupported tribe ${tribe}; skipped.`); continue; }
+      const troops = [];
+      for (const [category,minimum] of [['infantry',1000],['cavalry',500]]) {
+        const total = slots[category].reduce((sum,id) => sum+row.counts[id],0);
+        if (total < minimum) continue;
+        for (const id of slots[category]) {
+          if (row.counts[id]) troops.push({...TRIBES[tribe].units[id-1],count:row.counts[id]});
+        }
+      }
+      if (troops.length) candidates.push({origin:{...origin,tribe,uid:account ? account.uid : null,aid:account ? account.aid : 0,name:row.name,player:row.player,mapOwnerMismatch:!sameOwner},ts:row.ts,
+        tsPercentage:row.tsPercentage,troops,total:troops.reduce((sum,troop) => sum+troop.count,0)});
+    }
+    candidates.sort((a,b) => b.total-a.total || a.origin.player.localeCompare(b.origin.player) || a.origin.did-b.origin.did);
+    return {candidates,warnings,rowCount:rows.length};
   }
   function parseCoordinates(value) {
     const normalized = value.trim().replace(/\u2212/g,'-');
@@ -464,8 +606,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       || a.load.escortIds.length-b.load.escortIds.length
       || a.load.key.localeCompare(b.load.key);
   }
-  function buildPlan(villages,profile,settings) {
-    validateProfile(profile,villages);
+  function planContext(villages,settings) {
     integer(settings.attackMs,0,253402300799999,'Attack time');
     integer(settings.referenceMs,0,253402300799999,'Reference time');
     integer(settings.buffer,1,86400,'Safety margin (seconds)');
@@ -473,6 +614,11 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     distance(settings.target,settings.target);
     const cutoff = settings.attackMs-settings.buffer*1000;
     const target = villages.find(v => v.x === settings.target.x && v.y === settings.target.y) || null;
+    return {cutoff,target};
+  }
+  function buildPlan(villages,profile,settings) {
+    validateProfile(profile,villages);
+    const {cutoff,target} = planContext(villages,settings);
     const enabled = profile.villages.filter(v => v.enabled);
     if (!enabled.length) throw new Error('Select at least one anvil village.');
     const groups = [], notices = [];
@@ -501,18 +647,56 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       groups.push({origin,fields,ts:config.ts,relation,options:[...grouped.values()].sort(compareOptions)});
     }
     groups.sort((a,b) => compareOptions(a.options[0],b.options[0]) || a.origin.name.localeCompare(b.origin.name));
-    return {settings,cutoff,target,groups,notices,playerId:profile.playerId};
+    return {kind:'players',settings,cutoff,target,groups,notices,playerId:profile.playerId};
   }
-  function validateDraft(draft) {
-    if (!draft || typeof draft.target !== 'string' || draft.target.length > 100) throw new Error('Invalid saved target.');
-    if (draft.target) parseCoordinates(draft.target);
-    if (typeof draft.attack !== 'string') throw new Error('Invalid saved attack time.');
-    const attack = draft.attack ? isoTime(parseUTC(draft.attack)) : '';
-    integer(draft.buffer,1,86400,'Saved safety margin');
-    return {target:draft.target,attack,buffer:draft.buffer};
+  function buildLeaderPlan(villages,roster,settings) {
+    const {cutoff,target} = planContext(villages,settings);
+    if (!roster.candidates.length) throw new Error('No CSV villages meet the troop thresholds.');
+    const groups = [], notices = [];
+    for (const candidate of roster.candidates) {
+      const {origin,ts,tsPercentage,troops} = candidate;
+      const fields = distance(origin,settings.target);
+      if (!fields) { notices.push(`${origin.name} ${coordText(origin)} is already at the target.`); continue; }
+      const relation = relationship(origin,target), options = [];
+      for (const troop of troops) for (const variant of heroVariants(origin,relation)) {
+        const seconds = travelSeconds(fields,troop.speed,ts,variant.boots,variant.hand);
+        const sendAt = cutoff-seconds*1000;
+        options.push({unitId:troop.id,count:troop.count,
+          load:{key:`leader-${troop.id}`,label:troop.name,detail:'',escortIds:[]},
+          withHero:variant.withHero,equipment:[variant],seconds,speed:troop.speed,sendAt,
+          feasible:sendAt >= settings.referenceMs,origin,relation});
+      }
+      groups.push({origin,fields,ts,tsPercentage,options});
+    }
+    return {kind:'leaders',settings,cutoff,target,groups,notices};
+  }
+  function leaderChoices(group) {
+    const choices = new Map();
+    const itemCount = option => Number(option.equipment[0].boots > 0)+Number(option.equipment[0].hand > 1);
+    for (const [index,option] of group.options.entries()) {
+      const old = choices.get(option.unitId);
+      if (!old || Number(option.withHero)-Number(old.option.withHero) < 0
+        || (option.withHero === old.option.withHero && (itemCount(option) < itemCount(old.option)
+          || (itemCount(option) === itemCount(old.option) && option.sendAt > old.option.sendAt)))) {
+        choices.set(option.unitId,{option,index});
+      }
+    }
+    return [...choices.values()];
+  }
+  const leaderTotal = group => leaderChoices(group).reduce((sum,choice) => sum+choice.option.count,0);
+  function availablePlanGroups(plan,now) {
+    const groups = plan.groups.map(group => ({...group,options:group.options.filter(option => option.sendAt >= now)}))
+      .filter(group => group.options.length > 0);
+    return groups.sort((a,b) => (plan.kind === 'leaders' ? leaderTotal(b)-leaderTotal(a) : compareOptions(a.options[0],b.options[0]))
+      || a.origin.player.localeCompare(b.origin.player) || a.origin.did-b.origin.did);
+  }
+  function validateSettings(settings) {
+    if (!settings || typeof settings !== 'object') throw new Error('Invalid saved defence settings.');
+    integer(settings.buffer,1,86400,'Safety margin (seconds)');
+    return {buffer:settings.buffer};
   }
   function restoreSetup(value,villages = []) {
-    if (!value || ![1,2,3,4,5,6].includes(value.version) || value.server !== SERVER || !value.profile) throw new Error('Not a supported TS12 defence setup.');
+    if (!value || ![1,2,3,4,5,6,7].includes(value.version) || value.server !== SERVER || !value.profile) throw new Error('Not a supported TS12 defence setup.');
     if (!villages.length) throw new Error('The current map.sql is not loaded. Reload the hosted page, then import your settings.');
     const player = playersFromMap(villages).find(p => p.id === value.profile.playerId);
     if (!player) throw new Error('The saved account is not in L!, L# or L* in this map.');
@@ -523,15 +707,16 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       profile.villages[index] = {...emptyVillage(config),enabled:config.enabled,ts:config.ts,defenders:[...config.defenders],escorts:[...config.escorts]};
     }
     for (const key of Object.keys(profile.hero)) profile.hero[key] = value.profile.hero[key];
-    return {profile,draft:validateDraft(value.draft)};
+    return {profile,settings:validateSettings(value.version >= 7 ? value.settings : value.draft)};
   }
-  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,normalizeClockTime,parseUTC,formatUTC,formatClock,distance,travelSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,restoreSetup});
+  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,normalizeClockTime,parseUTC,formatUTC,formatClock,distance,travelSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,availablePlanGroups,restoreSetup});
   if (typeof document === 'undefined') return;
 
   const $ = id => document.getElementById(id);
   const escape = value => String(value).replace(/[&<>"']/g,ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   let villages = [], players = [], selectedId = null, profiles = new Map(), lastPlan = null;
-  let mapBusy = false, fetchController = null;
+  let mapBusy = false, fetchController = null, sendTimer = null;
+  let activeView = 'players', leaderBusy = false, leaderRoster = {candidates:[],warnings:[],rowCount:0};
   let targetIndex = [], targetPoint = null, suggestions = [], activeSuggestion = -1;
   const currentProfile = () => profiles.get(selectedId);
   const currentPlayer = () => players.find(p => p.id === selectedId);
@@ -546,8 +731,23 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     $('setup-manual').setAttribute('aria-pressed',String(mode === 'manual'));
     $('setup-import').setAttribute('aria-pressed',String(mode === 'import'));
   }
+  function showView(view) {
+    if (view === activeView) return;
+    invalidate();
+    activeView = view;
+    $('player-panel').hidden = view !== 'players';
+    $('leader-panel').hidden = view !== 'leaders';
+    for (const name of ['players','leaders']) {
+      $(name+'-tab').setAttribute('aria-selected',String(name === view));
+      $(name+'-tab').tabIndex = name === view ? 0 : -1;
+    }
+    $('calculate').textContent = view === 'leaders' ? 'Find defenders' : 'Find send times';
+    status('plan-status','');
+    enableControls();
+  }
   function invalidate() {
-    if (lastPlan) status('plan-status','Changed. Find send times again.');
+    stopSendCountdown();
+    if (lastPlan) status('plan-status',activeView === 'leaders' ? 'Changed. Find defenders again.' : 'Changed. Find send times again.');
     lastPlan = null;
     $('results').hidden = true;
     $('result-list').replaceChildren();
@@ -555,13 +755,48 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   }
   function enableControls() {
     $('player-select').disabled = !players.length || mapBusy;
-    $('calculate').disabled = !selectedId || mapBusy;
+    $('calculate').disabled = mapBusy || (activeView === 'leaders' ? leaderBusy || !leaderRoster.candidates.length : !selectedId);
+    $('leader-csv').disabled = mapBusy || leaderBusy || !villages.length;
     $('save-setup').disabled = !selectedId || mapBusy;
     $('load-setup').disabled = mapBusy;
     $('setup-file').disabled = mapBusy;
     $('setup-manual').disabled = mapBusy;
     $('setup-import').disabled = mapBusy;
   }
+  for (const [index,view] of ['players','leaders'].entries()) {
+    $(view+'-tab').addEventListener('click',() => showView(view));
+    $(view+'-tab').addEventListener('keydown',event => {
+      let next;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') next = 1-index;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = 1;
+      else return;
+      event.preventDefault();
+      const name = ['players','leaders'][next];
+      showView(name); $(name+'-tab').focus();
+    });
+  }
+  $('leader-csv').addEventListener('change',async () => {
+    if (leaderBusy || mapBusy) return;
+    const file = $('leader-csv').files[0];
+    if (!file) return;
+    leaderBusy = true; enableControls();
+    status('leader-status',`Reading ${file.name}...`);
+    try {
+      if (file.size > MAP_LIMIT) throw new Error('CSV file exceeds 40 MB.');
+      if (!villages.length) throw new Error('The current map.sql is not loaded.');
+      const next = makeLeaderRoster(parseTravcoCsv(await file.text()),villages);
+      leaderRoster = next;
+      if (activeView === 'leaders') invalidate();
+      const count = next.candidates.length, total = next.candidates.reduce((sum,candidate) => sum+candidate.total,0);
+      status('leader-status',`${count} qualifying ${count === 1 ? 'village' : 'villages'} / ${next.rowCount} CSV rows; ${total.toLocaleString()} troops - ${file.name}.`);
+      $('leader-warnings').hidden = !next.warnings.length;
+      $('leader-warning-count').textContent = `${next.warnings.length} map ${next.warnings.length === 1 ? 'warning' : 'warnings'}`;
+      $('leader-warning-list').innerHTML = next.warnings.slice(0,50).map(warning => `<li>${escape(warning)}</li>`).join('')
+        + (next.warnings.length > 50 ? `<li>${next.warnings.length-50} more warnings. Update map.sql and import again.</li>` : '');
+    } catch (error) { status('leader-status',`CSV import failed: ${error.message} Previous roster kept.`,true); }
+    finally { leaderBusy = false; enableControls(); }
+  });
   function renderPlayers() {
     $('player-select').innerHTML = '<option value="">Select your account</option>' + players.map(p =>
       `<option value="${p.id}">${escape(p.name)} [${escape([...p.alliances].join(', '))}]</option>`).join('');
@@ -681,12 +916,25 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     $('target-query').setAttribute('aria-expanded','false');
     $('target-query').removeAttribute('aria-activedescendant');
   }
-  function presentTarget(point) {
+  function presentTarget(point,updateCoordinates = true) {
     targetPoint = {x:point.x,y:point.y};
     const village = villages.find(v => v.x === point.x && v.y === point.y);
-    $('target-query').value = village ? targetLabel(village) : coordText(point);
-    status('target-detail',village ? village.alliance || 'No alliance' : 'Not found in this map.');
+    $('target-query').value = village ? targetLabel(village) : '';
+    if (updateCoordinates) {
+      $('target-x').value = point.x;
+      $('target-y').value = point.y;
+    }
+    status('target-detail',village ? village.alliance || 'No alliance' : 'Not found in map.sql. Using these coordinates.');
+    $('target-detail').classList.toggle('warn',!village);
     hideSuggestions();
+  }
+  function coordinateTarget() {
+    return {x:integer($('target-x').valueAsNumber,-200,200,'Target X'),
+      y:integer($('target-y').valueAsNumber,-200,200,'Target Y')};
+  }
+  function readTarget() {
+    const hasCoordinates = ['target-x','target-y'].some(id => $(id).value !== '' || $(id).validity.badInput);
+    return hasCoordinates ? coordinateTarget() : resolveTarget(targetIndex,$('target-query').value);
   }
   function showSuggestions() {
     const result = searchTargets(targetIndex,$('target-query').value);
@@ -711,8 +959,22 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   }
   $('target-query').addEventListener('input',() => {
     targetPoint = null;
+    $('target-x').value = ''; $('target-y').value = '';
+    $('target-detail').classList.remove('warn');
     status('target-detail','');
     invalidate(); showSuggestions();
+  });
+  for (const id of ['target-x','target-y']) $(id).addEventListener('input',() => {
+    targetPoint = null;
+    $('target-query').value = '';
+    $('target-detail').classList.remove('warn');
+    invalidate(); hideSuggestions();
+    if ($('target-x').value === '' || $('target-y').value === '') {
+      status('target-detail','Enter both coordinates.');
+      return;
+    }
+    try { presentTarget(coordinateTarget(),false); }
+    catch (error) { status('target-detail',error.message,true); }
   });
   $('target-query').addEventListener('focus',showSuggestions);
   $('target-query').addEventListener('blur',hideSuggestions);
@@ -765,13 +1027,8 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   });
   for (const id of ['attack-date','buffer-seconds']) $(id).addEventListener('input',invalidate);
   $('attack-date').value = isoTime(Date.now()).slice(0,10);
-  function draft() {
-    const query = $('target-query').value.trim();
-    const target = query ? resolveTarget(targetIndex,query) : null;
-    const time = $('attack-time').value.trim();
-    return validateDraft({target:target ? `${target.x}|${target.y}` : '',
-      attack:time ? `${$('attack-date').value}T${normalizeClockTime(time)}` : '',
-      buffer:$('buffer-seconds').valueAsNumber});
+  function defenceSettings() {
+    return validateSettings({buffer:$('buffer-seconds').valueAsNumber});
   }
   function download(text,filename) {
     const blob = new Blob([text],{type:'application/json'});
@@ -784,7 +1041,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   $('save-setup').addEventListener('click',() => {
     try {
       const profile = validateProfile(currentProfile(),villages);
-      const value = {version:6,server:SERVER,savedAt:new Date().toISOString(),profile,draft:draft()};
+      const value = {version:7,server:SERVER,savedAt:new Date().toISOString(),profile,settings:defenceSettings()};
       download(JSON.stringify(value,null,2),`ts12-defence-setup-${selectedId}.json`);
       status('setup-status','Exported player and defence settings.');
     } catch (error) { status('setup-status',`Cannot export: ${error.message}`,true); }
@@ -798,13 +1055,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       if (file.size > MAP_LIMIT) throw new Error('Setup file exceeds 40 MB.');
       const saved = restoreSetup(JSON.parse(await file.text()),villages);
       profiles.set(saved.profile.playerId,saved.profile); selectedId = saved.profile.playerId;
-      const values = saved.draft;
-      if (values.target) presentTarget(parseCoordinates(values.target));
-      else { targetPoint = null; $('target-query').value = ''; status('target-detail',''); hideSuggestions(); }
-      $('attack-date').value = values.attack ? values.attack.slice(0,10) : isoTime(Date.now()).slice(0,10);
-      $('attack-time').value = values.attack ? values.attack.slice(11) : '';
-      $('attack-time').setAttribute('aria-invalid','false');
-      $('buffer-seconds').value = values.buffer;
+      $('buffer-seconds').value = saved.settings.buffer;
       invalidate(); renderPlayers(); renderVillages(); enableControls();
       showSetup('manual');
       status('setup-status',`Imported ${file.name}.`);
@@ -817,57 +1068,103 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     const minutes = Math.floor(rounded%3600/60), secs = rounded%60;
     return `${days ? days+'d ' : ''}${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
   }
-  function optionTable(options,groupIndex,offset) {
+  function optionTable(options,groupIndex,offset,now) {
     return `<div class="table-wrap"><table><thead><tr><th>Troops / hero</th><th>Travel</th><th>Send (UTC)</th><th></th></tr></thead><tbody>${options.map((option,index) => {
       const equipment = option.equipment;
-      const waitSeconds = Math.ceil((option.sendAt-lastPlan.settings.referenceMs)/1000);
+      const waitSeconds = Math.ceil((option.sendAt-now)/1000);
       const equipmentHTML = equipment.length === 1 ? `<span class="sub">${option.withHero ? 'Hero: ' : ''}${escape(equipment[0].label)}</span>`
-        : `<details class="equipment"><summary>Hero: ${equipment.length} equipment options</summary>${equipment.map(e => `<div>${escape(e.label)}</div>`).join('')}</details>`;
+        : `<details class="equipment" data-details-key="gear-${option.origin.did}-${option.load.key}-${option.withHero}-${option.seconds}"><summary>Hero: ${equipment.length} equipment options</summary>${equipment.map(e => `<div>${escape(e.label)}</div>`).join('')}</details>`;
       return `<tr><td><span class="army">${escape(option.load.label)}</span>${option.load.detail ? `<span class="sub">${escape(option.load.detail)}</span>` : ''}${equipmentHTML}</td>
         <td class="mono">${duration(option.seconds)}<span class="sub">${option.speed} fields/h base</span></td>
-        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><span class="sub mono send-wait" title="From the calculation time">Send in ${duration(waitSeconds)}</span></td>
+        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><span class="sub mono send-wait" data-send-at="${option.sendAt}" title="Live countdown">Send in ${duration(waitSeconds)}</span></td>
         <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index+offset}">Copy</button></td></tr>`;
     }).join('')}</tbody></table></div>`;
   }
-  function renderPlan() {
+  function leaderTable(groups,now) {
+    return `<div class="table-wrap"><table class="leader-table"><thead><tr><th>Player</th><th>Village</th><th>Defenders</th><th>Hero required</th><th>Send (UTC)</th><th></th></tr></thead><tbody>${groups.map((group,groupIndex) => {
+      const {origin} = group, total = leaderTotal(group);
+      const player = origin.uid ? `<a href="${SERVER}/profile/${origin.uid}" target="_blank" rel="noopener noreferrer">${escape(origin.player)}</a>` : escape(origin.player);
+      const village = `<a href="${SERVER}/karte.php?d=${origin.tileId}" target="_blank" rel="noopener noreferrer">${escape(origin.name)}</a>`;
+      return leaderChoices(group).map(({option,index},rowIndex) => `<tr data-leader-village="${origin.did}"${rowIndex ? '' : ' class="village-start"'}>
+        <td>${player}</td>
+        <td>${village}<span class="sub mono">${coordText(origin)}</span><span class="sub">TS ${group.ts} (${group.tsPercentage}%) &middot; ${total.toLocaleString()} troops</span>${origin.mapOwnerMismatch ? '<span class="sub warn">Verify map owner</span>' : ''}</td>
+        <td><span class="troop-count">${option.count.toLocaleString()}</span> ${escape(option.load.label)}</td>
+        <td class="hero-required ${option.withHero ? 'warn' : 'good'}">${option.withHero ? `Yes<span class="sub">${escape(option.equipment[0].label)}</span>` : 'No hero'}</td>
+        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><span class="sub mono send-wait" data-send-at="${option.sendAt}" title="Live countdown">Send in ${duration(Math.ceil((option.sendAt-now)/1000))}</span></td>
+        <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index}">Copy</button></td>
+      </tr>`).join('');
+    }).join('')}</tbody></table></div>`;
+  }
+  function renderPlan(resetCopy = true,now = Date.now()) {
     if (!lastPlan) return;
     const plan = lastPlan;
+    const leader = plan.kind === 'leaders';
     $('results').hidden = false;
+    $('results-heading').textContent = leader ? 'Available defence' : 'Send times';
     $('calculated-at').textContent = `Calculated ${formatClock(plan.settings.calculatedAt)} UTC`;
-    const total = plan.groups.reduce((n,g) => n+g.options.length,0);
+    const total = plan.groups.reduce((n,g) => n+(leader ? leaderTotal(g) : g.options.length),0);
     const targetText = plan.target ? `${plan.target.name} - ${plan.target.player}` : 'Unknown village';
     $('result-meta').innerHTML = `<p><strong>${escape(targetText)} ${coordText(plan.settings.target)}</strong></p>
       <div class="timing-summary">
         <div><span class="eyebrow">Attack lands</span><span class="digits">${formatClock(plan.settings.attackMs)}</span><span class="sub">${formatDay(plan.settings.attackMs)} UTC</span></div>
         <div><span class="eyebrow">Defence lands</span><span class="digits good">${formatClock(plan.cutoff)}</span><span class="sub">${formatDay(plan.cutoff)} UTC</span></div>
       </div>
-      ${total ? `<p class="muted"><strong class="good">${total} available ${total === 1 ? 'option' : 'options'}</strong></p>` : ''}
+      ${total ? `<p class="muted"><strong class="good">${leader ? `${plan.groups.length} villages &middot; ${total.toLocaleString()} troops` : `${total} available ${total === 1 ? 'option' : 'options'}`}</strong></p>` : ''}
       ${!total && !plan.notices.length ? '<p class="notice">No available options for this landing time.</p>' : ''}
       ${!plan.target ? '<p class="notice">Target not found in this map. Check the coordinates or load a newer map.</p>' : ''}
       ${plan.notices.map(n => `<p class="notice">${escape(n)}</p>`).join('')}`;
-    $('result-list').innerHTML = plan.groups.map((group,index) => {
+    $('result-list').innerHTML = leader ? (plan.groups.length ? leaderTable(plan.groups,now) : '') : plan.groups.map((group,index) => {
       const head = group.options.slice(0,3), rest = group.options.slice(3);
       return `<article class="result-village"><div class="result-heading"><h3>${escape(group.origin.name)} ${coordText(group.origin)}</h3><span class="muted">${group.fields.toFixed(2)} fields &middot; TS ${group.ts} &middot; ${group.options.length} options</span></div>
-        ${optionTable(head,index,0)}
-        ${rest.length ? `<details><summary class="alternative-summary">${rest.length} more options</summary>${optionTable(rest,index,3)}</details>` : ''}</article>`;
+        ${optionTable(head,index,0,now)}
+        ${rest.length ? `<details data-details-key="alternatives-${group.origin.did}"><summary class="alternative-summary">${rest.length} more options</summary>${optionTable(rest,index,3,now)}</details>` : ''}</article>`;
     }).join('');
-    status('copy-status',''); $('copy-text').hidden = true;
+    if (resetCopy) { status('copy-status',''); $('copy-text').hidden = true; }
   }
+  function stopSendCountdown() {
+    if (sendTimer !== null) clearInterval(sendTimer);
+    sendTimer = null;
+  }
+  function updateSendCountdown() {
+    if (!lastPlan) { stopSendCountdown(); return; }
+    const now = Date.now();
+    if (lastPlan.groups.some(group => group.options.some(option => option.sendAt < now))) {
+      const expanded = new Set([...$('result-list').querySelectorAll('details[data-details-key][open]')].map(e => e.dataset.detailsKey));
+      lastPlan.groups = availablePlanGroups(lastPlan,now);
+      renderPlan(false,now);
+      for (const details of $('result-list').querySelectorAll('details[data-details-key]')) {
+        details.open = expanded.has(details.dataset.detailsKey);
+      }
+    }
+    for (const label of $('result-list').querySelectorAll('.send-wait')) {
+      const text = `Send in ${duration(Math.ceil((Number(label.dataset.sendAt)-now)/1000))}`;
+      if (label.textContent !== text) label.textContent = text;
+    }
+    if (!lastPlan.groups.length) stopSendCountdown();
+  }
+  function startSendCountdown() {
+    stopSendCountdown();
+    updateSendCountdown();
+    if (lastPlan?.groups.length) sendTimer = setInterval(updateSendCountdown,1000);
+  }
+  document.addEventListener('visibilitychange',() => { if (!document.hidden) updateSendCountdown(); });
   $('calculate').addEventListener('click',() => {
     invalidate();
     try {
-      const values = draft(), calculatedAt = Date.now();
-      const settings = {target:parseCoordinates(values.target),attackMs:parseUTC(values.attack,'Attack landing'),
+      const target = readTarget(), time = normalizeClockTime($('attack-time').value);
+      const preferences = defenceSettings(), calculatedAt = Date.now();
+      const settings = {target,attackMs:parseUTC(`${$('attack-date').value}T${time}`,'Attack landing'),
         referenceMs:calculatedAt,
-        buffer:values.buffer,calculatedAt};
-      const plan = buildPlan(villages,currentProfile(),settings);
-      plan.groups = plan.groups.map(group => ({...group,options:group.options.filter(option => option.feasible)}))
-        .filter(group => group.options.length > 0);
+        buffer:preferences.buffer,calculatedAt};
+      const plan = activeView === 'leaders' ? buildLeaderPlan(villages,leaderRoster,settings) : buildPlan(villages,currentProfile(),settings);
+      const now = Date.now();
+      plan.groups = availablePlanGroups(plan,now);
       lastPlan = plan;
       presentTarget(settings.target);
-      $('attack-time').value = values.attack.slice(11);
+      $('attack-time').value = time;
       $('attack-time').setAttribute('aria-invalid','false');
-      renderPlan();
+      renderPlan(true,now);
+      startSendCountdown();
       status('plan-status','');
     } catch (error) {
       $('plan-error').hidden = false;
@@ -878,14 +1175,21 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     const button = event.target.closest('button[data-copy-group]');
     if (!button || !lastPlan) return;
     const option = lastPlan.groups[Number(button.dataset.copyGroup)].options[Number(button.dataset.copyOption)];
+    if (option.sendAt < Date.now()) {
+      updateSendCountdown();
+      $('copy-text').hidden = true; $('copy-text').value = '';
+      status('copy-status','This send time has passed. Choose another option.',true);
+      return;
+    }
     const text = [
-      `TS12 defence - ${currentPlayer().name}`,
+      `TS12 defence - ${option.origin.player}`,
       `From: ${option.origin.name} ${coordText(option.origin)} -> ${coordText(lastPlan.settings.target)}`,
-      `Troops: ${option.load.label}${option.load.detail ? '. '+option.load.detail : ''}`,
+      `Troops: ${option.count ? option.count.toLocaleString()+' ' : ''}${option.load.label}${option.load.detail ? '. '+option.load.detail : ''}`,
       `Equipment: ${option.equipment.map(e => e.label).join(' OR ')}`,
       `Send: ${formatUTC(option.sendAt)}`,
       `Arrival: ${formatUTC(lastPlan.cutoff)}; attack: ${formatUTC(lastPlan.settings.attackMs)}`,
       `Travel: ${duration(option.seconds)}`,
+      option.origin.mapOwnerMismatch ? 'CSV owner differs from map.sql; verify the village and tribe.' : '',
       !lastPlan.target ? 'Target not found in the map; check coordinates.' : ''
     ].filter(Boolean).join('\n');
     try {

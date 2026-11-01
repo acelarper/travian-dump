@@ -48,8 +48,6 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .village fieldset{margin-top:10px}
 .ts{display:flex;align-items:center;gap:10px;margin-bottom:10px}.ts input{margin-top:0!important;padding:4px 8px;max-width:65px}
 .hero{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
-.hero-fields{display:grid;grid-template-columns:1fr auto;align-items:end;gap:12px;margin-top:8px}
-.hero-fields .check{min-height:40px}
 .attack-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:14px}
 .arrival-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .arrival-inputs input{height:44px;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums}
@@ -73,7 +71,6 @@ td,th{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middl
 td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
 .mono,.digits{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .digits{letter-spacing:-.045em}.send-time{display:block;font-size:23px;font-weight:600;line-height:1.2;color:var(--green)}
-.missed .send-time{color:var(--red)}
 .army{font-weight:600}.sub{display:block;font-size:11px;color:var(--dim);margin-top:3px}
 .equipment{font-size:11px;margin-top:5px}.equipment summary{color:var(--green)}
 .alternative-summary{padding:9px 12px;color:var(--green);font-size:12px}
@@ -83,7 +80,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
 .eyebrow{font-size:10px;color:var(--dim);font-weight:600;letter-spacing:.1em;text-transform:uppercase}
 [hidden]{display:none!important}
 @media(max-width:720px){
-  .attack-grid{grid-template-columns:1fr}.hero-fields{grid-template-columns:1fr}.hero-fields .check{grid-column:1/-1;min-height:20px}
+  .attack-grid{grid-template-columns:1fr}
   .table-wrap{overflow:visible}table,tbody{display:block}
   thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .result-village tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;padding:12px;border-bottom:1px solid var(--line)}
@@ -92,7 +89,6 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   .result-village td.time{grid-column:1;grid-row:2;min-width:0}
   .result-village td:nth-child(2){grid-column:1;grid-row:3}
   .result-village td:nth-child(2)::before{content:"Travel ";color:var(--dim);font:11px system-ui,sans-serif}
-  .result-village td:nth-child(4){grid-column:2;grid-row:2;align-self:center}
   .result-village td:last-child{grid-column:2;grid-row:3;align-self:center;justify-self:end}
 }
 @media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list,.fields{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.setup-switch button{padding:7px 9px}.arrival-inputs input{padding:9px;font-size:14px}}
@@ -130,12 +126,9 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       <h3 id="anvil-heading" class="spaced" hidden>Anvils</h3>
       <div id="village-list"></div>
       <div id="hero-panel" class="hero" hidden>
-        <div class="section-heading"><h3>Hero</h3><span class="muted">Mounted &middot; all tier-1 items</span></div>
-        <div class="hero-fields">
-          <label for="hero-origin">Home anvil<select id="hero-origin"><option value="">Without hero</option></select></label>
-          <label class="check"><input id="hero-only" type="checkbox" disabled>Include hero-only options</label>
-        </div>
-        <p id="hero-speed" class="hint"></p>
+        <div class="section-heading"><h3>Hero</h3><span class="muted">Assumed in every anvil</span></div>
+        <label class="check spaced"><input id="hero-only" type="checkbox">Include hero-only options</label>
+        <p class="hint">Small Standard &middot; Mercenary boots</p>
       </div>
     </div>
     <p id="setup-status" class="status" role="status" hidden></p>
@@ -160,7 +153,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       </fieldset>
     </div>
     <div class="attack-actions">
-      <label class="buffer">Arrive <input id="buffer-seconds" type="number" min="1" max="86400" step="1" value="5" aria-label="Seconds before the attack"> seconds before</label>
+      <label class="buffer">Arrive <input id="buffer-seconds" type="number" min="1" max="86400" step="1" value="60" aria-label="Seconds before the attack"> seconds before</label>
     </div>
     <div class="actions">
       <button id="calculate" type="button" class="primary" disabled>Find send times</button>
@@ -387,11 +380,11 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   function travelSeconds(fields,speed,ts,boots = 0,hand = 1) {
     if (!Number.isFinite(fields) || fields < 0 || !Number.isFinite(speed) || speed <= 0) throw new Error('Invalid distance or troop speed.');
     integer(ts,0,20,'Tournament Square');
-    if (![0,0.25].includes(boots) || ![1,1.15,1.3].includes(hand)) throw new Error('Unsupported tier 1 movement bonus.');
+    if (![0,0.25].includes(boots) || ![1,1.15].includes(hand)) throw new Error('Unsupported tier 1 movement bonus.');
     const weightedDistance = Math.min(fields,20) + Math.max(fields-20,0)/(1+0.2*ts+boots);
     return Math.round(3600*weightedDistance/(speed*hand));
   }
-  const emptyHero = () => ({originId:null,solo:false});
+  const emptyHero = () => ({solo:false});
   const emptyVillage = village => ({did:village.did,tribe:village.tribe,x:village.x,y:village.y,enabled:false,ts:0,defenders:[],escorts:[1,2,3,4,5,6,7,8]});
   const makeProfile = player => ({playerId:player.id,villages:player.villages.map(emptyVillage),hero:emptyHero()});
   function validateProfile(profile,villages) {
@@ -415,7 +408,6 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     }
     const hero = profile.hero;
     if (!hero || typeof hero.solo !== 'boolean') throw new Error('Invalid hero-only setting.');
-    if (hero.originId !== null && !profile.villages.some(v => v.did === hero.originId && v.enabled)) throw new Error('The hero must depart from one selected anvil.');
     return profile;
   }
   function relationship(origin,target) {
@@ -423,17 +415,15 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     if (target && origin.aid !== 0 && origin.aid === target.aid) return 'alliance';
     return 'confederacy';
   }
-  function heroVariants(origin,hero,relation) {
+  function heroVariants(origin,relation) {
     const variants = [{withHero:false,label:'No hero',speed:Infinity,boots:0,hand:1}];
-    if (hero.originId !== origin.did) return variants;
     const heroSpeed = 14 + (origin.tribe === 3 ? 5 : 0);
-    const boots = [{name:'',bonus:0,extra:0},{name:'Mercenary boots',bonus:0.25,extra:0},{name:'Small Spurs',bonus:0,extra:3}];
+    const boots = [{name:'',bonus:0},{name:'Mercenary boots',bonus:0.25}];
     const hands = [{name:'',bonus:1}];
     if (['alliance','confederacy'].includes(relation)) hands.push({name:'Small Standard',bonus:1.15});
-    if (relation === 'own') hands.push({name:'Small Pennant',bonus:1.3});
     for (const boot of boots) for (const hand of hands) {
       const items = [boot.name,hand.name].filter(Boolean);
-      variants.push({withHero:true,label:`Gelding; ${items.join(' + ') || 'no speed items'}`,speed:heroSpeed+boot.extra,boots:boot.bonus,hand:hand.bonus});
+      variants.push({withHero:true,label:items.join(' + ') || 'No speed items',speed:heroSpeed,boots:boot.bonus,hand:hand.bonus});
     }
     return variants;
   }
@@ -457,7 +447,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
         detail:'Any mix of these defenders, plus one escort.',
         defenderIds:faster.map(u => u.id),requiredIds:[],escortIds:choices.map(u => u.id),requiresHero:false});
     }
-    if (hero.originId === config.did && hero.solo) {
+    if (hero.solo) {
       loads.push({key:'hero',speed:Infinity,label:'Hero only',detail:'No other troops.',defenderIds:[],requiredIds:[],escortIds:[],requiresHero:true});
       for (const speed of new Set(escorts.map(u => u.speed))) {
         const choices = escorts.filter(u => u.speed === speed);
@@ -494,10 +484,10 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
         continue;
       }
       const loads = makeLoads(config,profile.hero);
-      if (!loads.length) throw new Error(`Select available defenders for ${origin.name}, enable hero-only there, or unmark this anvil.`);
+      if (!loads.length) throw new Error(`Select available defenders for ${origin.name}, enable hero-only options, or unmark this anvil.`);
       const relation = relationship(origin,target);
       const grouped = new Map();
-      for (const load of loads) for (const variant of heroVariants(origin,profile.hero,relation)) {
+      for (const load of loads) for (const variant of heroVariants(origin,relation)) {
         if (load.requiresHero && !variant.withHero) continue;
         // Planner assumption: a mounted hero never slows a troop march.
         const speed = Number.isFinite(load.speed) ? load.speed : variant.speed;
@@ -522,7 +512,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     return {target:draft.target,attack,buffer:draft.buffer};
   }
   function restoreSetup(value,villages = []) {
-    if (!value || ![1,2,3,4,5].includes(value.version) || value.server !== SERVER || !value.profile) throw new Error('Not a supported TS12 defence setup.');
+    if (!value || ![1,2,3,4,5,6].includes(value.version) || value.server !== SERVER || !value.profile) throw new Error('Not a supported TS12 defence setup.');
     if (!villages.length) throw new Error('The current map.sql is not loaded. Reload the hosted page, then import your settings.');
     const player = playersFromMap(villages).find(p => p.id === value.profile.playerId);
     if (!player) throw new Error('The saved account is not in L!, L# or L* in this map.');
@@ -605,18 +595,8 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     renderHero();
   }
   function renderHero() {
-    const profile = currentProfile(), player = currentPlayer();
-    if (!profile || !player) return;
-    const enabled = new Set(profile.villages.filter(v => v.enabled).map(v => v.did));
-    $('hero-origin').innerHTML = '<option value="">Without hero</option>' + player.villages.filter(v => enabled.has(v.did))
-      .map(v => `<option value="${v.did}">${escape(v.name)} ${coordText(v)}</option>`).join('');
-    const hero = profile.hero;
-    $('hero-origin').value = hero.originId === null ? '' : String(hero.originId);
-    $('hero-only').checked = hero.solo;
-    $('hero-only').disabled = hero.originId === null;
-    const origin = player.villages.find(v => v.did === hero.originId);
-    $('hero-speed').textContent = !origin ? '' : 'Hero speed is ignored for troop marches.' +
-      (hero.solo ? ` Solo: ${origin.tribe === 3 ? 19 : 14} fields/h; ${origin.tribe === 3 ? 22 : 17} with Small Spurs.` : '');
+    const profile = currentProfile();
+    if (profile) $('hero-only').checked = profile.hero.solo;
   }
   function installMap(parsed) {
     const nextPlayers = playersFromMap(parsed), nextProfiles = new Map();
@@ -630,7 +610,6 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
           else if (config.enabled) discarded++;
         }
         fresh.hero = {...old.hero};
-        if (fresh.hero.originId !== null && !fresh.villages.some(v => v.did === fresh.hero.originId && v.enabled)) fresh.hero.originId = null;
       }
       nextProfiles.set(player.id,fresh);
     }
@@ -684,21 +663,12 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       config.enabled = input.checked;
       $(`fields-${config.did}`).hidden = !config.enabled;
       $(`fields-${config.did}`).disabled = !config.enabled;
-      if (!config.enabled && currentProfile().hero.originId === config.did) {
-        currentProfile().hero.originId = null;
-        status('setup-status','Hero home cleared.');
-      }
-      renderHero();
     } else if (kind === 'ts') config.ts = input.valueAsNumber;
     else if (kind === 'defenders' || kind === 'escorts') {
       const id = Number(input.value);
       config[kind] = input.checked ? [...new Set([...config[kind],id])] : config[kind].filter(value => value !== id);
     }
     invalidate();
-  });
-  $('hero-origin').addEventListener('change',() => {
-    currentProfile().hero.originId = $('hero-origin').value ? Number($('hero-origin').value) : null;
-    invalidate(); renderHero();
   });
   $('hero-only').addEventListener('change',() => {
     currentProfile().hero.solo = $('hero-only').checked;
@@ -814,7 +784,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   $('save-setup').addEventListener('click',() => {
     try {
       const profile = validateProfile(currentProfile(),villages);
-      const value = {version:5,server:SERVER,savedAt:new Date().toISOString(),profile,draft:draft()};
+      const value = {version:6,server:SERVER,savedAt:new Date().toISOString(),profile,draft:draft()};
       download(JSON.stringify(value,null,2),`ts12-defence-setup-${selectedId}.json`);
       status('setup-status','Exported player and defence settings.');
     } catch (error) { status('setup-status',`Cannot export: ${error.message}`,true); }
@@ -848,14 +818,13 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     return `${days ? days+'d ' : ''}${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
   }
   function optionTable(options,groupIndex,offset) {
-    return `<div class="table-wrap"><table><thead><tr><th>Troops / hero</th><th>Travel</th><th>Send (UTC)</th><th>Status</th><th></th></tr></thead><tbody>${options.map((option,index) => {
+    return `<div class="table-wrap"><table><thead><tr><th>Troops / hero</th><th>Travel</th><th>Send (UTC)</th><th></th></tr></thead><tbody>${options.map((option,index) => {
       const equipment = option.equipment;
       const equipmentHTML = equipment.length === 1 ? `<span class="sub">${option.withHero ? 'Hero: ' : ''}${escape(equipment[0].label)}</span>`
         : `<details class="equipment"><summary>Hero: ${equipment.length} equipment options</summary>${equipment.map(e => `<div>${escape(e.label)}</div>`).join('')}</details>`;
-      return `<tr${option.feasible ? '' : ' class="missed"'}><td><span class="army">${escape(option.load.label)}</span>${option.load.detail ? `<span class="sub">${escape(option.load.detail)}</span>` : ''}${equipmentHTML}</td>
+      return `<tr><td><span class="army">${escape(option.load.label)}</span>${option.load.detail ? `<span class="sub">${escape(option.load.detail)}</span>` : ''}${equipmentHTML}</td>
         <td class="mono">${duration(option.seconds)}<span class="sub">${option.speed} fields/h base</span></td>
         <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span></td>
-        <td class="${option.feasible ? 'good' : 'bad'}">${option.feasible ? 'Available' : 'Missed'}</td>
         <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index+offset}">Copy</button></td></tr>`;
     }).join('')}</tbody></table></div>`;
   }
@@ -865,14 +834,14 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     $('results').hidden = false;
     $('calculated-at').textContent = `Calculated ${formatClock(plan.settings.calculatedAt)} UTC`;
     const total = plan.groups.reduce((n,g) => n+g.options.length,0);
-    const feasible = plan.groups.reduce((n,g) => n+g.options.filter(o => o.feasible).length,0);
     const targetText = plan.target ? `${plan.target.name} - ${plan.target.player}` : 'Unknown village';
     $('result-meta').innerHTML = `<p><strong>${escape(targetText)} ${coordText(plan.settings.target)}</strong></p>
       <div class="timing-summary">
         <div><span class="eyebrow">Attack lands</span><span class="digits">${formatClock(plan.settings.attackMs)}</span><span class="sub">${formatDay(plan.settings.attackMs)} UTC</span></div>
         <div><span class="eyebrow">Defence lands</span><span class="digits good">${formatClock(plan.cutoff)}</span><span class="sub">${formatDay(plan.cutoff)} UTC</span></div>
       </div>
-      ${total ? `<p class="muted"><strong class="${feasible ? 'good' : 'bad'}">${feasible} / ${total} options available</strong></p>` : ''}
+      ${total ? `<p class="muted"><strong class="good">${total} available ${total === 1 ? 'option' : 'options'}</strong></p>` : ''}
+      ${!total && !plan.notices.length ? '<p class="notice">No available options for this landing time.</p>' : ''}
       ${!plan.target ? '<p class="notice">Target not found in this map. Check the coordinates or load a newer map.</p>' : ''}
       ${plan.notices.map(n => `<p class="notice">${escape(n)}</p>`).join('')}`;
     $('result-list').innerHTML = plan.groups.map((group,index) => {
@@ -890,7 +859,10 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       const settings = {target:parseCoordinates(values.target),attackMs:parseUTC(values.attack,'Attack landing'),
         referenceMs:calculatedAt,
         buffer:values.buffer,calculatedAt};
-      lastPlan = buildPlan(villages,currentProfile(),settings);
+      const plan = buildPlan(villages,currentProfile(),settings);
+      plan.groups = plan.groups.map(group => ({...group,options:group.options.filter(option => option.feasible)}))
+        .filter(group => group.options.length > 0);
+      lastPlan = plan;
       presentTarget(settings.target);
       $('attack-time').value = values.attack.slice(11);
       $('attack-time').setAttribute('aria-invalid','false');
@@ -910,7 +882,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       `From: ${option.origin.name} ${coordText(option.origin)} -> ${coordText(lastPlan.settings.target)}`,
       `Troops: ${option.load.label}${option.load.detail ? '. '+option.load.detail : ''}`,
       `Equipment: ${option.equipment.map(e => e.label).join(' OR ')}`,
-      `Send: ${formatUTC(option.sendAt)}${option.feasible ? '' : ' (MISSED)'}`,
+      `Send: ${formatUTC(option.sendAt)}`,
       `Arrival: ${formatUTC(lastPlan.cutoff)}; attack: ${formatUTC(lastPlan.settings.attackMs)}`,
       `Travel: ${duration(option.seconds)}`,
       !lastPlan.target ? 'Target not found in the map; check coordinates.' : ''

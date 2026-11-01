@@ -1,0 +1,55 @@
+
+name: Update Travian Map
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+      timezone: 'Europe/Oslo'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download latest map.sql
+        if: github.event_name != 'push'
+        run: |
+          curl -fL --retry 3 \
+            "https://ts12.x1.europe.travian.com/map.sql" \
+            -o map.sql.new
+          test -s map.sql.new
+          mv map.sql.new map.sql
+
+      - name: Commit updated file
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add map.sql
+          if ! git diff --cached --quiet; then
+            git commit -m "Update map.sql"
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: '.'
+
+      - name: Deploy GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

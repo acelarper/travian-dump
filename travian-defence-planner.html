@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Travian Defence</title>
+<style>
+:root{--bg:#0a0e14;--panel:#111923;--field:#0b1119;--line:#283340;--text:#eef4fa;--dim:#a0adbf;--green:#70efd0;--gold:#ffd184;--red:#ff9aab;--mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 50% 0,#15252b 0,var(--bg) 65%);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{width:min(1120px,calc(100% - 40px));margin:auto;padding:22px 0}
+h1,h2,h3,p{margin:0}
+h1{font-size:16px;font-weight:650;letter-spacing:-.025em}h1 span{color:var(--dim);font-weight:400}h2{font-size:16px}h3{font-size:14px}
+a{color:var(--green)}button,input,select,textarea{font:inherit}
+button{border:1px solid var(--line);border-radius:9px;background:#141d27;color:var(--text);padding:8px 12px;cursor:pointer}
+button.primary{background:var(--green);color:#10281e;border-color:var(--green);font-weight:650}
+button:hover{filter:brightness(1.13)}button:disabled,input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
+button.small{font-size:12px;padding:4px 8px}
+input:not([type=checkbox]),select,textarea{width:100%;min-width:0;border:1px solid #344251;border-radius:8px;background:var(--field);color:var(--text);padding:9px 11px}
+input::placeholder{color:#758397;opacity:1}input[aria-invalid=true]{border-color:var(--red)}
+input[type=checkbox]{accent-color:var(--green);width:16px;height:16px;flex-shrink:0}
+input[type=file]{font-size:12px}input[type=number]{max-width:110px}
+label,legend{display:block;font-size:12px;font-weight:550}label>input:not([type=checkbox]),label>select{margin-top:6px}
+fieldset{min-width:0;margin:0;padding:0;border:0}
+legend{margin-bottom:5px}summary{cursor:pointer}
+:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+.header,.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.header{margin-bottom:22px}.muted,small{color:var(--dim)}.muted{font-size:12px}.spaced{margin-top:12px}
+.hint{margin-top:5px;font-size:11px;color:var(--dim)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.account-row{display:flex;align-items:end;gap:8px;margin-top:16px;flex-wrap:wrap}.account-row label{flex:1;min-width:180px}
+.setup-switch{display:flex;gap:5px}.setup-switch button{font-size:13px}
+.setup-switch button[aria-pressed=true]{color:var(--green);border-color:#437e70;background:#0e2823}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
+.check{display:flex;align-items:center;gap:6px;font-weight:400}.checks{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:5px;font-weight:400;font-size:11px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--field)}
+.chip:has(input:checked){border-color:var(--green);color:var(--green)}
+.status{color:var(--dim);font-size:12px;margin-top:10px;overflow-wrap:anywhere}
+.status.error,.bad{color:var(--red)}.good{color:var(--green)}.warn{color:var(--gold)}
+.notice{padding:8px 10px;border-left:2px solid var(--gold);background:#262114;border-radius:4px;font-size:12px;margin-top:10px}
+#village-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.village{border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0;align-self:start}
+.village:has(.anvil:checked){border-color:#437e70}
+.village-name{font-weight:600;font-size:13px;overflow-wrap:anywhere}
+.village fieldset{margin-top:10px}
+.ts{display:flex;align-items:center;gap:10px;margin-bottom:10px}.ts input{margin-top:0!important;padding:4px 8px;max-width:65px}
+.hero{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.hero-fields{display:grid;grid-template-columns:1.4fr 1fr auto;align-items:end;gap:12px;margin-top:8px}
+.hero-fields .check{min-height:40px}
+.attack-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:14px}
+.arrival-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.arrival-inputs input{height:44px;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums}
+.arrival-inputs legend{grid-column:1/-1}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.buffer{display:flex;align-items:center;gap:7px;font-weight:400}.buffer input{width:62px;margin:0!important}
+.attack-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
+.target-control{position:relative;min-width:0}#target-query{height:44px;font-size:14px}
+.target-options{position:absolute;z-index:10;top:66px;left:0;right:0;max-height:300px;overflow:auto;background:#141f2b;border:1px solid #437e70;border-radius:9px;box-shadow:0 12px 30px #0008}
+.target-option{padding:9px 11px;cursor:pointer;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.target-option[aria-selected=true],.target-option:hover{background:#203b3a}
+.target-option .option-name{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.target-option .option-owner{font-size:11px;color:var(--dim)}
+.target-count{padding:6px 11px;font-size:11px;color:var(--dim)}
+.result-village{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.result-heading{padding:10px 12px;background:#141d27}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;text-align:left}
+th{color:var(--dim);font-size:11px;font-weight:500;white-space:nowrap}
+td,th{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
+.mono,.digits{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.digits{letter-spacing:-.045em}.send-time{display:block;font-size:23px;font-weight:600;line-height:1.2;color:var(--green)}
+.missed .send-time{color:var(--red)}
+.army{font-weight:600}.sub{display:block;font-size:11px;color:var(--dim);margin-top:3px}
+.equipment{font-size:11px;margin-top:5px}.equipment summary{color:var(--green)}
+.alternative-summary{padding:9px 12px;color:var(--green);font-size:12px}
+.result-village tr:last-child td{border-bottom:0}
+#result-meta{margin-top:10px}#copy-text{margin-top:10px;min-height:130px}
+.timing-summary{display:flex;gap:28px;flex-wrap:wrap;margin:12px 0}.timing-summary .digits{display:block;font-size:28px;line-height:1.2}
+.eyebrow{font-size:10px;color:var(--dim);font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+[hidden]{display:none!important}
+@media(max-width:720px){
+  .attack-grid{grid-template-columns:1fr}.hero-fields{grid-template-columns:1fr 1fr}.hero-fields .check{grid-column:1/-1;min-height:20px}
+  .table-wrap{overflow:visible}table,tbody{display:block}
+  thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .result-village tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;padding:12px;border-bottom:1px solid var(--line)}
+  .result-village tr:last-child{border:0}.result-village td{padding:0;border:0}
+  .result-village td:first-child{grid-column:1/-1;min-width:0;max-width:none}
+  .result-village td.time{grid-column:1;grid-row:2;min-width:0}
+  .result-village td:nth-child(2){grid-column:1;grid-row:3}
+  .result-village td:nth-child(2)::before{content:"Travel ";color:var(--dim);font:11px system-ui,sans-serif}
+  .result-village td:nth-child(4){grid-column:2;grid-row:2;align-self:center}
+  .result-village td:last-child{grid-column:2;grid-row:3;align-self:center;justify-self:end}
+}
+@media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list,.fields{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.setup-switch button{padding:7px 9px}.arrival-inputs input{padding:9px;font-size:14px}}
+@media print{body{background:white;color:black}.setup,td:last-child,th:last-child{display:none}.panel{border:0}.result-village{break-inside:avoid}.sub,.muted,th{color:#444}.good,.warn,.bad,.send-time{color:black}}
+</style>
+</head>
+<body>
+<main>
+  <header class="header">
+    <h1>TRAVIAN <span>/ Defence</span></h1>
+    <span class="muted">TS12 &middot; L! / L# / L* &middot; UTC</span>
+  </header>
+  <noscript><p class="notice">JavaScript is required.</p></noscript>
+
+  <section id="setup-panel" class="panel setup" aria-label="Your setup">
+    <div class="section-heading">
+      <div class="setup-switch" role="group" aria-label="Setup method">
+        <button id="setup-manual" type="button" aria-pressed="true" aria-controls="manual-panel">Enter manually</button>
+        <button id="setup-import" type="button" aria-pressed="false" aria-controls="import-panel">Import setup</button>
+      </div>
+      <button id="save-setup" type="button" disabled>Export</button>
+    </div>
+    <div id="import-panel" hidden>
+      <div class="fields">
+        <label for="setup-file">Setup file<input id="setup-file" type="file" accept=".json,application/json"></label>
+        <div class="actions"><button id="load-setup" type="button" class="primary">Import</button></div>
+      </div>
+    </div>
+    <div id="manual-panel">
+      <div class="account-row">
+        <label for="player-select">Playing as<select id="player-select" disabled><option value="">Loading accounts...</option></select></label>
+        <button id="cancel-fetch" type="button" hidden>Cancel</button>
+      </div>
+      <p id="map-status" class="status" role="status" hidden></p>
+      <h3 id="anvil-heading" class="spaced" hidden>Anvils</h3>
+      <div id="village-list"></div>
+      <div id="hero-panel" class="hero" hidden>
+        <div class="section-heading"><h3>Hero</h3><span class="muted">All tier-1 items</span></div>
+        <div class="hero-fields">
+          <label for="hero-origin">Home anvil<select id="hero-origin"><option value="">Without hero</option></select></label>
+          <label for="hero-mount">Mount<select id="hero-mount"><option value="gelding">Gelding</option><option value="foot">On foot</option></select></label>
+          <label class="check"><input id="hero-only" type="checkbox" disabled>Include hero-only options</label>
+        </div>
+        <p id="hero-speed" class="hint"></p>
+      </div>
+    </div>
+    <p id="setup-status" class="status" role="status" hidden></p>
+  </section>
+
+  <section class="panel setup" aria-labelledby="attack-heading">
+    <h2 id="attack-heading">Incoming attack</h2>
+    <div class="attack-grid">
+      <div class="target-control">
+        <label for="target-query">Target<input id="target-query" type="text" role="combobox" aria-autocomplete="list" aria-controls="target-options" aria-expanded="false" placeholder="Player, village or (x|y)" autocomplete="off" spellcheck="false"></label>
+        <div id="target-options" class="target-options" role="listbox" aria-label="Matching villages" hidden></div>
+        <p id="target-detail" class="hint" hidden></p>
+      </div>
+      <fieldset>
+        <legend>Attack lands <span class="muted">(UTC)</span></legend>
+        <div class="arrival-inputs">
+          <label class="visually-hidden" for="attack-date">Attack date (UTC)</label>
+          <input id="attack-date" type="date" min="1000-01-01" max="9999-12-31">
+          <label class="visually-hidden" for="attack-time">Attack time (UTC)</label>
+          <input id="attack-time" type="text" placeholder="13:10:01" autocomplete="off" spellcheck="false">
+        </div>
+      </fieldset>
+    </div>
+    <div class="attack-actions">
+      <label class="check"><input id="confirm-confed" type="checkbox">Target is in our confederacy</label>
+      <label class="buffer">Arrive <input id="buffer-seconds" type="number" min="1" max="86400" step="1" value="5" aria-label="Seconds before the attack"> seconds before</label>
+    </div>
+    <div class="actions">
+      <button id="calculate" type="button" class="primary" disabled>Find send times</button>
+      <span id="plan-status" class="muted" role="status" hidden></span>
+    </div>
+    <p id="plan-error" class="status error" role="alert" hidden></p>
+  </section>
+
+  <section id="results" class="panel" aria-labelledby="results-heading" hidden>
+    <div class="section-heading">
+      <h2 id="results-heading">Send times</h2>
+      <span id="calculated-at" class="muted"></span>
+    </div>
+    <div id="result-meta"></div>
+    <div id="result-list"></div>
+    <p id="copy-status" class="status" role="status" hidden></p>
+    <textarea id="copy-text" aria-label="Plan text to copy manually" readonly hidden></textarea>
+  </section>
+
+</main>
+<script>
+'use strict';
+(() => {
+  const SERVER = 'https://ts12.x1.europe.travian.com';
+  const ALLIANCES = ['L!', 'L#', 'L*'];
+  const MAP_LIMIT = 40 * 1024 * 1024;
+  const TRIBES = {
+    1: {name:'Romans', units:[['Legionnaire',6],['Praetorian',5],['Imperian',7],['Equites Legati',16],['Equites Imperatoris',14],['Equites Caesaris',10],['Battering Ram',4],['Fire Catapult',3],['Senator',4],['Settler',5]]},
+    2: {name:'Teutons', units:[['Clubswinger',7],['Spearman',7],['Axeman',6],['Scout',9],['Paladin',10],['Teutonic Knight',9],['Ram',4],['Catapult',3],['Chief',4],['Settler',5]]},
+    3: {name:'Gauls', units:[['Phalanx',7],['Swordsman',6],['Pathfinder',17],['Theutates Thunder',19],['Druidrider',16],['Haeduan',13],['Ram',4],['Trebuchet',3],['Chieftain',5],['Settler',5]]}
+  };
+  for (const tribe of Object.values(TRIBES)) {
+    tribe.units = tribe.units.map(([name, speed], index) => ({id:index + 1, name, speed}));
+  }
+  const integer = (n, min, max, name) => {
+    if (!Number.isSafeInteger(n) || n < min || n > max) throw new Error(`${name} must be an integer from ${min} to ${max}.`);
+    return n;
+  };
+  function parseMapSql(text) {
+    if (typeof text !== 'string' || text.length > MAP_LIMIT) throw new Error('Map must be a text file smaller than 40 MB.');
+    let pos = 0;
+    const villages = [], ids = new Set(), tiles = new Set();
+    const fail = message => { throw new Error(`Invalid map.sql near character ${pos + 1}: ${message}. No data was replaced.`); };
+    const space = () => {
+      for (;;) {
+        while (pos < text.length && /\s/.test(text[pos])) pos++;
+        if (text.startsWith('--', pos) || text[pos] === '#') {
+          while (pos < text.length && text[pos] !== '\n') pos++;
+        } else if (text.startsWith('/*', pos)) {
+          const end = text.indexOf('*/', pos + 2);
+          if (end < 0) fail('unfinished comment');
+          pos = end + 2;
+        } else break;
+      }
+    };
+    const token = () => {
+      space();
+      if (text[pos] === "'") {
+        pos++;
+        let value = '';
+        while (pos < text.length) {
+          const ch = text[pos++];
+          if (ch === "'") {
+            if (text[pos] === "'") { value += "'"; pos++; }
+            else return value;
+          } else if (ch === '\\') {
+            if (pos >= text.length) fail('unfinished string escape');
+            const escaped = text[pos++];
+            const escapes = {'0':'\0', b:'\b', n:'\n', r:'\r', t:'\t', Z:'\x1a'};
+            value += Object.hasOwn(escapes, escaped) ? escapes[escaped] : escaped;
+          } else value += ch;
+        }
+        fail('unfinished quoted name');
+      }
+      const start = pos;
+      while (pos < text.length && !/[\s,)]/.test(text[pos])) pos++;
+      const value = text.slice(start, pos);
+      if (/^-?\d+$/.test(value)) {
+        const n = Number(value);
+        if (!Number.isSafeInteger(n)) fail('integer is out of range');
+        return n;
+      }
+      if (/^NULL$/i.test(value)) return null;
+      if (/^(TRUE|FALSE)$/i.test(value)) return value.toUpperCase() === 'TRUE';
+      fail('unsupported value');
+    };
+    const insert = /INSERT\s+INTO\s+(?:`x_world`|x_world)\s+VALUES\s*/iy;
+    space();
+    while (pos < text.length) {
+      insert.lastIndex = pos;
+      const match = insert.exec(text);
+      if (!match) fail('expected INSERT INTO x_world VALUES');
+      pos = insert.lastIndex;
+      for (;;) {
+        space();
+        if (text[pos++] !== '(') fail('expected a village row');
+        const row = [];
+        for (;;) {
+          row.push(token());
+          if (row.length > 40) fail('too many columns');
+          space();
+          const separator = text[pos++];
+          if (separator === ')') break;
+          if (separator !== ',') fail('expected comma or closing parenthesis');
+        }
+        if (row.length < 11) fail('at least 11 village columns are required');
+        const [tileId,x,y,tribe,did,name,uid,player,aid,alliance,population] = row;
+        integer(tileId,1,160801,'Map tile ID');
+        integer(x,-200,200,'Village X'); integer(y,-200,200,'Village Y');
+        integer(tribe,1,9,'Tribe'); integer(did,1,1e12,'Village ID');
+        integer(uid,0,1e12,'Player ID'); integer(aid,0,1e12,'Alliance ID');
+        integer(population,0,1e9,'Population');
+        if ([name,player,alliance].some(value => typeof value !== 'string')) fail('village, player and alliance names must be quoted');
+        if (!name || !player || [name,player,alliance].some(value => value.length > 1000)) fail('invalid name');
+        if (ids.has(did) || tiles.has(`${x}|${y}`)) fail('duplicate village ID or coordinates');
+        ids.add(did); tiles.add(`${x}|${y}`);
+        villages.push({tileId,x,y,tribe,did,name,uid,player,aid,alliance,population});
+        if (villages.length > 160801) fail('too many villages for TS12');
+        space();
+        if (text[pos] !== ',') break;
+        pos++;
+      }
+      if (text[pos++] !== ';') fail('expected semicolon');
+      space();
+    }
+    if (!villages.length) throw new Error('No villages found. Select the TS12 map.sql export, not an HTML login or error page.');
+    return villages;
+  }
+  function playersFromMap(villages) {
+    const players = new Map();
+    for (const village of villages) {
+      if (!ALLIANCES.includes(village.alliance) || !village.uid) continue;
+      if (!players.has(village.uid)) players.set(village.uid, {id:village.uid, name:village.player, alliances:new Set(), villages:[]});
+      const player = players.get(village.uid);
+      player.alliances.add(village.alliance);
+    }
+    for (const village of villages) {
+      const player = players.get(village.uid);
+      if (player) player.villages.push(village);
+    }
+    return [...players.values()].sort((a,b) => a.name.localeCompare(b.name,undefined,{numeric:true}));
+  }
+  function parseCoordinates(value) {
+    const normalized = value.trim().replace(/\u2212/g,'-');
+    const bare = normalized.startsWith('(') && normalized.endsWith(')') ? normalized.slice(1,-1) : normalized;
+    const match = /^([+-]?\d+)\s*[|,]\s*([+-]?\d+)$/.exec(bare.trim());
+    if (!match) throw new Error('Enter target coordinates as (x|y) or x,y.');
+    return {x:integer(Number(match[1]),-200,200,'Target X'), y:integer(Number(match[2]),-200,200,'Target Y')};
+  }
+  const fold = text => text.normalize('NFKD').replace(/\p{M}/gu,'').toLocaleLowerCase().trim();
+  const targetLabel = village => `${village.player} / ${village.name} (${village.x}|${village.y})`;
+  function createTargetIndex(villages) {
+    return villages.map(village => ({village,name:fold(village.name),player:fold(village.player),
+      label:fold(targetLabel(village)),coords:`${village.x}|${village.y}`}));
+  }
+  function searchTargets(index,query,limit = 12) {
+    const text = fold(query).replace(/\u2212/g,'-');
+    if (!text) return {matches:[],count:0};
+    const tokens = text.split(/\s+/);
+    const coordinateSearch = /^[+\-\d|,()\s]+$/.test(text) && /[|,]/.test(text);
+    let coordinates = text.replace(/[()\s]/g,'').replace(/,/g,'|').replace(/(^|\|)\+/g,'$1');
+    const parts = coordinates.split('|');
+    if (parts.length === 2 && parts.every(p => /^-?\d+$/.test(p))) coordinates = parts.map(Number).join('|');
+    const matches = [];
+    for (const entry of index) {
+      if (coordinateSearch ? !entry.coords.startsWith(coordinates) : !tokens.every(token => entry.label.includes(token))) continue;
+      const score = entry.coords === coordinates || entry.name === text || entry.player === text ? 0
+        : entry.name.startsWith(text) || entry.player.startsWith(text) ? 1 : 2;
+      matches.push({entry,score});
+    }
+    matches.sort((a,b) => a.score-b.score || a.entry.player.localeCompare(b.entry.player)
+      || a.entry.name.localeCompare(b.entry.name,undefined,{numeric:true}) || a.entry.village.did-b.entry.village.did);
+    return {matches:matches.slice(0,limit).map(match => match.entry.village),count:matches.length};
+  }
+  function resolveTarget(index,query) {
+    const text = query.trim().replace(/\u2212/g,'-');
+    if (/^[+\-\d|,()\s]+$/.test(text) && /[|,]/.test(text)) return parseCoordinates(text);
+    const normalized = fold(text);
+    const matches = index.filter(entry => entry.name === normalized || entry.player === normalized || entry.label === normalized);
+    if (matches.length !== 1) throw new Error(matches.length ? 'Choose a village from the target suggestions.' : 'Select a target village or enter (x|y).');
+    const {x,y} = matches[0].village;
+    return {x,y};
+  }
+  function normalizeClockTime(value) {
+    let text = value.trim();
+    if (/[^\d\s:.,+\-\u2212]/.test(text)) {
+      const candidates = text.match(/(?:[+\-\u2212]\s*)?[.,]?\d[\d:.,]*/g) || [];
+      if (candidates.length !== 1) throw new Error('Enter one attack time, such as 13:10:01.');
+      text = candidates[0];
+    }
+    const match = /^(\d+)(?::([0-5]?\d)(?::([0-5]?\d)(?:\.(\d{1,3}))?)?)?$/.exec(text);
+    if (!match) throw new Error('Use H, H:MM or H:MM:SS. Minutes and seconds must be 00-59.');
+    const hour = integer(Number(match[1]),0,23,'Attack hour');
+    const clock = [hour,Number(match[2] || 0),Number(match[3] || 0)].map(n => String(n).padStart(2,'0')).join(':');
+    const fraction = (match[4] || '').padEnd(3,'0');
+    return clock + (Number(fraction) ? '.'+fraction : '');
+  }
+  function parseUTC(value, name = 'UTC time') {
+    const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/.exec(value);
+    if (!match) throw new Error(`${name}: enter a full UTC date and time.`);
+    const [,year,month,day,hour,minute,seconds = '0',fraction = ''] = match;
+    const parts = [year,month,day,hour,minute,seconds].map(Number);
+    if (parts[0] < 1000 || parts[0] > 9999) throw new Error(`${name}: invalid year.`);
+    const ms = Date.UTC(parts[0],parts[1]-1,parts[2],parts[3],parts[4],parts[5]);
+    const date = new Date(ms);
+    const actual = [date.getUTCFullYear(),date.getUTCMonth()+1,date.getUTCDate(),date.getUTCHours(),date.getUTCMinutes(),date.getUTCSeconds()];
+    if (parts.some((part,index) => part !== actual[index])) throw new Error(`${name}: invalid calendar date or time.`);
+    return ms + Number(fraction.padEnd(3,'0'));
+  }
+  const isoTime = ms => new Date(ms).toISOString().replace(/\.000Z$/,'').replace(/Z$/,'');
+  const formatUTC = ms => isoTime(ms).replace('T',' ') + ' UTC';
+  const formatClock = ms => isoTime(ms).slice(11);
+  const dayFormatter = new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+  const formatDay = ms => dayFormatter.format(new Date(ms));
+  const coordText = village => `(${village.x}|${village.y})`;
+  function distance(a,b) {
+    for (const point of [a,b]) {
+      integer(point.x,-200,200,'X'); integer(point.y,-200,200,'Y');
+    }
+    const dx = Math.abs(a.x-b.x), dy = Math.abs(a.y-b.y);
+    return Math.hypot(Math.min(dx,401-dx),Math.min(dy,401-dy));
+  }
+  function travelSeconds(fields,speed,ts,boots = 0,hand = 1) {
+    if (!Number.isFinite(fields) || fields < 0 || !Number.isFinite(speed) || speed <= 0) throw new Error('Invalid distance or troop speed.');
+    integer(ts,0,20,'Tournament Square');
+    if (![0,0.25].includes(boots) || ![1,1.15,1.3].includes(hand)) throw new Error('Unsupported tier 1 movement bonus.');
+    const weightedDistance = Math.min(fields,20) + Math.max(fields-20,0)/(1+0.2*ts+boots);
+    return Math.round(3600*weightedDistance/(speed*hand));
+  }
+  const emptyHero = () => ({originId:null,mount:'gelding',solo:false});
+  const emptyVillage = village => ({did:village.did,tribe:village.tribe,x:village.x,y:village.y,enabled:false,ts:0,defenders:[],escorts:[]});
+  const makeProfile = player => ({playerId:player.id,villages:player.villages.map(emptyVillage),hero:emptyHero()});
+  function validateProfile(profile,villages) {
+    integer(profile.playerId,1,1e12,'Account ID');
+    if (!Array.isArray(profile.villages) || profile.villages.length > 1000) throw new Error('Invalid saved village settings.');
+    const owned = new Map(villages.filter(v => v.uid === profile.playerId).map(v => [v.did,v]));
+    const seen = new Set();
+    for (const config of profile.villages) {
+      if (!config || !owned.has(config.did) || seen.has(config.did)) throw new Error('A saved village is missing, duplicated or no longer owned by this account. No settings were replaced.');
+      seen.add(config.did);
+      const village = owned.get(config.did);
+      if (config.tribe !== village.tribe || config.x !== village.x || config.y !== village.y) throw new Error(`Saved village ${village.name} no longer matches this map.`);
+      if (typeof config.enabled !== 'boolean') throw new Error('Invalid anvil selection.');
+      integer(config.ts,0,20,`Tournament Square for ${village.name}`);
+      if (config.enabled && !Object.hasOwn(TRIBES,village.tribe)) throw new Error(`Tribe ${village.tribe} is not supported on this TS12 planner.`);
+      for (const [key,max] of [['defenders',6],['escorts',10]]) {
+        const values = config[key];
+        if (!Array.isArray(values) || values.length > max || new Set(values).size !== values.length) throw new Error(`Invalid ${key} for ${village.name}.`);
+        values.forEach(id => integer(id,1,max,'Troop slot'));
+      }
+    }
+    const hero = profile.hero;
+    if (!hero || !['foot','gelding'].includes(hero.mount)) throw new Error('Choose a tier 1 Gelding or an unmounted hero.');
+    if (typeof hero.solo !== 'boolean') throw new Error('Invalid hero-only setting.');
+    if (hero.originId !== null && !profile.villages.some(v => v.did === hero.originId && v.enabled)) throw new Error('The hero must depart from one selected anvil.');
+    return profile;
+  }
+  function relationship(origin,target,confirmedConfed) {
+    if (target && target.uid === origin.uid) return 'own';
+    if (target && origin.aid !== 0 && origin.aid === target.aid) return 'alliance';
+    return confirmedConfed ? 'confederacy' : 'unconfirmed';
+  }
+  function heroVariants(origin,hero,relation) {
+    const variants = [{withHero:false,label:'No hero',speed:Infinity,boots:0,hand:1}];
+    if (hero.originId !== origin.did) return variants;
+    const mounted = hero.mount === 'gelding';
+    const heroSpeed = mounted ? 14 + (origin.tribe === 3 ? 5 : 0) : 7;
+    const boots = [{name:'',bonus:0,extra:0},{name:'Mercenary boots',bonus:0.25,extra:0}];
+    if (mounted) boots.push({name:'Small Spurs',bonus:0,extra:3});
+    const hands = [{name:'',bonus:1}];
+    if (['alliance','confederacy'].includes(relation)) hands.push({name:'Small Standard',bonus:1.15});
+    if (relation === 'own') hands.push({name:'Small Pennant',bonus:1.3});
+    for (const boot of boots) for (const hand of hands) {
+      const items = [boot.name,hand.name].filter(Boolean);
+      variants.push({withHero:true,label:`${mounted ? 'Gelding' : 'On foot'}; ${items.join(' + ') || 'no speed items'}`,speed:heroSpeed+boot.extra,boots:boot.bonus,hand:hand.bonus});
+    }
+    return variants;
+  }
+  function makeLoads(config,hero) {
+    const units = TRIBES[config.tribe].units;
+    const defenders = units.filter(u => config.defenders.includes(u.id));
+    const escorts = units.filter(u => config.escorts.includes(u.id));
+    const loads = [];
+    for (const speed of new Set(defenders.map(u => u.speed))) {
+      const anchors = defenders.filter(u => u.speed === speed);
+      const faster = defenders.filter(u => u.speed > speed);
+      loads.push({key:`def-${speed}`,speed,label:anchors.map(u => u.name).join(' or '),
+        detail:faster.length ? `Can add: ${faster.map(u => u.name).join(', ')}.` : '',
+        defenderIds:[...anchors,...faster].map(u => u.id),requiredIds:anchors.map(u => u.id),escortIds:[],requiresHero:false});
+    }
+    for (const speed of new Set(escorts.map(u => u.speed))) {
+      const faster = defenders.filter(u => u.speed > speed);
+      if (!faster.length) continue;
+      const choices = escorts.filter(u => u.speed === speed);
+      loads.push({key:`escort-${speed}`,speed,label:`${faster.map(u => u.name).join(' / ')} + 1 ${choices.map(u => u.name).join(' or 1 ')}`,
+        detail:'Any mix of these defenders, plus one escort.',
+        defenderIds:faster.map(u => u.id),requiredIds:[],escortIds:choices.map(u => u.id),requiresHero:false});
+    }
+    if (hero.originId === config.did && hero.solo) {
+      loads.push({key:'hero',speed:Infinity,label:'Hero only',detail:'No other troops.',defenderIds:[],requiredIds:[],escortIds:[],requiresHero:true});
+      for (const speed of new Set(escorts.map(u => u.speed))) {
+        const choices = escorts.filter(u => u.speed === speed);
+        loads.push({key:`hero-escort-${speed}`,speed,label:`Hero + 1 ${choices.map(u => u.name).join(' or 1 ')}`,
+          detail:'One escort; no defence pack.',defenderIds:[],requiredIds:[],escortIds:choices.map(u => u.id),requiresHero:true});
+      }
+    }
+    return loads;
+  }
+  function compareOptions(a,b) {
+    return Number(b.feasible)-Number(a.feasible)
+      || (a.feasible ? a.sendAt-b.sendAt : b.sendAt-a.sendAt)
+      || Number(a.withHero)-Number(b.withHero)
+      || a.load.escortIds.length-b.load.escortIds.length
+      || a.load.key.localeCompare(b.load.key);
+  }
+  function buildPlan(villages,profile,settings) {
+    validateProfile(profile,villages);
+    integer(settings.attackMs,0,253402300799999,'Attack time');
+    integer(settings.referenceMs,0,253402300799999,'Reference time');
+    integer(settings.buffer,1,86400,'Safety margin (seconds)');
+    if (typeof settings.confirmedConfed !== 'boolean') throw new Error('Invalid confederacy confirmation.');
+    if (settings.attackMs <= settings.referenceMs) throw new Error('The attack must land later than now. Check its UTC date and time.');
+    distance(settings.target,settings.target);
+    const cutoff = settings.attackMs-settings.buffer*1000;
+    const target = villages.find(v => v.x === settings.target.x && v.y === settings.target.y) || null;
+    const enabled = profile.villages.filter(v => v.enabled);
+    if (!enabled.length) throw new Error('Select at least one anvil village.');
+    const groups = [], notices = [];
+    for (const config of enabled) {
+      const origin = villages.find(v => v.did === config.did);
+      const fields = distance(origin,settings.target);
+      if (!fields) {
+        notices.push(`${origin.name} ${coordText(origin)} is already at the target.`);
+        continue;
+      }
+      const loads = makeLoads(config,profile.hero);
+      if (!loads.length) throw new Error(`Select available defenders for ${origin.name}, enable hero-only there, or unmark this anvil.`);
+      const relation = relationship(origin,target,settings.confirmedConfed);
+      const grouped = new Map();
+      for (const load of loads) for (const variant of heroVariants(origin,profile.hero,relation)) {
+        if (load.requiresHero && !variant.withHero) continue;
+        const speed = Math.min(load.speed,variant.speed);
+        const seconds = travelSeconds(fields,speed,config.ts,variant.boots,variant.hand);
+        const key = `${load.key}:${variant.withHero}:${seconds}`;
+        if (grouped.has(key)) { grouped.get(key).equipment.push(variant); continue; }
+        const sendAt = cutoff-seconds*1000, arrival = settings.referenceMs+seconds*1000;
+        grouped.set(key,{load,withHero:variant.withHero,equipment:[variant],seconds,speed,sendAt,arrival,
+          feasible:sendAt >= settings.referenceMs,earlySeconds:(settings.attackMs-arrival)/1000,origin,relation});
+      }
+      groups.push({origin,fields,ts:config.ts,relation,options:[...grouped.values()].sort(compareOptions)});
+    }
+    groups.sort((a,b) => compareOptions(a.options[0],b.options[0]) || a.origin.name.localeCompare(b.origin.name));
+    return {settings,cutoff,target,groups,notices,playerId:profile.playerId};
+  }
+  function validateDraft(draft) {
+    if (!draft || typeof draft.target !== 'string' || draft.target.length > 100) throw new Error('Invalid saved target.');
+    if (draft.target) parseCoordinates(draft.target);
+    if (typeof draft.attack !== 'string') throw new Error('Invalid saved attack time.');
+    const attack = draft.attack ? isoTime(parseUTC(draft.attack)) : '';
+    integer(draft.buffer,1,86400,'Saved safety margin');
+    if (typeof draft.confirmedConfed !== 'boolean') throw new Error('Invalid saved confederacy choice.');
+    return {target:draft.target,attack,buffer:draft.buffer,confirmedConfed:draft.confirmedConfed};
+  }
+  function restoreSetup(value,villages = []) {
+    if (!value || ![1,2,3,4].includes(value.version) || value.server !== SERVER || !value.profile) throw new Error('Not a supported TS12 defence setup.');
+    if (!villages.length) throw new Error('The current map.sql is not loaded. Reload the hosted page, then import your settings.');
+    const player = playersFromMap(villages).find(p => p.id === value.profile.playerId);
+    if (!player) throw new Error('The saved account is not in L!, L# or L* in this map.');
+    validateProfile(value.profile,villages);
+    const profile = makeProfile(player);
+    for (const config of value.profile.villages) {
+      const index = profile.villages.findIndex(v => v.did === config.did);
+      profile.villages[index] = {...emptyVillage(config),enabled:config.enabled,ts:config.ts,defenders:[...config.defenders],escorts:[...config.escorts]};
+    }
+    for (const key of Object.keys(profile.hero)) profile.hero[key] = value.profile.hero[key];
+    return {profile,draft:validateDraft(value.draft)};
+  }
+  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,normalizeClockTime,parseUTC,formatUTC,formatClock,distance,travelSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,restoreSetup});
+  if (typeof document === 'undefined') return;
+
+  const $ = id => document.getElementById(id);
+  const escape = value => String(value).replace(/[&<>"']/g,ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  let villages = [], players = [], selectedId = null, profiles = new Map(), lastPlan = null;
+  let mapBusy = false, fetchController = null;
+  let targetIndex = [], targetPoint = null, suggestions = [], activeSuggestion = -1;
+  const currentProfile = () => profiles.get(selectedId);
+  const currentPlayer = () => players.find(p => p.id === selectedId);
+  function status(id,message,error = false) {
+    $(id).textContent = message;
+    $(id).classList.toggle('error',error);
+    $(id).hidden = !message;
+  }
+  function showSetup(mode) {
+    $('manual-panel').hidden = mode !== 'manual';
+    $('import-panel').hidden = mode !== 'import';
+    $('setup-manual').setAttribute('aria-pressed',String(mode === 'manual'));
+    $('setup-import').setAttribute('aria-pressed',String(mode === 'import'));
+  }
+  function invalidate() {
+    if (lastPlan) status('plan-status','Changed. Find send times again.');
+    lastPlan = null;
+    $('results').hidden = true;
+    $('result-list').replaceChildren();
+    $('plan-error').hidden = true;
+  }
+  function enableControls() {
+    $('player-select').disabled = !players.length || mapBusy;
+    $('calculate').disabled = !selectedId || mapBusy;
+    $('save-setup').disabled = !selectedId || mapBusy;
+    $('load-setup').disabled = mapBusy;
+    $('setup-file').disabled = mapBusy;
+    $('setup-manual').disabled = mapBusy;
+    $('setup-import').disabled = mapBusy;
+  }
+  function renderPlayers() {
+    $('player-select').innerHTML = '<option value="">Select your account</option>' + players.map(p =>
+      `<option value="${p.id}">${escape(p.name)} [${escape([...p.alliances].join(', '))}]</option>`).join('');
+    $('player-select').value = selectedId === null ? '' : String(selectedId);
+  }
+  function checkChips(units,values,did,kind) {
+    return units.map(unit => `<label class="chip"><input type="checkbox" data-village="${did}" data-kind="${kind}" value="${unit.id}"${values.includes(unit.id) ? ' checked' : ''}>${escape(unit.name)} <span class="muted">${unit.speed}/h</span></label>`).join('');
+  }
+  function renderVillages() {
+    const player = currentPlayer();
+    $('anvil-heading').hidden = !player;
+    if (!player) {
+      $('village-list').replaceChildren();
+      $('hero-panel').hidden = true;
+      return;
+    }
+    const profile = currentProfile();
+    $('village-list').innerHTML = [...player.villages].sort((a,b) => a.name.localeCompare(b.name,undefined,{numeric:true})).map(village => {
+      const config = profile.villages.find(v => v.did === village.did);
+      const tribe = TRIBES[village.tribe];
+      return `<article class="village">
+        <label class="check village-name"><input class="anvil" type="checkbox" data-village="${village.did}" data-kind="enabled"${config.enabled ? ' checked' : ''}${!tribe ? ' disabled' : ''}>${escape(village.name)} ${coordText(village)}</label>
+        <fieldset id="fields-${village.did}"${config.enabled ? '' : ' hidden disabled'}>
+          <label class="ts">Tournament Square <input type="number" min="0" max="20" step="1" value="${config.ts}" data-village="${village.did}" data-kind="ts" aria-label="Tournament Square for ${escape(village.name)}"></label>
+          <fieldset><legend>Defenders</legend><div class="checks">${tribe ? checkChips(tribe.units.slice(0,6),config.defenders,village.did,'defenders') : ''}</div></fieldset>
+          <details class="spaced"><summary class="muted">Slow escorts</summary><div class="checks spaced">${tribe ? checkChips(tribe.units,config.escorts,village.did,'escorts') : ''}</div></details>
+        </fieldset>
+      </article>`;
+    }).join('');
+    $('hero-panel').hidden = false;
+    renderHero();
+  }
+  function renderHero() {
+    const profile = currentProfile(), player = currentPlayer();
+    if (!profile || !player) return;
+    const enabled = new Set(profile.villages.filter(v => v.enabled).map(v => v.did));
+    $('hero-origin').innerHTML = '<option value="">Without hero</option>' + player.villages.filter(v => enabled.has(v.did))
+      .map(v => `<option value="${v.did}">${escape(v.name)} ${coordText(v)}</option>`).join('');
+    const hero = profile.hero;
+    $('hero-origin').value = hero.originId === null ? '' : String(hero.originId);
+    $('hero-mount').value = hero.mount;
+    $('hero-only').checked = hero.solo;
+    $('hero-only').disabled = hero.originId === null;
+    $('hero-mount').disabled = hero.originId === null;
+    const origin = player.villages.find(v => v.did === hero.originId);
+    $('hero-speed').textContent = !origin ? '' : hero.mount === 'foot'
+      ? '7 fields/h on foot.'
+      : `${origin.tribe === 3 ? 19 : 14} fields/h; ${origin.tribe === 3 ? 22 : 17} with Small Spurs.`;
+  }
+  function installMap(parsed) {
+    const nextPlayers = playersFromMap(parsed), nextProfiles = new Map();
+    let discarded = 0;
+    for (const player of nextPlayers) {
+      const fresh = makeProfile(player), old = profiles.get(player.id);
+      if (old) {
+        for (const config of old.villages) {
+          const index = fresh.villages.findIndex(v => v.did === config.did && v.tribe === config.tribe && v.x === config.x && v.y === config.y);
+          if (index >= 0) fresh.villages[index] = config;
+          else if (config.enabled) discarded++;
+        }
+        fresh.hero = {...old.hero};
+        if (fresh.hero.originId !== null && !fresh.villages.some(v => v.did === fresh.hero.originId && v.enabled)) fresh.hero.originId = null;
+      }
+      nextProfiles.set(player.id,fresh);
+    }
+    const accountRemoved = selectedId !== null && !nextProfiles.has(selectedId);
+    villages = parsed; players = nextPlayers; profiles = nextProfiles;
+    targetIndex = createTargetIndex(villages);
+    hideSuggestions();
+    if (targetPoint) presentTarget(targetPoint);
+    $('confirm-confed').checked = false;
+    if (accountRemoved) selectedId = null;
+    invalidate(); renderPlayers(); renderVillages(); enableControls();
+    status('map-status',`${villages.length.toLocaleString()} villages; ${players.length} accounts - map.sql.${!players.length ? ' No allied accounts found; check the server.' : ''}${discarded ? ` ${discarded} removed anvils no longer match.` : ''}${accountRemoved ? ' Select an account again.' : ''}`);
+    $('map-status').title = `Map loaded ${formatUTC(Date.now())}`;
+  }
+  function setMapBusy(busy) {
+    mapBusy = busy;
+    $('cancel-fetch').hidden = !fetchController;
+    enableControls();
+  }
+  async function loadMap() {
+    fetchController = new AbortController();
+    setMapBusy(true);
+    status('map-status','Loading map.sql...');
+    try {
+      const response = await fetch(new URL('map.sql',location.href),{mode:'same-origin',credentials:'omit',cache:'no-store',redirect:'error',signal:fetchController.signal});
+      if (!response.ok) throw new Error(response.status === 404 ? 'map.sql was not found beside this page (HTTP 404)' : `HTTP ${response.status}`);
+      if (Number(response.headers.get('content-length')) > MAP_LIMIT) throw new Error('Map exceeds 40 MB');
+      const sql = await response.text();
+      installMap(parseMapSql(sql));
+    } catch (error) {
+      const cancelled = error.name === 'AbortError';
+      if (!villages.length) $('player-select').innerHTML = '<option value="">Map unavailable</option>';
+      status('map-status',cancelled ? 'Loading cancelled.' : location.protocol === 'file:'
+        ? 'Open this page through localhost. Your browser blocks automatic map.sql reads from file://.'
+        : `Map load failed: ${error.message}. Reload the page to try again.`,!cancelled);
+    } finally { fetchController = null; setMapBusy(false); }
+  }
+  $('cancel-fetch').addEventListener('click',() => fetchController?.abort());
+  $('setup-manual').addEventListener('click',() => showSetup('manual'));
+  $('setup-import').addEventListener('click',() => showSetup('import'));
+  $('player-select').addEventListener('change',() => {
+    selectedId = $('player-select').value ? Number($('player-select').value) : null;
+    $('confirm-confed').checked = false;
+    invalidate(); renderVillages(); enableControls();
+    status('setup-status','');
+  });
+  $('village-list').addEventListener('input',event => {
+    const input = event.target;
+    if (!input.dataset.village || !currentProfile()) return;
+    const config = currentProfile().villages.find(v => v.did === Number(input.dataset.village));
+    const kind = input.dataset.kind;
+    if (kind === 'enabled') {
+      config.enabled = input.checked;
+      $(`fields-${config.did}`).hidden = !config.enabled;
+      $(`fields-${config.did}`).disabled = !config.enabled;
+      if (!config.enabled && currentProfile().hero.originId === config.did) {
+        currentProfile().hero.originId = null;
+        status('setup-status','Hero home cleared.');
+      }
+      renderHero();
+    } else if (kind === 'ts') config.ts = input.valueAsNumber;
+    else if (kind === 'defenders' || kind === 'escorts') {
+      const id = Number(input.value);
+      config[kind] = input.checked ? [...new Set([...config[kind],id])] : config[kind].filter(value => value !== id);
+    }
+    invalidate();
+  });
+  $('hero-origin').addEventListener('change',() => {
+    currentProfile().hero.originId = $('hero-origin').value ? Number($('hero-origin').value) : null;
+    invalidate(); renderHero();
+  });
+  $('hero-mount').addEventListener('change',() => {
+    currentProfile().hero.mount = $('hero-mount').value;
+    invalidate(); renderHero();
+  });
+  $('hero-only').addEventListener('change',() => { currentProfile().hero.solo = $('hero-only').checked; invalidate(); });
+  function hideSuggestions() {
+    suggestions = []; activeSuggestion = -1;
+    $('target-options').hidden = true;
+    $('target-options').replaceChildren();
+    $('target-query').setAttribute('aria-expanded','false');
+    $('target-query').removeAttribute('aria-activedescendant');
+  }
+  function presentTarget(point) {
+    targetPoint = {x:point.x,y:point.y};
+    const village = villages.find(v => v.x === point.x && v.y === point.y);
+    $('target-query').value = village ? targetLabel(village) : coordText(point);
+    status('target-detail',village ? village.alliance || 'No alliance' : 'Not found in this map.');
+    hideSuggestions();
+  }
+  function showSuggestions() {
+    const result = searchTargets(targetIndex,$('target-query').value);
+    hideSuggestions();
+    suggestions = result.matches;
+    if (!suggestions.length) return;
+    $('target-options').innerHTML = suggestions.map((v,index) =>
+      `<div class="target-option" role="option" id="target-option-${index}" data-target-index="${index}" aria-selected="false">
+        <div class="option-name"><strong>${escape(v.name)}</strong><span class="mono">${coordText(v)}</span></div>
+        <div class="option-owner">${escape(v.player)}${v.alliance ? ' ['+escape(v.alliance)+']' : ''}</div>
+      </div>`).join('') + (result.count > suggestions.length ? `<div class="target-count" role="presentation">${suggestions.length} / ${result.count} matches</div>` : '');
+    $('target-options').hidden = false;
+    $('target-query').setAttribute('aria-expanded','true');
+  }
+  function pickSuggestion(index) {
+    const village = suggestions[index];
+    if (!village) return;
+    invalidate();
+    presentTarget(village);
+    $('target-query').focus();
+    hideSuggestions();
+  }
+  $('target-query').addEventListener('input',() => {
+    targetPoint = null;
+    $('confirm-confed').checked = false;
+    status('target-detail','');
+    invalidate(); showSuggestions();
+  });
+  $('target-query').addEventListener('focus',showSuggestions);
+  $('target-query').addEventListener('blur',hideSuggestions);
+  $('target-query').addEventListener('keydown',event => {
+    if (event.key === 'Escape') { hideSuggestions(); return; }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if ($('target-options').hidden) showSuggestions();
+      if (!suggestions.length) return;
+      event.preventDefault();
+      activeSuggestion = event.key === 'ArrowDown' ? (activeSuggestion+1)%suggestions.length
+        : (activeSuggestion < 0 ? suggestions.length-1 : (activeSuggestion-1+suggestions.length)%suggestions.length);
+      for (let i=0;i<suggestions.length;i++) $('target-option-'+i).setAttribute('aria-selected',String(i === activeSuggestion));
+      const option = $('target-option-'+activeSuggestion);
+      $('target-query').setAttribute('aria-activedescendant',option.id);
+      option.scrollIntoView({block:'nearest'});
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (activeSuggestion >= 0 || suggestions.length === 1) pickSuggestion(activeSuggestion >= 0 ? activeSuggestion : 0);
+      else {
+        try { presentTarget(resolveTarget(targetIndex,$('target-query').value)); }
+        catch (error) { status('plan-error',error.message,true); }
+      }
+    }
+  });
+  $('target-options').addEventListener('pointerdown',event => {
+    if (event.target.closest('[data-target-index]')) event.preventDefault();
+  });
+  $('target-options').addEventListener('click',event => {
+    const option = event.target.closest('[data-target-index]');
+    if (option) pickSuggestion(Number(option.dataset.targetIndex));
+  });
+  function normalizeAttackInput() {
+    if (!$('attack-time').value.trim()) return;
+    try {
+      $('attack-time').value = normalizeClockTime($('attack-time').value);
+      $('attack-time').setAttribute('aria-invalid','false');
+    } catch (error) {
+      $('attack-time').setAttribute('aria-invalid','true');
+      invalidate(); status('plan-error',error.message,true);
+    }
+  }
+  $('attack-time').addEventListener('blur',normalizeAttackInput);
+  $('attack-time').addEventListener('keydown',event => {
+    if (event.key === 'Enter') { event.preventDefault(); normalizeAttackInput(); }
+  });
+  $('attack-time').addEventListener('input',event => {
+    $('attack-time').setAttribute('aria-invalid','false');
+    invalidate();
+    if (event.inputType === 'insertFromPaste') normalizeAttackInput();
+  });
+  for (const id of ['attack-date','buffer-seconds','confirm-confed']) $(id).addEventListener('input',invalidate);
+  $('attack-date').value = isoTime(Date.now()).slice(0,10);
+  function draft() {
+    const query = $('target-query').value.trim();
+    const target = query ? resolveTarget(targetIndex,query) : null;
+    const time = $('attack-time').value.trim();
+    return validateDraft({target:target ? `${target.x}|${target.y}` : '',
+      attack:time ? `${$('attack-date').value}T${normalizeClockTime(time)}` : '',
+      buffer:$('buffer-seconds').valueAsNumber,confirmedConfed:$('confirm-confed').checked});
+  }
+  function download(text,filename) {
+    const blob = new Blob([text],{type:'application/json'});
+    if (blob.size > MAP_LIMIT) throw new Error('Settings file exceeds 40 MB.');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = filename;
+    document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+  }
+  $('save-setup').addEventListener('click',() => {
+    try {
+      const profile = validateProfile(currentProfile(),villages);
+      const value = {version:4,server:SERVER,savedAt:new Date().toISOString(),profile,draft:draft()};
+      download(JSON.stringify(value,null,2),`ts12-defence-setup-${selectedId}.json`);
+      status('setup-status','Exported player and defence settings.');
+    } catch (error) { status('setup-status',`Cannot export: ${error.message}`,true); }
+  });
+  $('load-setup').addEventListener('click',async () => {
+    if (mapBusy) return;
+    const file = $('setup-file').files[0];
+    if (!file) { status('setup-status','Choose a saved setup JSON file first.',true); return; }
+    setMapBusy(true);
+    try {
+      if (file.size > MAP_LIMIT) throw new Error('Setup file exceeds 40 MB.');
+      const saved = restoreSetup(JSON.parse(await file.text()),villages);
+      profiles.set(saved.profile.playerId,saved.profile); selectedId = saved.profile.playerId;
+      const values = saved.draft;
+      if (values.target) presentTarget(parseCoordinates(values.target));
+      else { targetPoint = null; $('target-query').value = ''; status('target-detail',''); hideSuggestions(); }
+      $('attack-date').value = values.attack ? values.attack.slice(0,10) : isoTime(Date.now()).slice(0,10);
+      $('attack-time').value = values.attack ? values.attack.slice(11) : '';
+      $('attack-time').setAttribute('aria-invalid','false');
+      $('buffer-seconds').value = values.buffer;
+      $('confirm-confed').checked = values.confirmedConfed;
+      invalidate(); renderPlayers(); renderVillages(); enableControls();
+      showSetup('manual');
+      status('setup-status',`Imported ${file.name}.`);
+    } catch (error) { status('setup-status',`Import failed: ${error.message}`,true); }
+    finally { setMapBusy(false); }
+  });
+  function duration(seconds) {
+    const rounded = Math.round(Math.abs(seconds));
+    const days = Math.floor(rounded/86400), hours = Math.floor(rounded%86400/3600);
+    const minutes = Math.floor(rounded%3600/60), secs = rounded%60;
+    return `${days ? days+'d ' : ''}${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  }
+  function optionTable(options,groupIndex,offset) {
+    return `<div class="table-wrap"><table><thead><tr><th>Troops / hero</th><th>Travel</th><th>Send (UTC)</th><th>Status</th><th></th></tr></thead><tbody>${options.map((option,index) => {
+      const equipment = option.equipment;
+      const equipmentHTML = equipment.length === 1 ? `<span class="sub">${option.withHero ? 'Hero: ' : ''}${escape(equipment[0].label)}</span>`
+        : `<details class="equipment"><summary>Hero: ${equipment.length} equipment options</summary>${equipment.map(e => `<div>${escape(e.label)}</div>`).join('')}</details>`;
+      return `<tr${option.feasible ? '' : ' class="missed"'}><td><span class="army">${escape(option.load.label)}</span>${option.load.detail ? `<span class="sub">${escape(option.load.detail)}</span>` : ''}${equipmentHTML}</td>
+        <td class="mono">${duration(option.seconds)}<span class="sub">${option.speed} fields/h base</span></td>
+        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span></td>
+        <td class="${option.feasible ? 'good' : 'bad'}">${option.feasible ? 'Available' : 'Missed'}</td>
+        <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index+offset}">Copy</button></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  }
+  function renderPlan() {
+    if (!lastPlan) return;
+    const plan = lastPlan;
+    $('results').hidden = false;
+    $('calculated-at').textContent = `Calculated ${formatClock(plan.settings.calculatedAt)} UTC`;
+    const total = plan.groups.reduce((n,g) => n+g.options.length,0);
+    const feasible = plan.groups.reduce((n,g) => n+g.options.filter(o => o.feasible).length,0);
+    const targetText = plan.target ? `${plan.target.name} - ${plan.target.player}` : 'Unknown village';
+    const unconfirmed = plan.groups.some(g => g.relation === 'unconfirmed');
+    $('result-meta').innerHTML = `<p><strong>${escape(targetText)} ${coordText(plan.settings.target)}</strong></p>
+      <div class="timing-summary">
+        <div><span class="eyebrow">Attack lands</span><span class="digits">${formatClock(plan.settings.attackMs)}</span><span class="sub">${formatDay(plan.settings.attackMs)} UTC</span></div>
+        <div><span class="eyebrow">Defence lands</span><span class="digits good">${formatClock(plan.cutoff)}</span><span class="sub">${formatDay(plan.cutoff)} UTC</span></div>
+      </div>
+      ${total ? `<p class="muted"><strong class="${feasible ? 'good' : 'bad'}">${feasible} / ${total} options available</strong></p>` : ''}
+      ${unconfirmed ? '<p class="notice">Confederacy unconfirmed. Check reinforcement permission; no Standard bonus applied.</p>' : ''}
+      ${!plan.target ? '<p class="notice">Target not found in this map. Check the coordinates or load a newer map.</p>' : ''}
+      ${plan.notices.map(n => `<p class="notice">${escape(n)}</p>`).join('')}`;
+    $('result-list').innerHTML = plan.groups.map((group,index) => {
+      const head = group.options.slice(0,3), rest = group.options.slice(3);
+      return `<article class="result-village"><div class="result-heading"><h3>${escape(group.origin.name)} ${coordText(group.origin)}</h3><span class="muted">${group.fields.toFixed(2)} fields &middot; TS ${group.ts} &middot; ${group.options.length} options</span></div>
+        ${optionTable(head,index,0)}
+        ${rest.length ? `<details><summary class="alternative-summary">${rest.length} more options</summary>${optionTable(rest,index,3)}</details>` : ''}</article>`;
+    }).join('');
+    status('copy-status',''); $('copy-text').hidden = true;
+  }
+  $('calculate').addEventListener('click',() => {
+    invalidate();
+    try {
+      const values = draft(), calculatedAt = Date.now();
+      const settings = {target:parseCoordinates(values.target),attackMs:parseUTC(values.attack,'Attack landing'),
+        referenceMs:calculatedAt,
+        buffer:values.buffer,confirmedConfed:values.confirmedConfed,calculatedAt};
+      lastPlan = buildPlan(villages,currentProfile(),settings);
+      presentTarget(settings.target);
+      $('attack-time').value = values.attack.slice(11);
+      $('attack-time').setAttribute('aria-invalid','false');
+      renderPlan();
+      status('plan-status','');
+    } catch (error) {
+      $('plan-error').hidden = false;
+      status('plan-error',error.message,true);
+    }
+  });
+  $('result-list').addEventListener('click',async event => {
+    const button = event.target.closest('button[data-copy-group]');
+    if (!button || !lastPlan) return;
+    const option = lastPlan.groups[Number(button.dataset.copyGroup)].options[Number(button.dataset.copyOption)];
+    const text = [
+      `TS12 defence - ${currentPlayer().name}`,
+      `From: ${option.origin.name} ${coordText(option.origin)} -> ${coordText(lastPlan.settings.target)}`,
+      `Troops: ${option.load.label}${option.load.detail ? '. '+option.load.detail : ''}`,
+      `Equipment: ${option.equipment.map(e => e.label).join(' OR ')}`,
+      `Send: ${formatUTC(option.sendAt)}${option.feasible ? '' : ' (MISSED)'}`,
+      `Arrival: ${formatUTC(lastPlan.cutoff)}; attack: ${formatUTC(lastPlan.settings.attackMs)}`,
+      `Travel: ${duration(option.seconds)}`,
+      option.relation === 'unconfirmed' ? 'Confederacy unconfirmed; check reinforcement permission.' : ''
+    ].filter(Boolean).join('\n');
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable in this browser.');
+      await navigator.clipboard.writeText(text);
+      $('copy-text').hidden = true; $('copy-text').value = '';
+      status('copy-status','Copied.');
+    } catch (error) {
+      $('copy-text').value = text; $('copy-text').hidden = false;
+      $('copy-text').focus(); $('copy-text').select();
+      status('copy-status',`${error.message} Copy the selected text below manually.`,true);
+    }
+  });
+  loadMap();
+})();
+</script>
+</body>
+</html>

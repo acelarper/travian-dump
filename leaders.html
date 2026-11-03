@@ -40,7 +40,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
 <main>
   <header class="top"><h1>TRAVIAN <span>/ Legends leadership</span></h1><div class="actions"><a href="travian-defence-planner.html">Player defence</a><a href="travian-clock.html" target="_blank" rel="noopener noreferrer">Precision clock</a><span id="utc-now" class="muted mono"></span></div></header>
   <div class="bar controls">
-    <div class="row-actions" role="group" aria-label="Legends role"><button id="role-defending" type="button" aria-pressed="true">Legends defending</button><button id="role-attacking" type="button" aria-pressed="false">Legends attacking</button></div>
+    <div class="row-actions" role="group" aria-label="Legends role"><button id="role-defending" type="button" aria-pressed="true">Legends defending</button><button id="role-attacking" type="button" aria-pressed="false" hidden>Legends attacking</button></div>
     <div class="row-actions"><button id="save-plan" type="button">Save plan</button><button id="load-plan" type="button">Load plan</button><button id="share-plan" type="button">Discord summary</button><input id="plan-file" type="file" accept=".json,application/json" hidden></div>
   </div>
   <p id="map-status" class="status" role="status">Loading map.sql...</p>
@@ -557,6 +557,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   const targetPicker = picker('destination','Legends target',false,clearSourceReport);
   const defenderPicker = picker('defender','Defended village',false,() => { $('def-reference').value = ''; defencePlan = null; $('def-results').replaceChildren(); });
   function setRole(role,clearEditor = true) {
+    if ($('role-attacking').hidden) role = 'defending';
     state.role = role;
     $('role-defending').setAttribute('aria-pressed',String(role === 'defending'));
     $('role-attacking').setAttribute('aria-pressed',String(role === 'attacking'));
@@ -679,7 +680,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     catch (error) { status(id === 'op-time' ? 'editor-status' : 'def-status',error.message,true); }
   });
   action('role-defending',() => { if (state.role !== 'defending') setRole('defending'); });
-  action('role-attacking',() => { if (state.role !== 'attacking') setRole('attacking'); });
+  action('role-attacking',() => { if (!$('role-attacking').hidden && state.role !== 'attacking') setRole('attacking'); });
 
   function renderScenarioSelects() {
     const options = computed.map(row => `<option value="${row.key}">${esc(label(row.attack.attacker))} ${C.coordText(row.attack.attacker)} &rarr; ${esc(label(row.attack.defender))} ${C.coordText(row.attack.defender)} - TS ${row.ts}, lands ${C.formatUTC(row.arrivalMs)}</option>`).join('');
@@ -907,7 +908,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       $('scout-offset').value = next.preferences.scoutOffset; $('scout-travel').value = next.preferences.scoutTravel;
       $('return-offset').value = next.preferences.returnOffset; $('return-travel').value = next.preferences.returnTravel;
       $('def-buffer').value = next.preferences.defenceBuffer;
-      status('app-status',`Loaded ${next.operations.length} attacks and ${next.incoming.length} report observations. Calculate to refresh the timing tables.`);
+      const hiddenAttacks = $('role-attacking').hidden ? next.operations.filter(op => op.role === 'attacking').length : 0;
+      status('app-status',`Loaded ${next.operations.length} attacks and ${next.incoming.length} report observations.${hiddenAttacks ? ` ${hiddenAttacks} attacking-side ${hiddenAttacks === 1 ? 'entry is' : 'entries are'} retained but hidden.` : ''} Calculate to refresh the timing tables.`);
     } catch (error) { status('app-status',`Import failed: ${error.message} Previous plan was kept.`,true); }
     finally { $('plan-file').disabled = false; $('load-plan').disabled = false; }
   });

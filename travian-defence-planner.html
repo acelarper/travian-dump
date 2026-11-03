@@ -30,10 +30,7 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .header{margin-bottom:22px}.muted,small{color:var(--dim)}.muted{font-size:12px}.spaced{margin-top:12px}
 .hint{margin-top:5px;font-size:11px;color:var(--dim)}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
-.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
 .account-row{display:flex;align-items:end;gap:8px;margin-top:16px;flex-wrap:wrap}.account-row label{flex:1;min-width:180px}
-.setup-switch{display:flex;gap:5px}.setup-switch button{font-size:13px}
-.setup-switch button[aria-pressed=true]{color:var(--green);border-color:#437e70;background:#0e2823}
 .view-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
 .view-bar+.map-summary{margin:0 0 16px}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
@@ -99,7 +96,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   .result-village td:nth-child(2)::before{content:"Travel ";color:var(--dim);font:11px system-ui,sans-serif}
   .result-village td:last-child{grid-column:2;grid-row:3;align-self:center;justify-self:end}
 }
-@media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list,.fields{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.setup-switch button{padding:7px 9px}.arrival-inputs input{padding:9px;font-size:14px}}
+@media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.arrival-inputs input{padding:9px;font-size:14px}}
 @media print{body{background:white;color:black}.setup,td:last-child,th:last-child{display:none}.panel{border:0}.result-village{break-inside:avoid}.sub,.muted,th{color:#444}.good,.warn,.bad,.send-time{color:black}}
 </style>
 </head>
@@ -118,18 +115,10 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
 
   <section id="setup-panel" class="panel setup" aria-label="Your setup">
     <div class="section-heading">
-      <div class="setup-switch" role="group" aria-label="Setup method">
-        <button id="setup-manual" type="button" aria-pressed="true" aria-controls="manual-panel">Enter manually</button>
-        <button id="setup-import" type="button" aria-pressed="false" aria-controls="import-panel">Import setup</button>
-      </div>
+      <button id="setup-import" type="button">Import setup</button>
       <button id="save-setup" type="button" disabled>Export</button>
     </div>
-    <div id="import-panel" hidden>
-      <div class="fields">
-        <label for="setup-file">Setup file<input id="setup-file" type="file" accept=".json,application/json"></label>
-        <div class="actions"><button id="load-setup" type="button" class="primary">Import</button></div>
-      </div>
-    </div>
+    <input id="setup-file" type="file" accept=".json,application/json" aria-label="Import setup file" hidden>
     <div id="manual-panel">
       <div class="account-row">
         <label for="player-select">Playing as<select id="player-select" disabled><option value="">Loading accounts...</option></select></label>
@@ -227,12 +216,6 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     $(id).classList.toggle('error',error);
     $(id).hidden = !message;
   }
-  function showSetup(mode) {
-    $('manual-panel').hidden = mode !== 'manual';
-    $('import-panel').hidden = mode !== 'import';
-    $('setup-manual').setAttribute('aria-pressed',String(mode === 'manual'));
-    $('setup-import').setAttribute('aria-pressed',String(mode === 'import'));
-  }
   function invalidate() {
     stopSendCountdown();
     if (lastPlan) status('plan-status','Changed. Find send times again.');
@@ -245,9 +228,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     $('player-select').disabled = !players.length || mapBusy;
     $('calculate').disabled = mapBusy || !selectedId;
     $('save-setup').disabled = !selectedId || mapBusy;
-    $('load-setup').disabled = mapBusy;
     $('setup-file').disabled = mapBusy;
-    $('setup-manual').disabled = mapBusy;
     $('setup-import').disabled = mapBusy;
   }
   function renderPlayers() {
@@ -335,8 +316,11 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     } finally { fetchController = null; setMapBusy(false); }
   }
   $('cancel-fetch').addEventListener('click',() => fetchController?.abort());
-  $('setup-manual').addEventListener('click',() => showSetup('manual'));
-  $('setup-import').addEventListener('click',() => showSetup('import'));
+  $('setup-import').addEventListener('click',() => {
+    if (mapBusy) return;
+    $('setup-file').value = '';
+    $('setup-file').click();
+  });
   $('player-select').addEventListener('change',() => {
     selectedId = $('player-select').value ? Number($('player-select').value) : null;
     invalidate(); renderVillages(); enableControls();
@@ -508,18 +492,18 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       status('setup-status','Exported player and defence settings.');
     } catch (error) { status('setup-status',`Cannot export: ${error.message}`,true); }
   });
-  $('load-setup').addEventListener('click',async () => {
+  $('setup-file').addEventListener('change',async () => {
     if (mapBusy) return;
     const file = $('setup-file').files[0];
-    if (!file) { status('setup-status','Choose a saved setup JSON file first.',true); return; }
+    if (!file) return;
     setMapBusy(true);
+    status('setup-status',`Importing ${file.name}...`);
     try {
       if (file.size > MAP_LIMIT) throw new Error('Setup file exceeds 40 MB.');
       const saved = restoreSetup(JSON.parse(await file.text()),villages);
       profiles.set(saved.profile.playerId,saved.profile); selectedId = saved.profile.playerId;
       $('buffer-seconds').value = saved.settings.buffer;
       invalidate(); renderPlayers(); renderVillages(); enableControls();
-      showSetup('manual');
       status('setup-status',`Imported ${file.name}.`);
     } catch (error) { status('setup-status',`Import failed: ${error.message}`,true); }
     finally { setMapBusy(false); }

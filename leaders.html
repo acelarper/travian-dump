@@ -58,7 +58,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       <h2 id="planning-title">Estimate enemy sending times</h2>
       <div class="grid"><div id="origin-picker"></div><div id="destination-picker"></div></div>
       <div class="grid four">
-        <label>Attacker TS assumptions<input id="op-ts" value="0,10,20" placeholder="15 or 10,15,20 or 10-20"></label>
+        <label>Attacker TS assumptions<input id="op-ts" value="16,17,18" placeholder="15 or 16,17,18 or 10-20"></label>
         <label>Slowest unit / pace<select id="op-speed"></select></label>
         <label>Attack state<select id="op-kind"><option value="anticipated">Anticipated</option><option value="active">Already incoming</option></select></label>
         <label>Known time<select id="op-basis"><option value="landing">Landing time</option><option value="launch">Sending time</option></select></label>
@@ -487,10 +487,24 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       <label id="${prefix}-label" for="${prefix}-query">${title}<input id="${prefix}-query" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${prefix}-suggestions" placeholder="Player, village, alliance or coords" autocomplete="off"></label>
       <label>X<input id="${prefix}-x" type="number" min="-200" max="200"></label><label>Y<input id="${prefix}-y" type="number" min="-200" max="200"></label>
       </div><div id="${prefix}-suggestions" class="suggestions" role="listbox" aria-label="Matching villages" hidden></div>
-      <div id="${prefix}-meta" class="picker-meta"></div>${needsTribe ? `<label class="spaced">Attacker tribe<select id="${prefix}-tribe"><option value="">Select tribe</option><option value="1">Romans</option><option value="2">Teutons</option><option value="3">Gauls</option></select></label>` : ''}</div>`;
+      <div id="${prefix}-meta" class="picker-meta"></div>${needsTribe ? `<p id="${prefix}-tribe-name" class="hint" role="status" hidden></p><label id="${prefix}-tribe-manual" class="spaced" hidden>Tribe (not in map.sql)<select id="${prefix}-tribe" disabled><option value="">Select tribe</option><option value="1">Romans</option><option value="2">Teutons</option><option value="3">Gauls</option></select></label>` : ''}</div>`;
     const query = $(prefix+'-query'), x = $(prefix+'-x'), y = $(prefix+'-y'), list = $(prefix+'-suggestions');
     const tribe = needsTribe ? $(prefix+'-tribe') : null;
     let matches = [], active = -1;
+    const presentTribe = p => {
+      if (!tribe) return;
+      const village = p ? known(p) : null, label = $(prefix+'-tribe-name');
+      label.hidden = !village;
+      label.textContent = village ? 'Tribe: '+(C.TRIBES[village.tribe]?.name || (village.tribe === 5 ? 'Natars (unsupported)' : `Unsupported tribe ${village.tribe}`)) : '';
+      $(prefix+'-tribe-manual').hidden = !p || !!village;
+      tribe.disabled = !p || !!village;
+      tribe.value = String(village?.tribe ?? p?.tribe ?? '');
+    };
+    const selectedTribe = () => {
+      if (!tribe) return null;
+      const village = x.value !== '' && y.value !== '' ? known({x:x.valueAsNumber,y:y.valueAsNumber}) : null;
+      return village?.tribe ?? Number(tribe.value);
+    };
     const hide = () => { matches = []; active = -1; list.hidden = true; list.replaceChildren(); query.setAttribute('aria-expanded','false'); query.removeAttribute('aria-activedescendant'); };
     const notify = () => { if (onChange) onChange(); };
     const show = () => {
@@ -504,7 +518,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       const v = known(p);
       if (writeCoordinates) { x.value = p.x; y.value = p.y; }
       query.value = v ? `${v.player} / ${v.name} ${C.coordText(v)}` : '';
-      if (tribe) tribe.value = String(p.tribe || (v && Object.hasOwn(C.TRIBES,v.tribe) ? v.tribe : ''));
+      presentTribe(p);
       $(prefix+'-meta').innerHTML = `${link(p)} <span class="${v ? 'muted' : 'warn'}">${v ? esc(v.alliance || 'No alliance') : 'Not in map.sql; coordinates are still usable.'}</span>`;
       hide(); if (notifyChange) notify();
     };
@@ -512,16 +526,17 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       const p = x.value !== '' || y.value !== '' || x.validity.badInput || y.validity.badInput
         ? point({x:x.valueAsNumber,y:y.valueAsNumber},title) : C.resolveTarget(searchIndex,query.value);
       if (tribe) {
-        const race = Number(tribe.value) || known(p)?.tribe;
-        if (!Object.hasOwn(C.TRIBES,race)) throw new Error('Choose the attacker tribe; it is not known from this map.');
+        const village = known(p), race = village?.tribe ?? Number(tribe.value);
+        present({...p,tribe:race},false);
+        if (!Object.hasOwn(C.TRIBES,race)) throw new Error(village ? 'This mapped attacker tribe is not supported.' : 'Choose the attacker tribe; it is not known from this map.');
         return {...p,tribe:race};
       }
       return p;
     };
-    query.addEventListener('input',() => { x.value = ''; y.value = ''; if (tribe) tribe.value = ''; $(prefix+'-meta').textContent = ''; notify(); show(); });
+    query.addEventListener('input',() => { x.value = ''; y.value = ''; presentTribe(null); $(prefix+'-meta').textContent = ''; notify(); show(); });
     query.addEventListener('focus',show); query.addEventListener('blur',hide);
     for (const field of [x,y]) field.addEventListener('input',() => {
-      query.value = ''; hide(); notify();
+      query.value = ''; hide(); presentTribe(null); notify();
       if (!x.value || !y.value) { $(prefix+'-meta').textContent = 'Enter both coordinates.'; return; }
       try { present(point({x:x.valueAsNumber,y:y.valueAsNumber}),true,false); }
       catch (error) { $(prefix+'-meta').textContent = error.message; }
@@ -549,9 +564,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       if (event.target.closest('a')) return;
       const option = event.target.closest('[data-index]'); if (option) choose(Number(option.dataset.index));
     });
-    return {get,set:present,clear() { query.value = ''; x.value = ''; y.value = ''; if (tribe) tribe.value = ''; $(prefix+'-meta').textContent = ''; hide(); notify(); },
+    return {get,set:present,clear() { query.value = ''; x.value = ''; y.value = ''; presentTribe(null); $(prefix+'-meta').textContent = ''; hide(); notify(); },
       refresh() { if (x.value && y.value && Number.isInteger(x.valueAsNumber) && Number.isInteger(y.valueAsNumber) && Math.abs(x.valueAsNumber)<=200 && Math.abs(y.valueAsNumber)<=200) present({x:x.valueAsNumber,y:y.valueAsNumber,tribe:tribe ? Number(tribe.value) : undefined},false); },
-      tribe:() => tribe ? Number(tribe.value) : null};
+      tribe:selectedTribe};
   }
   const originPicker = picker('origin','Enemy origin',true,() => { clearSourceReport(); speedOptions($('op-speed'),originPicker.tribe(),$('op-speed').value); });
   const targetPicker = picker('destination','Legends target',false,clearSourceReport);
@@ -601,7 +616,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     $('add-operation').textContent = 'Add attacker'; $('cancel-edit').hidden = true; $('add-player-villages').hidden = false;
     if (!keepTarget) {
       targetPicker.clear(); $('op-date').value = C.isoTime(Date.now()).slice(0,10); $('op-time').value = '';
-      $('op-ts').value = '0,10,20'; $('op-boots').value = '0'; $('op-artefact').value = '1';
+      $('op-ts').value = $('op-ts').defaultValue; $('op-boots').value = '0'; $('op-artefact').value = '1';
       $('op-kind').value = 'anticipated'; $('op-basis').value = 'landing'; $('op-note').value = '';
     }
     updateBasis();
@@ -664,13 +679,14 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const op = state.operations.find(value => value.id === edit.dataset.edit);
     if (!op) return;
     editingId = op.id; originPicker.set(op.attacker,false); targetPicker.set(op.defender,false);
-    speedOptions($('op-speed'),op.attacker.tribe,op.speed);
+    speedOptions($('op-speed'),originPicker.tribe(),op.speed);
     $('op-ts').value = op.tsLevels.join(','); $('op-kind').value = op.kind; $('op-basis').value = op.basis;
     $('op-date').value = C.isoTime(op.timeMs).slice(0,10); $('op-time').value = C.isoTime(op.timeMs).slice(11);
     $('op-boots').value = op.boots; $('op-artefact').value = op.artefact; $('op-note').value = op.note;
     pendingReport = op.reportedAt === null ? null : {firstReportedAt:op.reportedAt};
     $('add-operation').textContent = 'Update attack'; $('cancel-edit').hidden = false; $('add-player-villages').hidden = true; updateBasis();
     status('source-report',op.reportedAt === null ? '' : `Reported by ${C.formatUTC(op.reportedAt)}.`);
+    status('editor-status',originPicker.tribe() !== op.attacker.tribe ? 'Map tribe differs from this saved attack. Review the unit pace before updating.' : '',originPicker.tribe() !== op.attacker.tribe);
   });
   for (const id of ['op-kind','op-basis']) $(id).addEventListener('change',updateBasis);
   for (const id of ['op-date','op-time']) $(id).addEventListener('input',clearSourceReport);
@@ -1000,6 +1016,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       world = C.parseMapSql(await response.text()); searchIndex = C.createTargetIndex(world);
       byPoint = new Map(world.map(v => [`${v.x}|${v.y}`,v]));
       originPicker.refresh(); targetPicker.refresh(); defenderPicker.refresh();
+      speedOptions($('op-speed'),originPicker.tribe(),$('op-speed').value);
       status('map-status',`${world.length.toLocaleString()} villages loaded. Search any player, village, alliance or coordinates.`);
       renderOperations();
     } catch (error) { status('map-status',`Map load failed: ${error.message}. Host this page with map.sql and travian-planner-core.js beside it. Manual coordinates require an attacker tribe.`,true); }

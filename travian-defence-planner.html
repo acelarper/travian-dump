@@ -33,9 +33,9 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .account-row{display:flex;align-items:end;gap:8px;margin-top:16px;flex-wrap:wrap}.account-row label{flex:1;min-width:180px}
 .view-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
 .view-bar+.map-summary{margin:0 0 16px}
-.player-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}.player-tabs button[aria-selected=true]{color:var(--green);border-color:#437e70;background:#0e2823}
+.target-toolbar{margin-bottom:16px}.target-tabs{display:flex;gap:6px;flex-wrap:wrap}.target-tabs button[aria-selected=true]{color:var(--green);border-color:#437e70;background:#0e2823}
 #travco-paste{display:block;min-height:145px;margin-top:8px;resize:vertical;font-size:12px}
-.call-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.defence-call{border:1px solid var(--line);border-radius:9px;padding:12px;min-width:0}.call-heading,.call-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.call-heading>div{min-width:0;overflow-wrap:anywhere}.call-actions{margin-top:12px}.call-time .digits{font-size:23px;color:var(--green)}.call-selected{font-size:11px;color:var(--green)}
+.call-list{margin-top:14px;border:1px solid var(--line);border-radius:9px;overflow:hidden}.call-list:empty{display:none}.call-list>.muted{padding:12px}.defence-call{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:18px;align-items:center;padding:11px 12px;border-bottom:1px solid var(--line);min-width:0}.defence-call:last-child{border-bottom:0}.call-heading{min-width:0;overflow-wrap:anywhere}.call-location{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-top:4px;font-size:12px}.call-actions{justify-self:end}.call-actions button{min-height:36px}.call-time .digits{font-size:23px;color:var(--green)}.call-selected{font-size:11px;color:var(--green)}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
 .check{display:flex;align-items:center;gap:6px;font-weight:400}.checks{display:flex;gap:6px;flex-wrap:wrap}
 .chip{display:flex;align-items:center;gap:5px;font-weight:400;font-size:11px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--field)}
@@ -58,7 +58,6 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .arrival-inputs legend{grid-column:1/-1}
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .buffer{display:flex;align-items:center;gap:7px;font-weight:400}.buffer input{width:62px;margin:0!important}
-.attack-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
 .target-control{position:relative;min-width:0}#target-query{height:44px;font-size:14px}
 .target-meta{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 #target-map-link{margin-top:10px;font-size:12px}#target-detail{flex:1;min-width:140px}
@@ -99,7 +98,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   .result-village td:nth-child(2)::before{content:"Travel ";color:var(--dim);font:11px system-ui,sans-serif}
   .result-village td:last-child{grid-column:2;grid-row:3;align-self:center;justify-self:end}
 }
-@media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list,.call-list{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.arrival-inputs input{padding:9px;font-size:14px}.player-tabs button{padding:7px 9px}}
+@media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.arrival-inputs input{padding:9px;font-size:14px}.target-tabs button{padding:7px 9px}.defence-call{grid-template-columns:minmax(0,1fr) auto;gap:8px 10px}.call-heading{grid-column:1/-1}}
 @media print{body{background:white;color:black}.setup,td:last-child,th:last-child{display:none}.panel{border:0}.result-village{break-inside:avoid}.sub,.muted,th{color:#444}.good,.warn,.bad,.send-time{color:black}}
 </style>
 </head>
@@ -116,13 +115,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   </div>
   <p id="map-status" class="status map-summary setup" role="status" hidden></p>
 
-  <nav class="player-tabs setup" role="tablist" aria-label="Defence planner">
-    <button id="tab-setup" type="button" role="tab" aria-selected="true" aria-controls="setup-panel">Setup</button>
-    <button id="tab-calls" type="button" role="tab" aria-selected="false" aria-controls="calls-panel" tabindex="-1">Travco calls</button>
-    <button id="tab-target" type="button" role="tab" aria-selected="false" aria-controls="target-panel" tabindex="-1">Target &amp; time</button>
-  </nav>
-
-  <section id="setup-panel" class="panel setup" role="tabpanel" aria-labelledby="tab-setup">
+  <section id="setup-panel" class="panel setup" aria-label="Your setup">
     <div class="section-heading">
       <button id="setup-import" type="button">Import setup</button>
       <button id="save-setup" type="button" disabled>Export</button>
@@ -143,16 +136,25 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     <p id="setup-status" class="status" role="status" hidden></p>
   </section>
 
-  <section id="calls-panel" class="panel setup" role="tabpanel" aria-labelledby="tab-calls" hidden>
+  <section id="defence-panel" class="panel setup" aria-label="Defence planning">
+    <div class="section-heading target-toolbar">
+      <nav class="target-tabs" role="tablist" aria-label="Target source">
+        <button id="tab-target" type="button" role="tab" aria-selected="true" aria-controls="target-panel">Defence target</button>
+        <button id="tab-calls" type="button" role="tab" aria-selected="false" aria-controls="calls-panel" tabindex="-1">Travco calls</button>
+      </nav>
+      <label class="buffer">Arrive <input id="buffer-seconds" type="number" min="1" max="86400" step="1" value="60" aria-label="Seconds before the deadline"> seconds before</label>
+    </div>
+
+  <div id="calls-panel" role="tabpanel" aria-labelledby="tab-calls" hidden>
     <div class="section-heading"><h2>Travco defence calls</h2><button id="clear-calls" type="button" class="small">Clear</button></div>
     <label class="spaced" for="travco-paste">Paste the whole Defense calls page<textarea id="travco-paste" placeholder="On Travco: Ctrl+A, Ctrl+C. Paste here, including the page clock and table headings." spellcheck="false"></textarea></label>
     <p class="hint">Read locally, never uploaded. Times are UTC. Past deadlines are hidden; paste again to refresh the snapshot.</p>
     <p class="hint">Uses &ldquo;Send defense before&rdquo; as the deadline. Your arrival margin still applies.</p>
     <p id="calls-status" class="status" role="status" hidden></p>
-    <div id="defence-call-list" class="call-list"></div>
-  </section>
+    <div id="defence-call-list" class="call-list" role="list"></div>
+  </div>
 
-  <section id="target-panel" class="panel setup" role="tabpanel" aria-labelledby="tab-target" hidden>
+  <div id="target-panel" role="tabpanel" aria-labelledby="tab-target">
     <h2 id="attack-heading">Defence target</h2>
     <div class="attack-grid">
       <div class="target-control">
@@ -175,16 +177,14 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
           <label class="visually-hidden" for="attack-time">Attack time (UTC)</label>
           <input id="attack-time" type="text" placeholder="13:10:01" autocomplete="off" spellcheck="false">
         </div>
-        <p id="selected-call-status" class="status" role="status" hidden></p>
       </fieldset>
     </div>
-    <div class="attack-actions">
-      <label class="buffer">Arrive <input id="buffer-seconds" type="number" min="1" max="86400" step="1" value="60" aria-label="Seconds before the attack"> seconds before</label>
-    </div>
     <div class="actions">
-      <button id="calculate" type="button" class="primary" disabled>Find send times</button>
-      <span id="plan-status" class="muted" role="status" hidden></span>
+      <button id="calculate" type="button" class="primary" disabled>Calculate</button>
     </div>
+  </div>
+    <p id="selected-call-status" class="status" role="status" hidden></p>
+    <p id="plan-status" class="muted spaced" role="status" hidden></p>
     <p id="plan-error" class="status error" role="alert" hidden></p>
   </section>
 
@@ -237,16 +237,16 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     $(id).hidden = !message;
   }
   function invalidate() {
-    if (lastPlan) status('plan-status','Changed. Find send times again.');
+    if (lastPlan) status('plan-status','Changed. Calculate again.');
     lastPlan = null;
     $('results').hidden = true;
     $('result-list').replaceChildren();
     $('plan-error').hidden = true;
     syncDisplayTimer();
   }
-  const playerTabs = ['setup','calls','target'];
-  function showPlayerTab(tab) {
-    for (const name of playerTabs) {
+  const targetTabs = ['target','calls'];
+  function showTargetTab(tab) {
+    for (const name of targetTabs) {
       $(name+'-panel').hidden = name !== tab;
       $('tab-'+name).setAttribute('aria-selected',String(name === tab));
       $('tab-'+name).tabIndex = name === tab ? 0 : -1;
@@ -254,14 +254,14 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     hideSuggestions();
     updateDisplay();
   }
-  for (const [index,tab] of playerTabs.entries()) {
-    $('tab-'+tab).addEventListener('click',() => showPlayerTab(tab));
+  for (const [index,tab] of targetTabs.entries()) {
+    $('tab-'+tab).addEventListener('click',() => showTargetTab(tab));
     $('tab-'+tab).addEventListener('keydown',event => {
       if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
       event.preventDefault();
-      const next = event.key === 'Home' ? 0 : event.key === 'End' ? playerTabs.length-1
-        : (index+(event.key === 'ArrowRight' ? 1 : playerTabs.length-1))%playerTabs.length;
-      showPlayerTab(playerTabs[next]); $('tab-'+playerTabs[next]).focus();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? targetTabs.length-1
+        : (index+(event.key === 'ArrowRight' ? 1 : targetTabs.length-1))%targetTabs.length;
+      showTargetTab(targetTabs[next]); $('tab-'+targetTabs[next]).focus();
     });
   }
   function clearCallSelection() {
@@ -275,8 +275,8 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       callsViewKey = key;
       $('defence-call-list').innerHTML = active.map(call => {
         const village = villages.find(v => v.x === call.x && v.y === call.y);
-        return `<article class="defence-call"><div class="call-heading"><div><strong>${escape(call.player)}</strong>${call.alliance ? ` <span class="muted">[${escape(call.alliance)}]</span>` : ''}${village ? `<span class="sub"><a href="${SERVER}/karte.php?d=${village.tileId}" target="_blank" rel="noopener noreferrer">${escape(village.name)}</a></span>` : ''}</div>${coordinateLink(call)}</div>
-          <div class="call-actions"><div class="call-time"><span class="digits">${formatClock(call.deadlineMs)}</span><span class="sub">${formatDay(call.deadlineMs)} UTC</span></div><div>${selectedCall?.key === call.key ? '<span class="call-selected">Selected </span>' : ''}<button type="button" class="small" data-call-key="${escape(call.key)}">Use call</button></div></div></article>`;
+        return `<article class="defence-call" role="listitem"><div class="call-heading"><strong>${escape(call.player)}</strong>${call.alliance ? ` <span class="muted">[${escape(call.alliance)}]</span>` : ''}${selectedCall?.key === call.key ? ' <span class="call-selected">Selected</span>' : ''}<div class="call-location">${village ? `<a href="${SERVER}/karte.php?d=${village.tileId}" target="_blank" rel="noopener noreferrer">${escape(village.name)}</a>` : ''}${coordinateLink(call)}</div></div>
+          <div class="call-time"><span class="digits">${formatClock(call.deadlineMs)}</span><span class="sub">${formatDay(call.deadlineMs)} UTC</span></div><div class="call-actions"><button type="button" class="small" data-call-key="${escape(call.key)}"${mapBusy || !selectedId ? ' disabled' : ''}>Calculate</button></div></article>`;
       }).join('');
       if (callsSnapshot && !active.length) $('defence-call-list').innerHTML = '<p class="muted">No upcoming calls in this snapshot.</p>';
       const past = callsSnapshot ? callsSnapshot.calls.length-active.length : 0;
@@ -314,17 +314,18 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   });
   $('defence-call-list').addEventListener('click',event => {
     const button = event.target.closest('button[data-call-key]');
-    if (!button) return;
+    if (!button || button.disabled) return;
     const call = callsSnapshot?.calls.find(value => value.key === button.dataset.callKey);
     if (!call || call.deadlineMs <= Date.now()) {
       updateDisplay(); status('calls-status','This call deadline has passed. Choose another call.',true); return;
     }
     selectedCall = call;
-    invalidate(); presentTarget(call);
+    presentTarget(call);
     $('attack-date').value = isoTime(call.deadlineMs).slice(0,10);
     $('attack-time').value = formatClock(call.deadlineMs); $('attack-time').setAttribute('aria-invalid','false');
     $('deadline-kind').textContent = 'Call deadline';
-    renderCalls(true); showPlayerTab('target');
+    renderCalls(true);
+    if (calculateDefence()) $('results').scrollIntoView({block:'start'});
   });
   function enableControls() {
     $('player-select').disabled = !players.length || mapBusy;
@@ -332,6 +333,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     $('save-setup').disabled = !selectedId || mapBusy;
     $('setup-file').disabled = mapBusy;
     $('setup-import').disabled = mapBusy;
+    for (const button of $('defence-call-list').querySelectorAll('[data-call-key]')) button.disabled = mapBusy || !selectedId;
   }
   function renderPlayers() {
     $('player-select').innerHTML = '<option value="">Select your account</option>' + players.map(p =>
@@ -683,9 +685,10 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     renderCalls(); syncDisplayTimer();
   }
   document.addEventListener('visibilitychange',() => { if (!document.hidden) updateDisplay(); });
-  $('calculate').addEventListener('click',() => {
+  function calculateDefence() {
     invalidate();
     try {
+      if (!currentProfile()) throw new Error('Select your account in Setup first.');
       const target = readTarget(), time = normalizeClockTime($('attack-time').value);
       const preferences = defenceSettings(), calculatedAt = Date.now();
       const settings = {target,attackMs:parseUTC(`${$('attack-date').value}T${time}`,'Attack landing'),
@@ -702,11 +705,15 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       renderPlan(true,now);
       updateDisplay();
       status('plan-status','');
+      return true;
     } catch (error) {
       $('plan-error').hidden = false;
       status('plan-error',error.message,true);
+      $('plan-error').scrollIntoView({block:'nearest'});
+      return false;
     }
-  });
+  }
+  $('calculate').addEventListener('click',calculateDefence);
   $('result-list').addEventListener('click',async event => {
     const button = event.target.closest('button[data-copy-group]');
     if (!button || !lastPlan) return;

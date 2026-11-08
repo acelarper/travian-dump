@@ -299,6 +299,99 @@
   const dayFormatter = new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
   const formatDay = ms => dayFormatter.format(new Date(ms));
   const coordText = village => `(${village.x}|${village.y})`;
+  function parseTravcoDefenceCalls(input) {
+    if (typeof input !== 'string' || input.length > MAP_LIMIT) throw new Error('Travco text must be smaller than 40 MB.');
+    const text = input.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').replace(/\u00a0/g,' ')
+      .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,'');
+    const section = /^[ \t]*Defen[sc]e[ \t]+calls(?:[ \t]*\(?(\d+)\)?)?[ \t]*$/im.exec(text);
+    if (!section) throw new Error('Paste the Travco Defense calls page, including its table headings.');
+    const reportedCount = section[1] === undefined ? null : integer(Number(section[1]),0,100000,'Reported call count');
+    const pad = value => String(value).padStart(2,'0');
+    const clock = (hour,minute,second,meridian) => {
+      let h = Number(hour);
+      if (meridian) h = integer(h,1,12,'Clock hour')%12+(meridian.toLowerCase() === 'p' ? 12 : 0);
+      return normalizeClockTime(`${pad(h)}:${minute}:${second || '00'}`);
+    };
+    let sourceMs = null;
+    for (const line of text.slice(0,section.index).split('\n')) {
+      if (line.trim().length > 100) continue;
+      const us = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:([ap])\.?\s*m\.?)?\s*(?:UTC)?\s*$/i.exec(line);
+      const iso = /^\s*(\d{4}-\d{2}-\d{2})[ T](\d{1,2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)\s*(?:Z|UTC)?\s*$/i.exec(line);
+      if (us) sourceMs = parseUTC(`${us[3]}-${pad(us[1])}-${pad(us[2])}T${clock(us[4],us[5],us[6],us[7])}`,'Travco page clock');
+      else if (iso) sourceMs = parseUTC(`${iso[1]}T${normalizeClockTime(iso[2])}`,'Travco page clock');
+    }
+    if (sourceMs !== null) integer(sourceMs,0,253402300799999,'Travco page clock');
+    let body = text.slice(section.index+section[0].length);
+    const footer = /^[ \t]*results on page[ \t]*:/im.exec(body);
+    if (footer) body = body.slice(0,footer.index);
+    const header = /Defender\s+Defender\s+alliance\s+Defender\s+village\s+Send\s+defen[sc]e\s+before\b/i.exec(body);
+    if (!header) {
+      if (reportedCount === 0) return {calls:[],rows:0,duplicates:0,reportedCount,sourceMs};
+      throw new Error('The Defender / Defender village / Send defense before headings are missing.');
+    }
+    const deadline = value => {
+      if (value.trim().length > 100) throw new Error('Invalid call deadline text.');
+      const match = /^(\d{1,2}):(\d{2})(?::(\d{2}(?:\.\d{1,3})?))?\s*(?:([ap])\.?\s*m\.?)?\s*,\s*(\d{1,2})\.(\d{1,2})\.(?:(\d{4})\.?)?\s*(?:UTC|Z)?$/i.exec(value.trim());
+      if (!match) throw new Error('Use a Travco deadline such as 09:53:33, 09.11.');
+      const time = clock(match[1],match[2],match[3],match[4]);
+      const day = integer(Number(match[5]),1,31,'Call day'), month = integer(Number(match[6]),1,12,'Call month');
+      if (match[7]) return integer(parseUTC(`${match[7]}-${pad(month)}-${pad(day)}T${time}`,'Call deadline'),0,253402300799999,'Call deadline');
+      if (sourceMs === null) throw new Error('Include the Travco page clock so the year is known, or use deadlines with a four-digit year.');
+      const year = new Date(sourceMs).getUTCFullYear();
+      const candidates = [year,year-1,year+1].filter(y => y >= 1970 && y <= 9999 && day <= new Date(Date.UTC(y,month,0)).getUTCDate())
+        .map(y => parseUTC(`${y}-${pad(month)}-${pad(day)}T${time}`,'Call deadline'))
+        .sort((a,b) => Math.abs(a-sourceMs)-Math.abs(b-sourceMs) || a-b);
+      if (!candidates.length) throw new Error('Invalid call calendar date.');
+      return candidates[0];
+    };
+    const coordinate = /^\(?\s*[+\-\u2212]?\d+\s*[/|,]\s*[+\-\u2212]?\d+\s*\)?$/;
+    const startsTime = /^\d{1,2}:\d{2}/;
+    const dateOnly = /^\d{1,2}\.\d{1,2}\.(?:\d{4}\.?)?\s*(?:UTC|Z)?$/i;
+    const calls = new Map();
+    let rows = 0;
+    const add = (name,alliance,coords,time,row) => {
+      try {
+        const player = name.replace(/^tribe icon\s*/i,'').trim();
+        if (!player || player.length > 200 || alliance.length > 200) throw new Error('Invalid defender name or alliance.');
+        const point = parseCoordinates(coords.replace(/\//g,'|')), deadlineMs = deadline(time);
+        const key = `${point.x}|${point.y}@${deadlineMs}`;
+        if (!calls.has(key)) calls.set(key,{key,player,alliance,...point,deadlineMs});
+        rows++;
+        if (rows > 1000) throw new Error('At most 1,000 calls can be pasted at once.');
+      } catch (error) { throw new Error(`Call row ${row}: ${error.message}`); }
+    };
+    const lines = body.split('\n');
+    const headerLine = lines.findIndex(line => /Defender\s+village/i.test(line) && /Send\s+defen[sc]e\s+before/i.test(line));
+    const columns = headerLine < 0 ? [] : lines[headerLine].split('\t').map(cell => cell.trim().toLowerCase().replace(/\s+/g,' '));
+    const playerColumn = columns.indexOf('defender'), allianceColumn = columns.indexOf('defender alliance');
+    const coordinateColumn = columns.indexOf('defender village'), timeColumn = columns.findIndex(cell => /^send defen[sc]e before$/.test(cell));
+    if ([playerColumn,allianceColumn,coordinateColumn,timeColumn].every(index => index >= 0)) {
+      for (let i=headerLine+1;i<lines.length;i++) {
+        const cells = lines[i].split('\t').map(cell => cell.trim());
+        const name = cells[playerColumn] || '', coords = cells[coordinateColumn] || '';
+        let time = cells[timeColumn] || '';
+        if (name.toLowerCase() === 'tribe icon') continue;
+        if (!coordinate.test(coords) && !startsTime.test(time) && !/^tribe icon\s+\S/i.test(name)) continue;
+        const row = i+1, next = (lines[i+1] || '').split('\t')[0].trim();
+        if (/,\s*$/.test(time) && dateOnly.test(next)) { time += ' '+next; i++; }
+        add(name,cells[allianceColumn] || '',coords,time,row);
+      }
+    } else {
+      const tokens = body.slice(header.index+header[0].length).split(/[\t\n]+/).map(value => value.trim())
+        .filter(value => value && value.toLowerCase() !== 'tribe icon');
+      for (let i=2;i<tokens.length-1;i++) {
+        if (!coordinate.test(tokens[i])) continue;
+        let time = tokens[i+1], consumed = 1;
+        if (!startsTime.test(time) && !/^tribe icon\s+\S/i.test(tokens[i-2])) continue;
+        if (/,\s*$/.test(time) && dateOnly.test(tokens[i+2] || '')) { time += ' '+tokens[i+2]; consumed++; }
+        add(tokens[i-2],tokens[i-1],tokens[i],time,rows+1);
+        i += consumed;
+      }
+    }
+    if (!rows && reportedCount !== 0) throw new Error('No readable defence calls found. Include the complete table rows.');
+    return {calls:[...calls.values()].sort((a,b) => a.deadlineMs-b.deadlineMs || a.player.localeCompare(b.player)),
+      rows,duplicates:rows-calls.size,reportedCount,sourceMs};
+  }
   function distance(a,b) {
     for (const point of [a,b]) {
       integer(point.x,-200,200,'X'); integer(point.y,-200,200,'Y');
@@ -513,5 +606,5 @@
     for (const key of Object.keys(profile.hero)) profile.hero[key] = value.profile.hero[key];
     return {profile,settings:validateSettings(value.version >= 7 ? value.settings : value.draft)};
   }
-  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseCsvTable,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,distance,travelSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,leaderScore,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings});
+  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseCsvTable,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,parseTravcoDefenceCalls,distance,travelSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,leaderScore,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings});
 })();

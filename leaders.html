@@ -141,9 +141,13 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
         <label>Current / expected return TS<input id="return-current-ts" type="number" min="0" max="20" value="0"></label>
         <label>Slowest surviving unit<select id="return-speed"></select></label>
         <label>Returning hero boots<select id="return-boots"><option value="0">No boots / hero absent</option><option value="25">Mercenary (+25%)</option><option value="50">Warrior (+50%)</option><option value="75">Archon (+75%)</option></select></label>
-        <label>Return speed artefact<select id="return-artefact"><option value="1">None</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
+        <label>Returning hero map<select id="return-map" title="Return leg only, combined with TS, boots and artefacts. Assumes the hero returns with the army."><option value="0">No map</option><option value="30">Small Map (+30%)</option><option value="40">Map (+40%)</option><option value="50">Large Map (+50%)</option></select></label>
       </div>
-      <div class="grid"><label>Snipe lands this many seconds after return<input id="return-offset" type="number" min="0" max="60" value="1"></label><label>Your snipe travel time (optional)<input id="return-travel" maxlength="100" placeholder="00:00:00 or pasted travel time"></label></div>
+      <div class="grid three">
+        <label>Return speed artefact<select id="return-artefact"><option value="1">None</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
+        <label>Snipe lands this many seconds after return<input id="return-offset" type="number" min="0" max="60" value="1"></label>
+        <label>Your snipe travel time (optional)<input id="return-travel" maxlength="100" placeholder="00:00:00 or pasted travel time"></label>
+      </div>
       <p class="hint">Assumes an immediate return after the battle, the chosen slowest survivor, and TS/bonuses when the return starts. Hero death, troop losses or other bonuses can change it. This is a scenario table, not a known return time.</p>
       <p class="hint">Calculated return assumptions are kept with this attack in Save plan.</p>
       <div class="actions"><button id="calculate-returns" class="primary" type="button">Show TS 0-20</button></div>
@@ -280,8 +284,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (value.returning != null) {
       const raw = value.returning;
       const timing = tool(raw,'return',0,60);
-      if (!speeds(attacker.tribe).includes(raw.speed) || ![0,25,50,75].includes(raw.boots) || ![1,1.5,2].includes(raw.artefact)) throw new Error('Invalid saved return pace or bonuses.');
-      returning = {...timing,currentTs:C.integer(raw.currentTs,0,20,'Saved return TS'),speed:raw.speed,boots:raw.boots,artefact:raw.artefact};
+      const {mapBonus = 0} = raw;
+      if (!speeds(attacker.tribe).includes(raw.speed) || ![0,25,50,75].includes(raw.boots) || ![1,1.5,2].includes(raw.artefact) || ![0,30,40,50].includes(mapBonus)) throw new Error('Invalid saved return pace or bonuses.');
+      returning = {...timing,currentTs:C.integer(raw.currentTs,0,20,'Saved return TS'),speed:raw.speed,boots:raw.boots,artefact:raw.artefact,mapBonus};
     }
     return {id,role:value.role,...army,defender,...timing,note:text(value.note ?? '',1000,'attack note'),scouting,returning};
   }
@@ -432,9 +437,13 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     C.integer(options.offset,0,60,'Snipe offset');
     if (!speeds(scenario.attack.attacker.tribe).includes(options.speed)) throw new Error('Invalid returning unit pace.');
     if (options.travelMs !== null) C.integer(options.travelMs,0,366*86400000,'Snipe travel time');
-    const baseline = scenario.arrivalMs+attackSeconds(scenario.fields,options.speed,options.currentTs,options.boots,options.artefact)*1000;
+    const {boots = 0,artefact = 1,mapBonus = 0} = options;
+    if (![0,25,50,75].includes(boots) || ![1,1.5,2].includes(artefact)) throw new Error('Invalid return speed bonus.');
+    if (typeof C.returnSeconds !== 'function') throw new Error('Update travian-planner-core.js to calculate return scenarios.');
+    const secondsAt = ts => C.returnSeconds(scenario.fields,options.speed,ts,boots/100,mapBonus,artefact);
+    const baseline = scenario.arrivalMs+secondsAt(options.currentTs)*1000;
     return Array.from({length:21},(_,ts) => {
-      const seconds = attackSeconds(scenario.fields,options.speed,ts,options.boots,options.artefact);
+      const seconds = secondsAt(ts);
       const returnMs = scenario.arrivalMs+seconds*1000, hitMs = returnMs+options.offset*1000;
       const sendAt = options.travelMs === null ? null : hitMs-options.travelMs;
       C.integer(returnMs,0,MAX_TIME,'Return time'); C.integer(hitMs,0,MAX_TIME,'Snipe landing');
@@ -544,8 +553,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     return [...latest.values()].sort((a,b) => a.landingMs-b.landingMs || a.id.localeCompare(b.id));
   }
   function normalizePlan(value) {
-    if (!value || value.type !== 'travian-leadership-plan' || ![1,2].includes(value.version) || value.server !== C.SERVER) throw new Error('Not a supported TS12 leadership plan.');
-    if (value.version === 2 && !Object.hasOwn(value,'builder')) throw new Error('Saved attacker/defender lists are missing.');
+    if (!value || value.type !== 'travian-leadership-plan' || ![1,2,3].includes(value.version) || value.server !== C.SERVER) throw new Error('Not a supported TS12 leadership plan.');
+    if (value.version >= 2 && !Object.hasOwn(value,'builder')) throw new Error('Saved attacker/defender lists are missing.');
     if (!['defending','attacking'].includes(value.role) || !Array.isArray(value.operations) || !Array.isArray(value.incoming)) throw new Error('Invalid leadership plan.');
     if (value.operations.length > MAX_ATTACKS || value.incoming.length > 50000) throw new Error('Leadership plan is too large.');
     const operations = value.operations.map(normalizeOperation);
@@ -1016,6 +1025,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       $('return-current-ts').value = returning?.currentTs ?? row.ts;
       speedOptions($('return-speed'),row.attack.attacker.tribe,returning?.speed ?? row.attack.speed);
       $('return-boots').value = returning?.boots ?? row.attack.boots; $('return-artefact').value = returning?.artefact ?? row.attack.artefact;
+      $('return-map').value = returning?.mapBonus ?? 0;
       $('scout-reference').value = scouting?.reference ?? (row.attack.role === 'defending' ? 'launch' : 'arrival');
       if (returning) { $('return-offset').value = returning.offset; $('return-travel').value = returning.travel; }
       else if (previousAttack !== row.attack.id) $('return-travel').value = '';
@@ -1232,14 +1242,14 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   action('calculate-returns',() => {
     const scenario = selected('return-scenario');
     const options = {currentTs:$('return-current-ts').valueAsNumber,speed:Number($('return-speed').value),boots:Number($('return-boots').value),
-      artefact:Number($('return-artefact').value),offset:$('return-offset').valueAsNumber,travelMs:parseDuration($('return-travel').value)};
+      artefact:Number($('return-artefact').value),mapBonus:Number($('return-map').value),offset:$('return-offset').valueAsNumber,travelMs:parseDuration($('return-travel').value)};
     const rows = returnScenarios(scenario,options); returnResult = {scenario,rows,options};
     state.operations.find(op => op.id === scenario.attack.id).returning = {currentTs:options.currentTs,speed:options.speed,
-      boots:options.boots,artefact:options.artefact,offset:options.offset,travel:$('return-travel').value.trim()};
-    $('return-results').innerHTML = `<div class="panel"><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(scenario.attack.attacker.tribe,options.speed))}</span>Home: ${locationHtml(scenario.attack.attacker)}</h3>${copyButton('returns')}</div><p class="hint">Battle at ${C.formatUTC(scenario.arrivalMs)}. Outbound TS ${formatTsLevels(scenario.tsLevels)}; highlighted return TS: ${options.currentTs}. Identical timings share a row.</p><div class="table-wrap"><table class="responsive"><thead><tr><th>Return TS</th><th>Army home</th><th>Change vs current TS</th><th>Snipe lands</th><th>Your send time</th></tr></thead><tbody>${compactReturns(rows).map(row => `<tr${row.current ? ' class="selected"' : ''}><td data-label="Return TS">${formatTsLevels(row.tsLevels)}${row.current ? row.tsLevels.length > 1 ? ` (current ${options.currentTs})` : ' (current)' : ''}</td><td data-label="Army home">${timeHtml(row.returnMs,true)}</td><td data-label="Change">${row.deltaMs === 0 ? 'Same' : (row.deltaMs < 0 ? '-' : '+')+duration(row.deltaMs)}</td><td data-label="Snipe lands">${timeHtml(row.hitMs)}</td><td data-label="Your send">${timeHtml(row.sendAt,true)}</td></tr>`).join('')}</tbody></table></div></div>`;
+      boots:options.boots,artefact:options.artefact,mapBonus:options.mapBonus,offset:options.offset,travel:$('return-travel').value.trim()};
+    $('return-results').innerHTML = `<div class="panel"><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(scenario.attack.attacker.tribe,options.speed))}</span>Home: ${locationHtml(scenario.attack.attacker)}</h3>${copyButton('returns')}</div><p class="hint">Battle at ${C.formatUTC(scenario.arrivalMs)}. ${esc(paceText(options))}. Outbound TS ${formatTsLevels(scenario.tsLevels)}; highlighted return TS: ${options.currentTs}. Identical timings share a row.</p><div class="table-wrap"><table class="responsive"><thead><tr><th>Return TS</th><th>Army home</th><th>Change vs current TS</th><th>Snipe lands</th><th>Your send time</th></tr></thead><tbody>${compactReturns(rows).map(row => `<tr${row.current ? ' class="selected"' : ''}><td data-label="Return TS">${formatTsLevels(row.tsLevels)}${row.current ? row.tsLevels.length > 1 ? ` (current ${options.currentTs})` : ' (current)' : ''}</td><td data-label="Army home">${timeHtml(row.returnMs,true)}</td><td data-label="Change">${row.deltaMs === 0 ? 'Same' : (row.deltaMs < 0 ? '-' : '+')+duration(row.deltaMs)}</td><td data-label="Snipe lands">${timeHtml(row.hitMs)}</td><td data-label="Your send">${timeHtml(row.sendAt,true)}</td></tr>`).join('')}</tbody></table></div></div>`;
     status('return-status',''); tick();
   },'return-status');
-  for (const id of ['return-current-ts','return-speed','return-boots','return-artefact','return-offset','return-travel']) $(id).addEventListener('input',() => { returnResult = null; $('return-results').replaceChildren(); });
+  for (const id of ['return-current-ts','return-speed','return-boots','return-artefact','return-map','return-offset','return-travel']) $(id).addEventListener('input',() => { returnResult = null; $('return-results').replaceChildren(); });
 
   $('roster-file').addEventListener('change',async () => {
     const file = $('roster-file').files[0]; if (!file) return;
@@ -1305,8 +1315,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
   action('save-plan',() => {
-    const normalized = normalizePlan({type:'travian-leadership-plan',version:2,server:C.SERVER,...state,preferences:preferences()});
-    download(JSON.stringify({type:'travian-leadership-plan',version:2,server:C.SERVER,...normalized},null,2),'ts12-leadership-plan.json','application/json');
+    const normalized = normalizePlan({type:'travian-leadership-plan',version:3,server:C.SERVER,...state,preferences:preferences()});
+    download(JSON.stringify({type:'travian-leadership-plan',version:3,server:C.SERVER,...normalized},null,2),'ts12-leadership-plan.json','application/json');
     status('app-status','Saved both lists, added attacks, tool settings and report observations. Map data and the defence roster were not exported.');
   });
   action('load-plan',() => { $('plan-file').value = ''; $('plan-file').click(); });
@@ -1333,7 +1343,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   function locationDiscord(p) {
     return `${known(p) ? discordText(known(p).player)+' / ' : ''}${villageDiscord(p)}`;
   }
-  const paceText = options => `${options.speed} fields/h${options.boots ? '; boots +'+options.boots+'%' : ''}${options.artefact !== 1 ? '; artefact x'+options.artefact : ''}`;
+  const paceText = options => `${options.speed} fields/h${options.boots ? '; boots +'+options.boots+'%' : ''}${options.artefact !== 1 ? '; artefact x'+options.artefact : ''}${options.mapBonus ? '; '+({30:'Small Map',40:'Map',50:'Large Map'})[options.mapBonus]+' (+'+options.mapBonus+'% return speed)' : ''}`;
   function componentLines(kind,id) {
     if (kind === 'planning') {
       const source = forecastCopies.get(id);

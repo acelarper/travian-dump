@@ -39,6 +39,7 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .check{display:flex;align-items:center;gap:6px;font-weight:400}.checks{display:flex;gap:6px;flex-wrap:wrap}
 .chip{display:flex;align-items:center;gap:5px;font-weight:400;font-size:11px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--field)}
 .chip:has(input:checked){border-color:var(--green);color:var(--green)}
+.village-filter{border-radius:999px;max-width:100%;padding:5px 10px;gap:8px}.village-filter label{min-width:0;font-size:12px;cursor:pointer}.village-filter label span{overflow-wrap:anywhere}.village-filter a{flex-shrink:0}
 .status{color:var(--dim);font-size:12px;margin-top:10px;overflow-wrap:anywhere}
 .status.error,.bad{color:var(--red)}.good{color:var(--green)}.warn{color:var(--gold)}
 .notice{padding:8px 10px;border-left:2px solid var(--gold);background:#262114;border-radius:4px;font-size:12px;margin-top:10px}
@@ -190,6 +191,10 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       <span id="calculated-at" class="muted"></span>
     </div>
     <div id="result-meta"></div>
+    <div id="result-village-filters" class="spaced" hidden>
+      <div class="section-heading"><h3>Villages</h3><div class="checks"><button id="result-villages-all" type="button" class="small" aria-label="Select all result villages">Select all</button><button id="result-villages-none" type="button" class="small" aria-label="Deselect all result villages">Deselect all</button></div></div>
+      <div id="result-village-chips" class="checks spaced" role="group" aria-label="Visible villages"></div>
+    </div>
     <div id="result-list"></div>
     <p id="copy-status" class="status" role="status" hidden></p>
     <textarea id="copy-text" aria-label="Plan text to copy manually" readonly hidden></textarea>
@@ -224,6 +229,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   let villages = [], players = [], selectedId = null, profiles = new Map(), lastPlan = null;
   let mapBusy = false, fetchController = null, sendTimer = null;
   const heroItemVillages = new Set();
+  const resultVillageSelections = new Map();
   let callsSnapshot = null, callsError = '', callsViewKey = '', selectedCall = null;
   let targetIndex = [], targetPoint = null, suggestions = [], activeSuggestion = -1;
   const currentProfile = () => profiles.get(selectedId);
@@ -365,7 +371,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
         <fieldset id="fields-${village.did}"${config.enabled ? '' : ' hidden disabled'}>
           <label class="ts">Tournament Square <input type="number" min="0" max="20" step="1" value="${config.ts}" data-village="${village.did}" data-kind="ts" aria-label="Tournament Square for ${escape(village.name)}"></label>
           <fieldset><legend>Defenders</legend><div class="checks">${tribe ? checkChips(tribe.units.slice(0,6),config.defenders,village.did,'defenders') : ''}</div></fieldset>
-          <details class="spaced"><summary class="muted">Slow escorts</summary><div class="checks spaced">${tribe ? checkChips(tribe.units,config.escorts,village.did,'escorts') : ''}</div></details>
+          <details class="spaced"><summary class="muted">Slow escorts</summary><div class="checks spaced"><button type="button" class="small" data-village="${village.did}" data-escorts="all" aria-label="Select all slow escorts for ${escape(village.name)}">Select all</button><button type="button" class="small" data-village="${village.did}" data-escorts="none" aria-label="Deselect all slow escorts for ${escape(village.name)}">Deselect all</button></div><div class="checks spaced">${tribe ? checkChips(tribe.units,config.escorts,village.did,'escorts') : ''}</div></details>
         </fieldset>
       </article>`;
     }).join('');
@@ -454,6 +460,14 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       const id = Number(input.value);
       config[kind] = input.checked ? [...new Set([...config[kind],id])] : config[kind].filter(value => value !== id);
     }
+    invalidate();
+  });
+  $('village-list').addEventListener('click',event => {
+    const button = event.target.closest('button[data-escorts]');
+    if (!button || !currentProfile()) return;
+    const config = currentProfile().villages.find(v => v.did === Number(button.dataset.village));
+    config.escorts = button.dataset.escorts === 'all' ? TRIBES[config.tribe].units.map(unit => unit.id) : [];
+    for (const input of $(`fields-${config.did}`).querySelectorAll('input[data-kind="escorts"]')) input.checked = config.escorts.includes(Number(input.value));
     invalidate();
   });
   $('hero-only').addEventListener('change',() => {
@@ -633,7 +647,10 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   }
   const armyDetail = option => option.load.requiredIds.length ? option.load.detail : '';
   const heroItemsKey = group => `${lastPlan.playerId}:${group.origin.did}`;
+  const resultVillageSelected = group => !resultVillageSelections.has(lastPlan.playerId)
+    || resultVillageSelections.get(lastPlan.playerId).has(group.origin.did);
   function visibleOptions(group) {
+    if (!resultVillageSelected(group)) return [];
     const includeItems = heroItemVillages.has(heroItemsKey(group));
     const unassisted = new Map(group.options.filter(option => !option.withHero).map(option => [option.load.key,option.seconds]));
     return group.options.flatMap((option,index) => {
@@ -676,12 +693,15 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       ${!plan.groups.length && !plan.notices.length ? '<p class="notice">No available options for this landing time.</p>' : ''}
       ${!plan.target ? '<p class="notice">Target not found in map.sql. Verify coordinates.</p>' : ''}
       ${plan.notices.map(n => `<p class="notice">${linkedCoordinates(n)}</p>`).join('')}`;
+    $('result-village-filters').hidden = !plan.groups.length;
+    $('result-village-chips').innerHTML = plan.groups.map(group => `<div class="chip village-filter"><label class="check"><input type="checkbox" data-result-filter="${group.origin.did}"${resultVillageSelected(group) ? ' checked' : ''}><span>${escape(group.origin.name)}</span></label>${coordinateLink(group.origin)}</div>`).join('');
     $('result-list').innerHTML = plan.groups.map((group,index) => {
+      if (!resultVillageSelected(group)) return '';
       const options = choices[index], head = options.slice(0,3), rest = options.slice(3);
       return `<article class="result-village" data-result-village="${group.origin.did}"><div class="result-heading"><div class="section-heading"><h3>${escape(group.origin.name)} ${coordinateLink(group.origin)}</h3><label class="check" title="Small Standard / Mercenary boots"><input type="checkbox" data-hero-items="${group.origin.did}"${heroItemVillages.has(heroItemsKey(group)) ? ' checked' : ''}>Include hero items</label></div><span class="muted">${group.fields.toFixed(2)} fields &middot; TS ${group.ts} &middot; ${options.length} options</span></div>
         ${options.length ? optionTable(head,index,now) : '<div class="result-empty muted">Hero items required</div>'}
         ${rest.length ? `<details data-details-key="alternatives-${group.origin.did}"><summary class="alternative-summary">${rest.length} more options</summary>${optionTable(rest,index,now)}</details>` : ''}</article>`;
-    }).join('');
+    }).join('') || (plan.groups.length ? '<p class="muted spaced">No villages selected.</p>' : '');
     if (resetCopy) { status('copy-status',''); $('copy-text').hidden = true; $('copy-text').value = ''; }
   }
   function rerenderPlan(now,resetCopy = false) {
@@ -689,14 +709,33 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     renderPlan(resetCopy,now);
     for (const details of $('result-list').querySelectorAll('details[data-details-key]')) details.open = expanded.has(details.dataset.detailsKey);
   }
+  function refreshPlanChoices() {
+    const now = Date.now();
+    lastPlan.groups = availablePlanGroups(lastPlan,now);
+    rerenderPlan(now,true); updateDisplay();
+  }
+  $('result-village-chips').addEventListener('change',event => {
+    const input = event.target.closest('input[data-result-filter]');
+    if (!input || !lastPlan) return;
+    const village = Number(input.dataset.resultFilter);
+    const selected = resultVillageSelections.get(lastPlan.playerId) || new Set(lastPlan.groups.map(group => group.origin.did));
+    if (input.checked) selected.add(village); else selected.delete(village);
+    resultVillageSelections.set(lastPlan.playerId,selected);
+    refreshPlanChoices();
+    $('result-village-chips').querySelector(`input[data-result-filter="${village}"]`)?.focus({preventScroll:true});
+  });
+  for (const choice of ['all','none']) $(`result-villages-${choice}`).addEventListener('click',() => {
+    if (!lastPlan) return;
+    if (choice === 'all') resultVillageSelections.delete(lastPlan.playerId);
+    else resultVillageSelections.set(lastPlan.playerId,new Set());
+    refreshPlanChoices();
+  });
   $('result-list').addEventListener('change',event => {
     const input = event.target.closest('input[data-hero-items]');
     if (!input || !lastPlan) return;
     const village = Number(input.dataset.heroItems), key = `${lastPlan.playerId}:${village}`;
     if (input.checked) heroItemVillages.add(key); else heroItemVillages.delete(key);
-    const now = Date.now();
-    lastPlan.groups = availablePlanGroups(lastPlan,now);
-    rerenderPlan(now,true); updateDisplay();
+    refreshPlanChoices();
     $('result-list').querySelector(`input[data-hero-items="${village}"]`)?.focus({preventScroll:true});
   });
   function syncDisplayTimer() {

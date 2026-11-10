@@ -399,15 +399,26 @@
     const dx = Math.abs(a.x-b.x), dy = Math.abs(a.y-b.y);
     return Math.hypot(Math.min(dx,401-dx),Math.min(dy,401-dy));
   }
-  function travelSeconds(fields,speed,ts,boots = 0,hand = 1) {
+  function movementSeconds(fields,speed,ts,boots,itemMultiplier,artefact = 1) {
     if (!Number.isFinite(fields) || fields < 0 || !Number.isFinite(speed) || speed <= 0) throw new Error('Invalid distance or troop speed.');
     integer(ts,0,20,'Tournament Square');
-    if (![0,0.25,0.5,0.75].includes(boots) || ![1,1.15].includes(hand)) throw new Error('Unsupported movement bonus.');
+    if (![0,0.25,0.5,0.75].includes(boots)) throw new Error('Unsupported movement bonus.');
     const weightedDistance = Math.min(fields,20) + Math.max(fields-20,0)/(1+0.2*ts+boots);
-    return Math.round(3600*weightedDistance/(speed*hand));
+    // Keep item/artefact multiplication order stable at half-second boundaries.
+    return 3600*weightedDistance/(speed*itemMultiplier*artefact);
+  }
+  function travelSeconds(fields,speed,ts,boots = 0,hand = 1) {
+    if (![1,1.15].includes(hand)) throw new Error('Unsupported movement bonus.');
+    return Math.round(movementSeconds(fields,speed,ts,boots,hand));
+  }
+  function returnSeconds(fields,speed,ts,boots = 0,mapBonus = 0,artefact = 1) {
+    if (![0,30,40,50].includes(mapBonus)) throw new Error('Unsupported return map bonus.');
+    if (![1,1.5,2].includes(artefact)) throw new Error('Unsupported return speed artefact.');
+    // Maps multiply return speed, not reduce time by the displayed percentage.
+    return Math.round(movementSeconds(fields,speed,ts,boots,1+mapBonus/100,artefact));
   }
   const emptyHero = () => ({solo:false});
-  const emptyVillage = village => ({did:village.did,tribe:village.tribe,x:village.x,y:village.y,enabled:false,ts:0,defenders:[],escorts:[1,2,3,4,5,6,7,8]});
+  const emptyVillage = village => ({did:village.did,tribe:village.tribe,x:village.x,y:village.y,enabled:false,ts:0,defenders:[],escorts:[]});
   const makeProfile = player => ({playerId:player.id,villages:player.villages.map(emptyVillage),hero:emptyHero()});
   function validateProfile(profile,villages) {
     integer(profile.playerId,1,1e12,'Account ID');
@@ -606,5 +617,5 @@
     for (const key of Object.keys(profile.hero)) profile.hero[key] = value.profile.hero[key];
     return {profile,settings:validateSettings(value.version >= 7 ? value.settings : value.draft)};
   }
-  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseCsvTable,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,parseTravcoDefenceCalls,distance,travelSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,leaderScore,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings});
+  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseCsvTable,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,parseTravcoDefenceCalls,distance,travelSeconds,returnSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,leaderScore,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings});
 })();

@@ -299,11 +299,92 @@
   const dayFormatter = new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
   const formatDay = ms => dayFormatter.format(new Date(ms));
   const coordText = village => `(${village.x}|${village.y})`;
-  function parseTravcoDefenceCalls(input) {
+  function travcoCallTimestamp(day,month,year,time,sourceMs,offsetMinutes = 0) {
+    day = integer(Number(day),1,31,'Call day'); month = integer(Number(month),1,12,'Call month');
+    const timestamp = y => parseUTC(`${y}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${time}`,'Call time')-offsetMinutes*60000;
+    if (year) {
+      if (!/^\d{4}$/.test(year)) throw new Error('Use a four-digit year, or omit the year.');
+      return integer(timestamp(year),0,253402300799999,'Call time');
+    }
+    if (sourceMs === null) throw new Error('Include the Travco page clock so the year is known, or use deadlines with a four-digit year.');
+    const currentYear = new Date(sourceMs).getUTCFullYear();
+    const candidates = [currentYear,currentYear-1,currentYear+1]
+      .filter(y => y >= 1970 && y <= 9999 && day <= new Date(Date.UTC(y,month,0)).getUTCDate())
+      .map(timestamp).filter(ms => ms >= 0 && ms <= 253402300799999)
+      .sort((a,b) => Math.abs(a-sourceMs)-Math.abs(b-sourceMs) || a-b);
+    if (!candidates.length) throw new Error('Invalid call calendar date.');
+    return candidates[0];
+  }
+  function parseDiscordDefenceCalls(text,referenceMs) {
+    integer(referenceMs,0,253402300799999,'Current UTC time');
+    const clean = text.replace(/\*\*|__|`/g,'').replace(/\u2212/g,'-').replace(/[^\S\n]+/g,' ')
+      .replace(/^[> ]+/gm,'').replace(/ *\n */g,'\n').replace(/\n{2,}/g,'\n');
+    const coordinates = /(?:^|\b(?:Defender )?Village[: *_]*\n?)[ *_]*\(? ?([+-]?\d{1,4}) ?[/|,] ?([+-]?\d{1,4}) ?\)?(?![\d/|,])(?=$|[\s:*_\u2013\u2014-])/gim;
+    const impact = /\b(\d{1,2}):(\d{2})(?::(\d{2}(?:\.\d{1,3})?))?(?:[ \n]*,[ \n]*|[ \n]+)(\d{1,2})\.(\d{1,2})(?:\.(\d{1,4}))?\.?(?![\d.])/g;
+    const blocks = clean.split(/\bNew\s+defen[sc]e\s+call\b/i,1002);
+    if (blocks.length > 1001) throw new Error('At most 1,000 calls can be pasted at once.');
+    if (blocks.length > 1 && blocks[0].search(coordinates) < 0 && blocks[0].search(impact) < 0
+      && !/^(?:Village|Impact time)\b/im.test(blocks[0])) blocks.shift();
+    if (blocks.length > 1000) throw new Error('At most 1,000 calls can be pasted at once.');
+    const oneMatch = (value,pattern,name) => {
+      const matches = value.matchAll(pattern), first = matches.next();
+      if (first.done) throw new Error(`Missing ${name}.`);
+      if (!matches.next().done) throw new Error(`More than one ${name}; keep each call's New defense call heading.`);
+      return first.value;
+    };
+    const calls = new Map(), warnings = [];
+    let rows = 0;
+    for (const [index,block] of blocks.entries()) {
+      try {
+        const footer = /^(?:Troops needed|Troops missing|Send troops|Defen[sc]e calls|Confirm troops sent|Note)\b/im.exec(block);
+        const body = footer ? block.slice(0,footer.index) : block;
+        const location = oneMatch(body,coordinates,'village coordinates');
+        const match = oneMatch(body,impact,'impact date/time');
+        if (/[\d:+-]/.test(body[match.index-1] || '')) throw new Error('Invalid impact time.');
+        const point = parseCoordinates(`${location[1]}|${location[2]}`);
+        const time = normalizeClockTime(`${match[1]}:${match[2]}:${match[3] || '00'}`);
+        const suffix = body.slice(match.index+match[0].length).trimStart()
+          .replace(/^[-\u2013\u2014] *(?=[A-Za-z])/,'');
+        let offset = 0;
+        if (/^(?:UTC|GMT|Z\b|[+-]\d)/i.test(suffix)) {
+          const zone = /^(?:(?:UTC|GMT)\s*)?([+-])\s*(\d{1,2})(?::?(\d{2}))?(?=$|[\s*_),;])/i.exec(suffix);
+          const zero = /^(?:UTC|GMT|Z)(?=$|[\s*_),;])/i.exec(suffix);
+          if (zone) {
+            const hours = integer(Number(zone[2]),0,14,'UTC offset hour'), minutes = integer(Number(zone[3] || 0),0,59,'UTC offset minute');
+            if (hours === 14 && minutes) throw new Error('UTC offset exceeds 14 hours.');
+            offset = (hours*60+minutes)*(zone[1] === '-' ? -1 : 1);
+          } else if (!zero || /^[+-]/.test(suffix.slice(zero[0].length).trimStart())
+            || /^[\d:]/.test(suffix.slice(zero[0].length).split('\n')[0].trim())) {
+            throw new Error('Invalid UTC offset.');
+          }
+        } else if (/^(?:CET|CEST|EET|EEST|BST|PST|PDT|EST|EDT|CST|CDT|MSK)\b/i.test(suffix)) {
+          throw new Error('Use UTC or an explicit UTC offset.');
+        }
+        const deadlineMs = travcoCallTimestamp(match[4],match[5],match[6],time,referenceMs,offset);
+        const end = location.index+location[0].length;
+        const nameEnd = match.index >= end ? match.index : body.length;
+        const villageName = body.slice(end,nameEnd).split('\n')[0].split(/\bImpact\s+time\b/i)[0]
+          .replace(/^[ :\-\u2013\u2014]+/,'').trim().replace(/^\*(.*)\*$/,'$1').replace(/^_(.*)_$/,'$1');
+        if (villageName.length > 200) throw new Error('Village name is too long.');
+        const key = `impact:${point.x}|${point.y}@${deadlineMs}`;
+        // The Discord footer can name the caller, not the village owner.
+        if (!calls.has(key)) calls.set(key,{key,player:'',alliance:'',villageName,...point,deadlineMs,isImpact:true});
+        rows++;
+      } catch (error) { warnings.push(`Call ${index+1}: ${error.message}`); }
+    }
+    if (!calls.size) throw new Error(warnings[0] || 'Include village coordinates and an impact date/time.');
+    return {calls:[...calls.values()].sort((a,b) => a.deadlineMs-b.deadlineMs || a.key.localeCompare(b.key)),
+      rows,duplicates:rows-calls.size,reportedCount:null,sourceMs:null,warnings};
+  }
+  function parseTravcoDefenceCalls(input,referenceMs = Date.now()) {
     if (typeof input !== 'string' || input.length > MAP_LIMIT) throw new Error('Travco text must be smaller than 40 MB.');
     const text = input.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').replace(/\u00a0/g,' ')
-      .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,'');
+      .replace(/[\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069\uFEFF]/g,'');
     const section = /^[ \t]*Defen[sc]e[ \t]+calls(?:[ \t]*\(?(\d+)\)?)?[ \t]*$/im.exec(text);
+    const pageHeadings = /Defender\s+alliance\s+Defender\s+village\b/i.test(text);
+    if (!pageHeadings && (section?.[1] === undefined || /\bNew\s+defen[sc]e\s+call\b|\bImpact\s+time\b/i.test(text))) {
+      return parseDiscordDefenceCalls(text,referenceMs);
+    }
     if (!section) throw new Error('Paste the Travco Defense calls page, including its table headings.');
     const reportedCount = section[1] === undefined ? null : integer(Number(section[1]),0,100000,'Reported call count');
     const pad = value => String(value).padStart(2,'0');
@@ -334,15 +415,7 @@
       const match = /^(\d{1,2}):(\d{2})(?::(\d{2}(?:\.\d{1,3})?))?\s*(?:([ap])\.?\s*m\.?)?\s*,\s*(\d{1,2})\.(\d{1,2})\.(?:(\d{4})\.?)?\s*(?:UTC|Z)?$/i.exec(value.trim());
       if (!match) throw new Error('Use a Travco deadline such as 09:53:33, 09.11.');
       const time = clock(match[1],match[2],match[3],match[4]);
-      const day = integer(Number(match[5]),1,31,'Call day'), month = integer(Number(match[6]),1,12,'Call month');
-      if (match[7]) return integer(parseUTC(`${match[7]}-${pad(month)}-${pad(day)}T${time}`,'Call deadline'),0,253402300799999,'Call deadline');
-      if (sourceMs === null) throw new Error('Include the Travco page clock so the year is known, or use deadlines with a four-digit year.');
-      const year = new Date(sourceMs).getUTCFullYear();
-      const candidates = [year,year-1,year+1].filter(y => y >= 1970 && y <= 9999 && day <= new Date(Date.UTC(y,month,0)).getUTCDate())
-        .map(y => parseUTC(`${y}-${pad(month)}-${pad(day)}T${time}`,'Call deadline'))
-        .sort((a,b) => Math.abs(a-sourceMs)-Math.abs(b-sourceMs) || a-b);
-      if (!candidates.length) throw new Error('Invalid call calendar date.');
-      return candidates[0];
+      return travcoCallTimestamp(match[5],match[6],match[7],time,sourceMs);
     };
     const coordinate = /^\(?\s*[+\-\u2212]?\d+\s*[/|,]\s*[+\-\u2212]?\d+\s*\)?$/;
     const startsTime = /^\d{1,2}:\d{2}/;

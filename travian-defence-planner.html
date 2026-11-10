@@ -146,7 +146,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
 
   <div id="calls-panel" role="tabpanel" aria-labelledby="tab-calls" hidden>
     <div class="section-heading"><h2>Travco defence calls</h2><button id="clear-calls" type="button" class="small">Clear</button></div>
-    <label class="spaced" for="travco-paste">Import calls<textarea id="travco-paste" placeholder="Paste Travco page" spellcheck="false"></textarea></label>
+    <label class="spaced" for="travco-paste">Import calls<textarea id="travco-paste" placeholder="Paste Travco page or Discord calls" spellcheck="false"></textarea></label>
     <p id="calls-status" class="status" role="status" hidden></p>
     <div id="defence-call-list" class="call-list" role="list"></div>
   </div>
@@ -278,28 +278,32 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       callsViewKey = key;
       $('defence-call-list').innerHTML = active.map(call => {
         const village = villages.find(v => v.x === call.x && v.y === call.y);
-        return `<article class="defence-call" role="listitem"><div class="call-heading"><strong>${escape(call.player)}</strong>${call.alliance ? ` <span class="muted">[${escape(call.alliance)}]</span>` : ''}${selectedCall?.key === call.key ? ' <span class="call-selected">Selected</span>' : ''}<div class="call-location">${village ? `<a href="${SERVER}/karte.php?d=${village.tileId}" target="_blank" rel="noopener noreferrer">${escape(village.name)}</a>` : ''}${coordinateLink(call)}</div></div>
-          <div class="call-time"><span class="digits">${formatClock(call.deadlineMs)}</span><span class="sub">${formatDay(call.deadlineMs)} UTC</span></div><div class="call-actions"><button type="button" class="small" data-call-key="${escape(call.key)}"${mapBusy || !selectedId ? ' disabled' : ''}>Calculate</button></div></article>`;
+        const player = call.player || village?.player || 'Defence call', alliance = call.alliance || village?.alliance || '';
+        const name = call.villageName || village?.name, url = village ? `${SERVER}/karte.php?d=${village.tileId}` : mapUrl(call);
+        return `<article class="defence-call" role="listitem"><div class="call-heading"><strong>${escape(player)}</strong>${alliance ? ` <span class="muted">[${escape(alliance)}]</span>` : ''}${selectedCall?.key === call.key ? ' <span class="call-selected">Selected</span>' : ''}<div class="call-location">${name ? `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(name)}</a>` : ''}${coordinateLink(call)}</div></div>
+          <div class="call-time">${call.isImpact ? '<span class="sub">Impact</span>' : ''}<span class="digits">${formatClock(call.deadlineMs)}</span><span class="sub">${formatDay(call.deadlineMs)} UTC</span></div><div class="call-actions"><button type="button" class="small" data-call-key="${escape(call.key)}"${mapBusy || !selectedId ? ' disabled' : ''}>Calculate</button></div></article>`;
       }).join('');
       if (callsSnapshot && !active.length) $('defence-call-list').innerHTML = '<p class="muted">No active calls.</p>';
       const past = callsSnapshot ? callsSnapshot.calls.length-active.length : 0;
       const partial = callsSnapshot && callsSnapshot.reportedCount !== null && callsSnapshot.rows < callsSnapshot.reportedCount;
+      const warnings = callsSnapshot?.warnings || [];
       const message = callsError ? `Import failed: ${callsError}${callsSnapshot ? ' Previous calls kept.' : ''}`
         : [active.length ? `${active.length} ${active.length === 1 ? 'call' : 'calls'}` : '',
-          partial ? `Partial import: ${callsSnapshot.rows}/${callsSnapshot.reportedCount}` : ''].filter(Boolean).join('; ');
+          partial ? `Partial import: ${callsSnapshot.rows}/${callsSnapshot.reportedCount}` : '',
+          warnings.length ? `${warnings.length} ${warnings.length === 1 ? 'call' : 'calls'} skipped. ${warnings[0]}` : ''].filter(Boolean).join('; ');
       status('calls-status',message,!!callsError);
-      $('calls-status').classList.toggle('warn',!!partial && !callsError);
+      $('calls-status').classList.toggle('warn',(!!partial || !!warnings.length) && !callsError);
       $('calls-status').title = callsSnapshot ? [
         callsSnapshot.sourceMs === null ? '' : `Snapshot: ${formatUTC(callsSnapshot.sourceMs)}`,
-        past ? `${past} expired` : '',callsSnapshot.duplicates ? `${callsSnapshot.duplicates} duplicates` : ''
+        past ? `${past} expired` : '',callsSnapshot.duplicates ? `${callsSnapshot.duplicates} duplicates` : '',...warnings
       ].filter(Boolean).join('; ') : '';
     }
     if (selectedCall) {
       const expired = selectedCall.deadlineMs <= now;
       const village = villages.find(v => v.x === selectedCall.x && v.y === selectedCall.y);
-      const mismatch = village && village.player.normalize('NFC').toLocaleLowerCase() !== selectedCall.player.normalize('NFC').toLocaleLowerCase();
+      const mismatch = village && !!selectedCall.player && village.player.normalize('NFC').toLocaleLowerCase() !== selectedCall.player.normalize('NFC').toLocaleLowerCase();
       const missing = callsSnapshot && !callsSnapshot.calls.some(call => call.key === selectedCall.key);
-      const warnings = [expired ? 'Deadline passed.' : '',missing ? 'Missing from latest paste.' : '',mismatch ? 'Map owner differs; verify target.' : ''].filter(Boolean);
+      const warnings = [expired ? selectedCall.isImpact ? 'Impact passed.' : 'Deadline passed.' : '',missing ? 'Missing from latest paste.' : '',mismatch ? 'Map owner differs; verify target.' : ''].filter(Boolean);
       const message = warnings.length ? `${coordText(selectedCall)} ${warnings.join(' ')}` : '';
       if ($('selected-call-status').textContent !== message) status('selected-call-status',message);
       $('selected-call-status').classList.toggle('warn',expired || !!mismatch || !!missing);
@@ -328,13 +332,14 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     if (!button || button.disabled) return;
     const call = callsSnapshot?.calls.find(value => value.key === button.dataset.callKey);
     if (!call || call.deadlineMs <= Date.now()) {
-      updateDisplay(); status('calls-status','This call deadline has passed. Choose another call.',true); return;
+      updateDisplay(); status('calls-status',!call ? 'Call no longer available. Choose another call.'
+        : `This ${call.isImpact ? 'impact time' : 'call deadline'} has passed. Choose another call.`,true); return;
     }
     selectedCall = call;
     presentTarget(call);
     $('attack-date').value = isoTime(call.deadlineMs).slice(0,10);
     $('attack-time').value = formatClock(call.deadlineMs); $('attack-time').setAttribute('aria-invalid','false');
-    $('deadline-kind').textContent = 'Call deadline';
+    $('deadline-kind').textContent = call.isImpact ? 'Attack lands' : 'Call deadline';
     renderCalls(true);
     if (calculateDefence()) $('results').scrollIntoView({block:'start'});
   });
@@ -770,7 +775,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
         referenceMs:calculatedAt,
         buffer:preferences.buffer,calculatedAt};
       const plan = buildPlan(villages,currentProfile(),settings);
-      plan.isCallDeadline = !!selectedCall && selectedCall.x === target.x && selectedCall.y === target.y && selectedCall.deadlineMs === settings.attackMs;
+      plan.isCallDeadline = !!selectedCall && !selectedCall.isImpact && selectedCall.x === target.x && selectedCall.y === target.y && selectedCall.deadlineMs === settings.attackMs;
       const now = Date.now();
       plan.groups = availablePlanGroups(plan,now);
       lastPlan = plan;

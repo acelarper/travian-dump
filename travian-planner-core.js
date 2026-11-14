@@ -481,7 +481,7 @@
     return 3600*weightedDistance/(speed*itemMultiplier*artefact);
   }
   function travelSeconds(fields,speed,ts,boots = 0,hand = 1) {
-    if (![1,1.15].includes(hand)) throw new Error('Unsupported movement bonus.');
+    if (![1,1.15,1.2,1.25].includes(hand)) throw new Error('Unsupported movement bonus.');
     return Math.round(movementSeconds(fields,speed,ts,boots,hand));
   }
   function returnSeconds(fields,speed,ts,boots = 0,mapBonus = 0,artefact = 1) {
@@ -490,7 +490,11 @@
     // Maps multiply return speed, not reduce time by the displayed percentage.
     return Math.round(movementSeconds(fields,speed,ts,boots,1+mapBonus/100,artefact));
   }
-  const emptyHero = () => ({solo:false});
+  const HERO_ITEMS = Object.freeze({
+    standards:Object.freeze([{name:'Small Standard',bonus:15},{name:'Standard',bonus:20},{name:'Great Standard',bonus:25}].map(Object.freeze)),
+    boots:Object.freeze([{name:'Mercenary boots',bonus:25},{name:'Warrior boots',bonus:50},{name:'Archon boots',bonus:75}].map(Object.freeze))
+  });
+  const emptyHero = () => ({solo:false,standards:[15],boots:[25]});
   const emptyVillage = village => ({did:village.did,tribe:village.tribe,x:village.x,y:village.y,enabled:false,ts:0,defenders:[],escorts:[]});
   const makeProfile = player => ({playerId:player.id,villages:player.villages.map(emptyVillage),hero:emptyHero()});
   function validateProfile(profile,villages) {
@@ -514,6 +518,11 @@
     }
     const hero = profile.hero;
     if (!hero || typeof hero.solo !== 'boolean') throw new Error('Invalid hero-only setting.');
+    for (const [kind,items] of Object.entries(HERO_ITEMS)) {
+      const values = hero[kind];
+      if (!Array.isArray(values) || values.length > items.length || new Set(values).size !== values.length
+        || values.some(value => !items.some(item => item.bonus === value))) throw new Error(`Invalid available hero ${kind}.`);
+    }
     return profile;
   }
   function relationship(origin,target) {
@@ -521,12 +530,14 @@
     if (target && origin.aid !== 0 && origin.aid === target.aid) return 'alliance';
     return 'confederacy';
   }
-  function heroVariants(origin,relation) {
+  function heroVariants(origin,relation,hero = emptyHero()) {
     const variants = [{withHero:false,label:'No hero',speed:Infinity,boots:0,hand:1}];
     const heroSpeed = 14 + (origin.tribe === 3 ? 5 : 0);
-    const boots = [{name:'',bonus:0},{name:'Mercenary boots',bonus:0.25}];
+    const boots = [{name:'',bonus:0},...HERO_ITEMS.boots.filter(item => hero.boots.includes(item.bonus))
+      .map(item => ({name:item.name,bonus:item.bonus/100}))];
     const hands = [{name:'',bonus:1}];
-    if (['alliance','confederacy'].includes(relation)) hands.push({name:'Small Standard',bonus:1.15});
+    if (['alliance','confederacy'].includes(relation)) hands.push(...HERO_ITEMS.standards.filter(item => hero.standards.includes(item.bonus))
+      .map(item => ({name:item.name,bonus:1+item.bonus/100})));
     for (const boot of boots) for (const hand of hands) {
       const items = [boot.name,hand.name].filter(Boolean);
       variants.push({withHero:true,label:items.join(' + ') || 'No speed items',speed:heroSpeed,boots:boot.bonus,hand:hand.bonus});
@@ -597,7 +608,7 @@
       if (!loads.length) throw new Error(`Select available defenders for ${origin.name}, enable hero-only options, or unmark this anvil.`);
       const relation = relationship(origin,target);
       const grouped = new Map();
-      for (const load of loads) for (const variant of heroVariants(origin,relation)) {
+      for (const load of loads) for (const variant of heroVariants(origin,relation,profile.hero)) {
         if (load.requiresHero && !variant.withHero) continue;
         // Planner assumption: a mounted hero never slows a troop march.
         const speed = Number.isFinite(load.speed) ? load.speed : variant.speed;
@@ -677,18 +688,20 @@
     return {buffer:settings.buffer};
   }
   function restoreSetup(value,villages = []) {
-    if (!value || ![1,2,3,4,5,6,7].includes(value.version) || value.server !== SERVER || !value.profile) throw new Error('Not a supported TS12 defence setup.');
+    if (!value || ![1,2,3,4,5,6,7,8].includes(value.version) || value.server !== SERVER || !value.profile) throw new Error('Not a supported TS12 defence setup.');
     if (!villages.length) throw new Error('The current map.sql is not loaded. Reload the hosted page, then import your settings.');
     const player = playersFromMap(villages).find(p => p.id === value.profile.playerId);
     if (!player) throw new Error('The saved account is not in L!, L# or L* in this map.');
-    validateProfile(value.profile,villages);
+    const savedProfile = value.version >= 8 ? value.profile
+      : {...value.profile,hero:{...emptyHero(),solo:value.profile.hero?.solo}};
+    validateProfile(savedProfile,villages);
     const profile = makeProfile(player);
     for (const config of value.profile.villages) {
       const index = profile.villages.findIndex(v => v.did === config.did);
       profile.villages[index] = {...emptyVillage(config),enabled:config.enabled,ts:config.ts,defenders:[...config.defenders],escorts:[...config.escorts]};
     }
-    for (const key of Object.keys(profile.hero)) profile.hero[key] = value.profile.hero[key];
+    profile.hero = {solo:savedProfile.hero.solo,standards:[...savedProfile.hero.standards],boots:[...savedProfile.hero.boots]};
     return {profile,settings:validateSettings(value.version >= 7 ? value.settings : value.draft)};
   }
-  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,parseMapSql,playersFromMap,parseCsvTable,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,parseTravcoDefenceCalls,distance,travelSeconds,returnSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,leaderScore,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings});
+  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,HERO_ITEMS,parseMapSql,playersFromMap,parseCsvTable,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,parseTravcoDefenceCalls,distance,travelSeconds,returnSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,leaderScore,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings});
 })();

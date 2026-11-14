@@ -52,6 +52,7 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .village fieldset{margin-top:10px}
 .ts{display:flex;align-items:center;gap:10px;margin-bottom:10px}.ts input{margin-top:0!important;padding:4px 8px;max-width:65px}
 .hero{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.hero-equipment{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
 .attack-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:14px}
 .arrival-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .arrival-inputs input{height:44px;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums}
@@ -79,6 +80,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
 .mono,.digits{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .digits{letter-spacing:-.045em}.send-time{display:block;font-size:23px;font-weight:600;line-height:1.2;color:var(--green)}
 .army{font-weight:600}.sub{display:block;font-size:11px;color:var(--dim);margin-top:3px}
+a.send-wait{color:var(--green);text-underline-offset:3px}
 .equipment{font-size:11px;margin-top:5px}.equipment summary{color:var(--green)}
 .alternative-summary{padding:9px 12px;color:var(--green);font-size:12px}
 .result-village tr:last-child td{border-bottom:0}
@@ -98,7 +100,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   .result-village td:nth-child(2)::before{content:"Travel ";color:var(--dim);font:11px system-ui,sans-serif}
   .result-village td:last-child{grid-column:2;grid-row:3;align-self:center;justify-self:end}
 }
-@media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.arrival-inputs input{padding:9px;font-size:14px}.target-tabs button{padding:7px 9px}.defence-call{grid-template-columns:minmax(0,1fr) auto;gap:8px 10px}.call-heading{grid-column:1/-1}}
+@media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list,.hero-equipment{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.arrival-inputs input{padding:9px;font-size:14px}.target-tabs button{padding:7px 9px}.defence-call{grid-template-columns:minmax(0,1fr) auto;gap:8px 10px}.call-heading{grid-column:1/-1}}
 @media print{body{background:white;color:black}.setup,td:last-child,th:last-child{display:none}.panel{border:0}.result-village{break-inside:avoid}.sub,.muted,th{color:#444}.good,.warn,.bad,.send-time{color:black}}
 </style>
 </head>
@@ -129,6 +131,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       <div id="village-list"></div>
       <div id="hero-panel" class="hero" hidden>
         <div class="section-heading"><h3>Hero</h3></div>
+        <div id="hero-equipment" class="hero-equipment"></div>
         <label class="check spaced"><input id="hero-only" type="checkbox">Include hero-only options</label>
       </div>
     </div>
@@ -212,7 +215,13 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     message.hidden = false; message.classList.add('error');
     return;
   }
-  const {SERVER,TRIBES,parseMapSql,playersFromMap,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,parseTravcoDefenceCalls,makeProfile,validateProfile,buildPlan,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings} = globalThis.TravianDefence;
+  const {SERVER,TRIBES,HERO_ITEMS,parseMapSql,playersFromMap,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,parseTravcoDefenceCalls,makeProfile,validateProfile,buildPlan,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings} = globalThis.TravianDefence;
+  if (!HERO_ITEMS) {
+    const message = document.getElementById('map-status');
+    message.textContent = 'Update travian-planner-core.js beside this page to use hero equipment.';
+    message.hidden = false; message.classList.add('error');
+    return;
+  }
 
 
   const $ = id => document.getElementById(id);
@@ -385,7 +394,12 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   }
   function renderHero() {
     const profile = currentProfile();
-    if (profile) $('hero-only').checked = profile.hero.solo;
+    if (!profile) return;
+    $('hero-only').checked = profile.hero.solo;
+    $('hero-equipment').innerHTML = Object.entries(HERO_ITEMS).map(([kind,items]) =>
+      `<fieldset><legend>${kind === 'standards' ? 'Standards' : 'Boots'}</legend><div class="checks">${items.map(item =>
+        `<label class="chip"><input type="checkbox" data-hero-equipment="${kind}" value="${item.bonus}"${profile.hero[kind].includes(item.bonus) ? ' checked' : ''}>${escape(item.name)} <span class="muted">+${item.bonus}%</span></label>`
+      ).join('')}</div></fieldset>`).join('');
   }
   function installMap(parsed) {
     const nextPlayers = playersFromMap(parsed), nextProfiles = new Map();
@@ -478,6 +492,13 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   $('hero-only').addEventListener('change',() => {
     currentProfile().hero.solo = $('hero-only').checked;
     invalidate(); renderHero();
+  });
+  $('hero-equipment').addEventListener('change',event => {
+    const input = event.target.closest('input[data-hero-equipment]');
+    if (!input || !currentProfile()) return;
+    const hero = currentProfile().hero, kind = input.dataset.heroEquipment, bonus = Number(input.value);
+    hero[kind] = input.checked ? [...new Set([...hero[kind],bonus])].sort((a,b) => a-b) : hero[kind].filter(value => value !== bonus);
+    invalidate();
   });
   function hideSuggestions() {
     suggestions = []; activeSuggestion = -1;
@@ -623,7 +644,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   $('save-setup').addEventListener('click',() => {
     try {
       const profile = validateProfile(currentProfile(),villages);
-      const value = {version:7,server:SERVER,savedAt:new Date().toISOString(),profile,settings:defenceSettings()};
+      const value = {version:8,server:SERVER,savedAt:new Date().toISOString(),profile,settings:defenceSettings()};
       download(JSON.stringify(value,null,2),`ts12-defence-setup-${selectedId}.json`);
       status('setup-status','Setup exported.');
     } catch (error) { status('setup-status',`Cannot export: ${error.message}`,true); }
@@ -668,6 +689,13 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
       return equipment.length ? [{option:{...option,equipment},index}] : [];
     });
   }
+  function clockUrl(option) {
+    const label = village => [village?.player,village?.name].filter(Boolean).join(' / ');
+    const payload = {version:1,arrivalMs:lastPlan.cutoff,travelMs:option.seconds*1000,
+      from:{x:option.origin.x,y:option.origin.y,label:label(option.origin)},
+      to:{...lastPlan.settings.target,label:label(lastPlan.target) || selectedCall?.villageName || 'Unknown village'}};
+    return 'travian-clock.html#defence='+encodeURIComponent(JSON.stringify(payload));
+  }
   function optionTable(options,groupIndex,now) {
     return `<div class="table-wrap"><table><thead><tr><th>Troops / hero</th><th>Travel</th><th>Send (UTC)</th><th></th></tr></thead><tbody>${options.map(({option,index}) => {
       const equipment = option.equipment, detail = armyDetail(option);
@@ -676,7 +704,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
         : `<details class="equipment" data-details-key="gear-${option.origin.did}-${option.load.key}-${option.withHero}-${option.seconds}"><summary>Hero: ${equipment.length} equipment options</summary>${equipment.map(e => `<div>${escape(e.label)}</div>`).join('')}</details>`;
       return `<tr><td><span class="army">${escape(option.load.label)}</span>${detail ? `<span class="sub">${escape(detail)}</span>` : ''}${equipmentHTML}</td>
         <td class="mono">${duration(option.seconds)}<span class="sub">${option.speed} fields/h base</span></td>
-        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><span class="sub mono send-wait" data-send-at="${option.sendAt}" title="Live countdown">Send in ${duration(waitSeconds)}</span></td>
+        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><a class="sub mono send-wait" href="${escape(clockUrl(option))}" target="_blank" rel="noopener noreferrer" data-send-at="${option.sendAt}" data-clock-group="${groupIndex}" data-clock-option="${index}" title="Open this send countdown in Precision Clock">Send in ${duration(waitSeconds)}</a></td>
         <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index}">Copy</button></td></tr>`;
     }).join('')}</tbody></table></div>`;
   }
@@ -703,7 +731,7 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
     $('result-list').innerHTML = plan.groups.map((group,index) => {
       if (!resultVillageSelected(group)) return '';
       const options = choices[index], head = options.slice(0,3), rest = options.slice(3);
-      return `<article class="result-village" data-result-village="${group.origin.did}"><div class="result-heading"><div class="section-heading"><h3>${escape(group.origin.name)} ${coordinateLink(group.origin)}</h3><label class="check" title="Small Standard / Mercenary boots"><input type="checkbox" data-hero-items="${group.origin.did}"${heroItemVillages.has(heroItemsKey(group)) ? ' checked' : ''}>Include hero items</label></div><span class="muted">${group.fields.toFixed(2)} fields &middot; TS ${group.ts} &middot; ${options.length} options</span></div>
+      return `<article class="result-village" data-result-village="${group.origin.did}"><div class="result-heading"><div class="section-heading"><h3>${escape(group.origin.name)} ${coordinateLink(group.origin)}</h3><label class="check" title="Use the hero equipment selected in Setup"><input type="checkbox" data-hero-items="${group.origin.did}"${heroItemVillages.has(heroItemsKey(group)) ? ' checked' : ''}>Include hero items</label></div><span class="muted">${group.fields.toFixed(2)} fields &middot; TS ${group.ts} &middot; ${options.length} options</span></div>
         ${options.length ? optionTable(head,index,now) : '<div class="result-empty muted">Hero items required</div>'}
         ${rest.length ? `<details data-details-key="alternatives-${group.origin.did}"><summary class="alternative-summary">${rest.length} more options</summary>${optionTable(rest,index,now)}</details>` : ''}</article>`;
     }).join('') || (plan.groups.length ? '<p class="muted spaced">No villages selected.</p>' : '');
@@ -795,6 +823,16 @@ td:first-child{min-width:220px;max-width:430px}td.time{min-width:150px}
   }
   $('calculate').addEventListener('click',calculateDefence);
   $('result-list').addEventListener('click',async event => {
+    const clock = event.target.closest('a[data-clock-group]');
+    if (clock) {
+      const group = lastPlan?.groups[Number(clock.dataset.clockGroup)];
+      const choice = group && visibleOptions(group).find(value => value.index === Number(clock.dataset.clockOption));
+      if (!choice || choice.option.sendAt < Date.now()) {
+        event.preventDefault(); updateDisplay();
+        status('copy-status','This send time is no longer available. Choose another option.',true);
+      }
+      return;
+    }
     const button = event.target.closest('button[data-copy-group]');
     if (!button || !lastPlan) return;
     const group = lastPlan.groups[Number(button.dataset.copyGroup)];

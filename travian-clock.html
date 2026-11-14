@@ -68,6 +68,8 @@
     .target-state { margin-left: 9px; font-size: .72rem; color: var(--accent); }
     .target-state[data-passed="true"] { color: var(--danger); }
     .countdown-panel { padding: 12px 16px; border: 1px solid #315c55; border-radius: 14px; background: #0e201f; text-align: center; }
+    .route-caption { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 8px; font-size: .9rem; font-weight: 600; }
+    .route-caption a { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
     .cue { height: 30px; display: grid; place-items: center; font-size: .72rem; font-weight: 700; letter-spacing: .14em; color: var(--accent); }
     .countdown { display: block; font-size: clamp(1.9rem, 7.8vw, 4.5rem); line-height: 1.12; font-weight: 600; }
     .countdown.long { font-size: clamp(1.25rem, 5.2vw, 3.4rem); }
@@ -100,13 +102,8 @@
     .sync-detail { color: var(--muted); margin-top: 5px; font-size: .7rem; overflow-wrap: anywhere; }
     footer { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 16px; color: var(--muted); font-size: .7rem; line-height: 1.5; margin-top: 12px; }
     footer p { margin: 0 0 5px; }
-    .footer-warning, footer details[open] { flex-basis: 100%; }
+    .footer-warning { flex-basis: 100%; }
     .build-info { margin: 0; }
-    summary { cursor: pointer; width: fit-content; color: #c1ccda; }
-    .notes { max-width: 80ch; padding: 10px 0; font-size: .8rem; }
-    .notes p { margin: 0 0 10px; }
-    .notes ol { padding-left: 20px; }
-    .notes li { margin: 5px 0; }
     noscript { display: block; padding: 20px; color: var(--warning); text-align: center; }
 
     @media (min-width: 720px) and (max-height: 780px) {
@@ -214,6 +211,11 @@
     </section>
 
     <section class="countdown-panel" id="countdown-panel" data-phase="empty" aria-label="Send countdown">
+      <h2 class="route-caption" id="defence-route" hidden>
+        <a id="defence-from" target="_blank" rel="noopener noreferrer"></a>
+        <span aria-hidden="true">&rarr;</span>
+        <a id="defence-to" target="_blank" rel="noopener noreferrer"></a>
+      </h2>
       <div class="cue" id="cue" role="status" aria-live="polite">Set a send time</div>
       <output class="countdown digits" id="countdown" role="timer" aria-live="off">--:--:--.---</output>
       <div class="countdown-note" id="countdown-note">A timing aid only. You send manually in Travian.</div>
@@ -250,51 +252,7 @@
     <footer>
       <p class="footer-warning">Travian resolves arrivals to whole seconds. Browser, network, and game delays mean precise arrival cannot be guaranteed. Nothing is sent to the game.</p>
       <!-- Update this fixed timestamp when revising the file. -->
-      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-10-30T20:56:00Z">2026-10-30 20:56:00 UTC</time></p>
-      <details>
-        <summary>Timing notes &amp; GitHub Pages setup</summary>
-        <div class="notes">
-          <p><strong>Measured, not magic.</strong> Each browser independently makes five uncached HTTPS requests to
-            <a href="https://timeapi.io/" target="_blank" rel="noopener noreferrer">TimeAPI.io</a>'s CORS-enabled
-            <code>/api/time/current/zone?timeZone=UTC</code> endpoint. Its UTC timestamp has fractional seconds.
-            No account, API key, backend, or direct NTP connection is used.</p>
-          <p>For each response, the server timestamp is compared with the midpoint of the request's
-            <code>performance.now()</code> round trip. At least three usable samples are required.
-            The median offset of the three fastest samples calibrates a monotonic clock reference.
-            The uncertainty estimate includes their half-round-trip delays, offset spread, timestamp rounding,
-            and an assumed 100 ppm of drift (6 ms per minute) between synchronizations.</p>
-          <p>This estimates network uncertainty, <strong>not certified millisecond accuracy</strong>.
-            Network paths can be asymmetric; the service's own UTC error and your device's actual oscillator drift
-            are unknown. Milliseconds describe display resolution. The clock updates at the screen's refresh rate.
-            Synchronization repeats every five minutes while visible, retries after a minute on failure,
-            and refreshes after returning to the page. Unavailable, expired, or interrupted calibration
-            falls back to the computer clock and is clearly marked unsynchronized.</p>
-          <p><strong>Dates and sound.</strong> The arrival date starts at today in the selected timezone.
-            Both time fields accept hours alone, hours and minutes, or a full time with optional .mmm.
-            Missing minutes or seconds are zero: both <code>1</code> and <code>1:00</code> mean <code>01:00:00</code>.
-            A single time is extracted from pasted text in any language, such as <code>in 10:42:19 hrs.</code>
-            or <code>Dans 2:32:37 heures</code>, and the field is cleaned immediately.
-            Typed values are padded when you press Enter or leave the field, without interrupting typing.
-            Travel is elapsed time, including across midnight and daylight-saving
-            changes. London uses the browser's IANA timezone data, including BST (UTC+1).
-            Nonexistent spring times are rejected; repeated autumn times require an explicit choice.
-            Sound is off on every page load. Enabling it unlocks browser audio and schedules 3, 2, 1, and send cues.
-            The 10m, 5m, and 1m checkboxes add one reminder at each selected amount of time remaining before send.
-            You can select reminders while sound is off; they only play after you enable sound. Elapsed reminders are not replayed.
-            The target cue briefly reads SEND NOW, then MISSED with elapsed time; neither confirms a game action.
-            Keep the page visible, preferably beside Travian: background tabs, sleeping devices, muted browsers,
-            and audio output latency can delay or prevent cues.</p>
-          <p><strong>Publish this one file:</strong></p>
-          <ol>
-            <li>Create a public GitHub repository and upload <code>travian-clock.html</code> to its root on the <code>main</code> branch.</li>
-            <li>Open <strong>Settings &gt; Pages</strong>. Under Build and deployment, choose <strong>Deploy from a branch</strong>, then <strong>main</strong> and <strong>/ (root)</strong>. Save.</li>
-            <li>After GitHub finishes publishing, append <code>travian-clock.html</code> to your repository's Pages URL, for example <code>https://username.github.io/repository/travian-clock.html</code>, and share that address. No build command, npm installation, or server configuration is needed.</li>
-          </ol>
-          <p>You can also open this file locally. Without an accessible time service it still calculates send times,
-            but its clock is unsynchronized. No calculator inputs are uploaded or saved.
-            Cloudflare Web Analytics records page visits and performance statistics.</p>
-        </div>
-      </details>
+      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-11-14T09:03:55Z">2026-11-14 09:03:55 UTC</time></p>
     </footer>
   </main>
 
@@ -425,6 +383,30 @@
         `${pad(Math.floor(value / 1000) % 60)}.${pad(value % 1000, 3)}`;
     }
 
+    function parseDefenceCountdown(fragment) {
+      if (typeof fragment !== "string" || !fragment.startsWith("#defence=") || fragment.length > 16384) {
+        throw new Error("Invalid defence countdown link.");
+      }
+      let value;
+      try { value = JSON.parse(decodeURIComponent(fragment.slice("#defence=".length))); }
+      catch { throw new Error("The defence countdown link is incomplete."); }
+      if (!value || value.version !== 1) throw new Error("Unsupported defence countdown link.");
+      const integer = (number, min, max, name) => {
+        if (!Number.isSafeInteger(number) || number < min || number > max) throw new Error(`Invalid ${name} in defence countdown.`);
+        return number;
+      };
+      const point = (raw, name) => {
+        if (!raw || typeof raw.label !== "string" || raw.label.length > 500 || /[\u0000-\u001f\u007f]/.test(raw.label)) {
+          throw new Error(`Invalid ${name} village in defence countdown.`);
+        }
+        return { x: integer(raw.x, -200, 200, name + " X"), y: integer(raw.y, -200, 200, name + " Y"), label: raw.label.trim() };
+      };
+      const arrivalMs = integer(value.arrivalMs, 0, 253402300799999, "arrival time");
+      const travelMs = integer(value.travelMs, 0, 366 * 86400000, "travel duration");
+      const sendMs = integer(arrivalMs - travelMs, 0, 253402300799999, "send time");
+      return { arrivalMs, travelMs, sendMs, from: point(value.from, "origin"), to: point(value.to, "target") };
+    }
+
     function parseServiceTimestamp(data) {
       if (!data || data.timeZone !== "UTC" || typeof data.dateTime !== "string") {
         throw new Error("Time source did not return a UTC timestamp.");
@@ -470,6 +452,9 @@
       countdownPanel: document.getElementById("countdown-panel"),
       countdown: document.getElementById("countdown"),
       countdownNote: document.getElementById("countdown-note"),
+      route: document.getElementById("defence-route"),
+      routeFrom: document.getElementById("defence-from"),
+      routeTo: document.getElementById("defence-to"),
       cue: document.getElementById("cue"),
       sound: document.getElementById("sound-toggle"),
       volume: document.getElementById("volume"),
@@ -489,6 +474,7 @@
     let reference = { epoch: Date.now(), mono: performance.now() };
     let calibration = null;
     let target = null;
+    let defenceRoute = null;
     let zone = "UTC";
     let arrivalDatePristine = true;
     let foldKey = "";
@@ -648,6 +634,44 @@
       return true;
     }
 
+    function prefillArrival(epoch) {
+      const parts = wallParts(epoch, zone);
+      ui.arrivalDate.value = dateText(parts);
+      ui.arrivalTime.value = timeText(parts) + (parts.millisecond ? `.${pad(parts.millisecond, 3)}` : "");
+      arrivalDatePristine = false;
+      recalculate();
+      if (!ui.foldField.hidden) {
+        ui.fold.value = String(epoch);
+        recalculate();
+      }
+    }
+
+    function importDefenceCountdown() {
+      const fragment = window.location.hash;
+      if (!fragment.startsWith("#defence=")) return false;
+      try {
+        // Consume the fragment before analytics loads; routes never enter HTTP URLs.
+        window.history.replaceState(null, "", window.location.href.split("#")[0]);
+        const data = parseDefenceCountdown(fragment);
+        defenceRoute = data;
+        for (const [link, village] of [[ui.routeFrom, data.from], [ui.routeTo, data.to]]) {
+          link.href = `https://ts12.x1.europe.travian.com/karte.php?x=${village.x}&y=${village.y}`;
+          link.textContent = `${village.label ? village.label + " " : ""}(${village.x}|${village.y})`;
+        }
+        ui.route.hidden = false;
+        zone = "UTC"; ui.zone.value = zone;
+        ui.travel.value = durationText(data.travelMs).replace(/\.000$/, "");
+        prefillArrival(data.arrivalMs);
+      } catch (error) {
+        window.location.hash = "";
+        defenceRoute = null; ui.route.hidden = true;
+        setTarget(null);
+        ui.message.dataset.error = "true";
+        setText(ui.message, `Cannot open defence countdown: ${error.message}`);
+      }
+      return true;
+    }
+
     function normalizeTimeInput(input) {
       const value = input.value.trim();
       try {
@@ -785,9 +809,10 @@
 
     function renderTabTitle(now) {
       const remaining = target === null ? 0 : target - now;
+      const route = defenceRoute ? `${defenceRoute.from.label || "Origin"} -> ${defenceRoute.to.label || "Target"}` : "";
       const title = remaining > 0
-        ? `${durationText(Math.ceil(remaining / 1000) * 1000).slice(0, -4)} till attack`
-        : defaultTitle;
+        ? `${durationText(Math.ceil(remaining / 1000) * 1000).slice(0, -4)} ${route ? "/ " + route : "till attack"}`
+        : route ? `${defaultTitle} / ${route}` : defaultTitle;
       if (document.title !== title) document.title = title;
     }
 
@@ -1006,10 +1031,11 @@
     }
     ui.fold.addEventListener("change", recalculate);
     ui.zone.addEventListener("change", () => {
+      const arrival = defenceRoute && target !== null ? target + parseDuration(ui.travel.value) : null;
       zone = ui.zone.value;
       clockSecond = null;
-      prefillArrivalDate();
-      recalculate();
+      if (arrival !== null) prefillArrival(arrival);
+      else { prefillArrivalDate(); recalculate(); }
       renderClock(clockNow());
     });
     ui.sound.addEventListener("click", toggleSound);
@@ -1058,7 +1084,7 @@
     });
 
     prefillArrivalDate();
-    recalculate();
+    if (!importDefenceCountdown()) recalculate();
     frame();
     void synchronize();
     setInterval(maintainClock, 1000);

@@ -136,7 +136,18 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
 
   <section id="panel-returns" role="tabpanel" aria-labelledby="tab-returns" hidden>
     <div class="panel controls"><h2>Return-time / sniping scenarios</h2>
-      <label class="spaced">Attack / outbound TS scenario<select id="return-scenario" class="scenario-select"></select></label>
+      <div class="row-actions spaced" role="group" aria-label="Return calculation source">
+        <button id="return-mode-manual" type="button" aria-pressed="true">Manual</button>
+        <button id="return-mode-planned" type="button" aria-pressed="false" disabled>Planned attack</button>
+      </div>
+      <div id="return-manual-source">
+        <div class="grid"><div id="return-home-picker"></div><div id="return-battle-picker"></div></div>
+        <fieldset class="spaced"><legend>Battle impact (UTC)</legend><div class="date-time">
+          <input id="return-impact-date" type="date" aria-label="Battle impact date UTC">
+          <input id="return-impact-time" placeholder="13:00:00" aria-label="Battle impact time UTC">
+        </div></fieldset>
+      </div>
+      <div id="return-planned-source" hidden><label class="spaced">Attack / outbound TS scenario<select id="return-scenario" class="scenario-select"></select></label></div>
       <div class="grid four">
         <label>Current / expected return TS<input id="return-current-ts" type="number" min="0" max="20" value="0"></label>
         <label>Slowest surviving unit<select id="return-speed"></select></label>
@@ -149,7 +160,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
         <label>Your snipe travel time (optional)<input id="return-travel" maxlength="100" placeholder="00:00:00 or pasted travel time"></label>
       </div>
       <p class="hint">Assumes an immediate return after the battle, the chosen slowest survivor, and TS/bonuses when the return starts. Hero death, troop losses or other bonuses can change it. This is a scenario table, not a known return time.</p>
-      <p class="hint">Calculated return assumptions are kept with this attack in Save plan.</p>
+      <p id="return-save-hint" class="hint" hidden>Calculated return assumptions are kept with this attack in Save plan.</p>
       <div class="actions"><button id="calculate-returns" class="primary" type="button">Show TS 0-20</button></div>
       <p id="return-status" class="status" role="status" hidden></p>
     </div><div id="return-results"></div>
@@ -432,6 +443,12 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       return {side:side < 0 ? 'Before' : 'After',target,arrivalMs,sendAt};
     });
   }
+  function manualReturnScenario(value) {
+    const attacker = {...point(value.attacker,'Home village'),tribe:C.integer(value.attacker.tribe,1,3,'Returning army tribe')};
+    const defender = point(value.defender,'Battle village'), fields = C.distance(attacker,defender);
+    if (!fields) throw new Error('Home and battle village cannot be the same.');
+    return {attack:{attacker,defender},fields,arrivalMs:C.integer(value.arrivalMs,0,MAX_TIME,'Battle impact')};
+  }
   function returnScenarios(scenario,options) {
     C.integer(options.currentTs,0,20,'Current return TS');
     C.integer(options.offset,0,60,'Snipe offset');
@@ -599,7 +616,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (chunk) chunks.push(chunk);
     return chunks.length ? chunks : ['No calculated rows to share.'];
   }
-  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,returnScenarios,normalizeIncoming,parseIncomingCsv,mergeObservations,latestIncoming,normalizePlan,defenderGroups,discordText,discordChunks});
+  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,manualReturnScenario,returnScenarios,normalizeIncoming,parseIncomingCsv,mergeObservations,latestIncoming,normalizePlan,defenderGroups,discordText,discordChunks});
   if (typeof document === 'undefined') return;
   const $ = id => document.getElementById(id);
   const esc = value => String(value).replace(/[&<>"']/g,ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -616,6 +633,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   let world = [], searchIndex = [], byPoint = new Map(), activeTab = 'planning', editingId = null, pendingReport = null;
   let editingAttackerId = null, editingDefenderId = null;
   let computed = [], scenarios = [], selectedKey = '', scoutResult = null, returnResult = null, defencePlan = null;
+  let returnMode = 'manual', manualReturnTouched = false, manualReturnDraft = null, plannedReturnDraft = null, manualReturnHomeKey = '';
+  const returnInputIds = ['return-current-ts','return-speed','return-boots','return-map','return-artefact','return-offset','return-travel'];
   let forecastPage = 0, forecastCopies = new Map();
   let roster = {candidates:[],warnings:[],rowCount:0}, incomingRows = [], incomingCache = [], incomingPage = 0, pageRecords = [], nextIncomingExpiry = Infinity;
   let incomingFirstReports = new Map();
@@ -741,6 +760,47 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   const originPicker = picker('origin','Enemy origin',true,() => { clearSourceReport(); speedOptions($('op-speed'),originPicker.tribe(),$('op-speed').value); });
   const targetPicker = picker('destination','Legends target',false,clearSourceReport);
   const defenderPicker = picker('defender','Defended village',false,() => { $('def-reference').value = ''; defencePlan = null; $('def-results').replaceChildren(); });
+  const returnHomePicker = picker('return-home','Returning army home',true,() => {
+    if (returnMode !== 'manual') return;
+    const home = $('return-home-x').value !== '' && $('return-home-y').value !== ''
+      ? `${$('return-home-x').value}|${$('return-home-y').value}` : $('return-home-query').value;
+    if (home !== manualReturnHomeKey) { $('return-travel').value = ''; manualReturnHomeKey = home; }
+    speedOptions($('return-speed'),returnHomePicker.tribe(),$('return-speed').value);
+    manualReturnTouched = true; invalidateReturn();
+  });
+  const returnBattlePicker = picker('return-battle','Battle village',false,() => {
+    if (returnMode === 'manual') { manualReturnTouched = true; invalidateReturn(); }
+  });
+  const captureReturnInputs = () => Object.fromEntries(returnInputIds.map(id => [id,$(id).value]));
+  function invalidateReturn() {
+    returnResult = null; $('return-results').replaceChildren(); status('return-status','');
+  }
+  function restoreReturnInputs(draft,tribe) {
+    speedOptions($('return-speed'),tribe,draft['return-speed']);
+    for (const id of returnInputIds) if (id !== 'return-speed') $(id).value = draft[id];
+  }
+  function renderReturnSource() {
+    $('return-mode-manual').setAttribute('aria-pressed',String(returnMode === 'manual'));
+    $('return-mode-planned').setAttribute('aria-pressed',String(returnMode === 'planned'));
+    $('return-mode-planned').disabled = !scenarios.length;
+    $('return-manual-source').hidden = returnMode !== 'manual';
+    $('return-planned-source').hidden = returnMode !== 'planned';
+    $('return-save-hint').hidden = returnMode !== 'planned';
+  }
+  function setReturnMode(mode,explicit = true) {
+    if (mode === 'planned' && !scenarios.length) throw new Error('Calculate an attack first, or use Manual.');
+    if (explicit) manualReturnTouched = mode === 'manual';
+    if (mode !== returnMode) {
+      if (returnMode === 'manual') manualReturnDraft = captureReturnInputs();
+      else plannedReturnDraft = captureReturnInputs();
+      returnMode = mode;
+      restoreReturnInputs(mode === 'manual' ? manualReturnDraft : plannedReturnDraft,
+        mode === 'manual' ? returnHomePicker.tribe() : selected('return-scenario').attack.attacker.tribe);
+      invalidateReturn();
+    }
+    renderReturnSource();
+  }
+  for (const mode of ['manual','planned']) action('return-mode-'+mode,() => setReturnMode(mode),'return-status');
   function setRole(role,clearEditor = true) {
     if ($('role-attacking').hidden) role = 'defending';
     state.role = role;
@@ -777,9 +837,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     });
   }
   function invalidateCalculations() {
-    computed = []; scenarios = []; selectedKey = ''; scoutResult = null; returnResult = null; defencePlan = null;
+    computed = []; scenarios = []; selectedKey = ''; scoutResult = null; defencePlan = null;
     forecastPage = 0; forecastCopies.clear(); $('forecast-view').hidden = true;
-    for (const id of ['forecast-results','scout-results','return-results','def-results']) $(id).replaceChildren();
+    for (const id of ['forecast-results','scout-results','def-results']) $(id).replaceChildren();
     renderScenarioSelects();
   }
   function resetEditor(keepTarget) {
@@ -994,10 +1054,10 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   });
   for (const id of ['op-kind','op-basis']) $(id).addEventListener('change',updateBasis);
   for (const id of ['op-date','op-time']) $(id).addEventListener('input',clearSourceReport);
-  for (const id of ['op-time','def-time']) $(id).addEventListener('blur',() => {
+  for (const id of ['op-time','def-time','return-impact-time']) $(id).addEventListener('blur',() => {
     if (!$(id).value.trim()) return;
     try { $(id).value = C.normalizeClockTime($(id).value); }
-    catch (error) { status(id === 'op-time' ? 'editor-status' : 'def-status',error.message,true); }
+    catch (error) { status(id === 'op-time' ? 'editor-status' : id === 'def-time' ? 'def-status' : 'return-status',error.message,true); }
   });
   action('role-defending',() => { if (state.role !== 'defending') setRole('defending'); });
   action('role-attacking',() => { if (!$('role-attacking').hidden && state.role !== 'attacking') setRole('attacking'); });
@@ -1010,6 +1070,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const previous = $('def-reference').value;
     $('def-reference').innerHTML = '<option value="">Current time only</option>'+options;
     $('def-reference').value = scenarioByKey(previous)?.key || '';
+    if (!scenarios.length && returnMode === 'planned') setReturnMode('manual',false);
+    else renderReturnSource();
   }
   const scenarioByKey = key => scenarios.find(row => row.keys.includes(key));
   function selected(id) {
@@ -1022,17 +1084,18 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     selectedKey = row?.key || ''; renderScenarioSelects();
     if (row) {
       const saved = state.operations.find(op => op.id === row.attack.id), returning = saved.returning, scouting = saved.scouting;
-      $('return-current-ts').value = returning?.currentTs ?? row.ts;
-      speedOptions($('return-speed'),row.attack.attacker.tribe,returning?.speed ?? row.attack.speed);
-      $('return-boots').value = returning?.boots ?? row.attack.boots; $('return-artefact').value = returning?.artefact ?? row.attack.artefact;
-      $('return-map').value = returning?.mapBonus ?? 0;
+      const previous = returnMode === 'planned' ? captureReturnInputs() : plannedReturnDraft;
+      plannedReturnDraft = {'return-current-ts':returning?.currentTs ?? row.ts,'return-speed':returning?.speed ?? row.attack.speed,
+        'return-boots':returning?.boots ?? row.attack.boots,'return-artefact':returning?.artefact ?? row.attack.artefact,
+        'return-map':returning?.mapBonus ?? 0,'return-offset':returning?.offset ?? previous?.['return-offset'] ?? state.preferences.returnOffset,
+        'return-travel':returning?.travel ?? (previousAttack === row.attack.id ? previous?.['return-travel'] ?? '' : '')};
+      if (returnMode === 'planned') { restoreReturnInputs(plannedReturnDraft,row.attack.attacker.tribe); invalidateReturn(); }
+      else if (!manualReturnTouched) setReturnMode('planned',false);
       $('scout-reference').value = scouting?.reference ?? (row.attack.role === 'defending' ? 'launch' : 'arrival');
-      if (returning) { $('return-offset').value = returning.offset; $('return-travel').value = returning.travel; }
-      else if (previousAttack !== row.attack.id) $('return-travel').value = '';
       if (scouting) { $('scout-offset').value = scouting.offset; $('scout-travel').value = scouting.travel; }
       else if (previousAttack !== row.attack.id) $('scout-travel').value = '';
     }
-    scoutResult = null; returnResult = null; $('scout-results').replaceChildren(); $('return-results').replaceChildren();
+    scoutResult = null; $('scout-results').replaceChildren();
   }
   for (const id of ['scout-scenario','return-scenario']) $(id).addEventListener('change',() => selectScenario($(id).value));
   function forecastHeading(group) {
@@ -1091,6 +1154,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const button = event.target.closest('[data-scenario]');
     if (!button) return;
     selectScenario(button.dataset.scenario);
+    if (button.dataset.tool === 'returns') setReturnMode('planned');
     if (button.dataset.tool === 'defenders') useDefenceScenario(scenarioByKey(selectedKey));
     showTab(button.dataset.tool);
   });
@@ -1240,16 +1304,28 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   },'scout-status');
   for (const id of ['scout-reference','scout-offset','scout-travel']) $(id).addEventListener('input',() => { scoutResult = null; $('scout-results').replaceChildren(); });
   action('calculate-returns',() => {
-    const scenario = selected('return-scenario');
+    invalidateReturn();
+    let scenario;
+    if (returnMode === 'manual') {
+      const attacker = returnHomePicker.get(), defender = returnBattlePicker.get();
+      speedOptions($('return-speed'),attacker.tribe,$('return-speed').value);
+      const time = C.normalizeClockTime($('return-impact-time').value);
+      scenario = manualReturnScenario({attacker,defender,arrivalMs:C.parseUTC(`${$('return-impact-date').value}T${time}`,'Battle impact')});
+      $('return-impact-time').value = time;
+      manualReturnTouched = true;
+    } else scenario = selected('return-scenario');
     const options = {currentTs:$('return-current-ts').valueAsNumber,speed:Number($('return-speed').value),boots:Number($('return-boots').value),
       artefact:Number($('return-artefact').value),mapBonus:Number($('return-map').value),offset:$('return-offset').valueAsNumber,travelMs:parseDuration($('return-travel').value)};
     const rows = returnScenarios(scenario,options); returnResult = {scenario,rows,options};
-    state.operations.find(op => op.id === scenario.attack.id).returning = {currentTs:options.currentTs,speed:options.speed,
+    if (returnMode === 'planned') state.operations.find(op => op.id === scenario.attack.id).returning = {currentTs:options.currentTs,speed:options.speed,
       boots:options.boots,artefact:options.artefact,mapBonus:options.mapBonus,offset:options.offset,travel:$('return-travel').value.trim()};
-    $('return-results').innerHTML = `<div class="panel"><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(scenario.attack.attacker.tribe,options.speed))}</span>Home: ${locationHtml(scenario.attack.attacker)}</h3>${copyButton('returns')}</div><p class="hint">Battle at ${C.formatUTC(scenario.arrivalMs)}. ${esc(paceText(options))}. Outbound TS ${formatTsLevels(scenario.tsLevels)}; highlighted return TS: ${options.currentTs}. Identical timings share a row.</p><div class="table-wrap"><table class="responsive"><thead><tr><th>Return TS</th><th>Army home</th><th>Change vs current TS</th><th>Snipe lands</th><th>Your send time</th></tr></thead><tbody>${compactReturns(rows).map(row => `<tr${row.current ? ' class="selected"' : ''}><td data-label="Return TS">${formatTsLevels(row.tsLevels)}${row.current ? row.tsLevels.length > 1 ? ` (current ${options.currentTs})` : ' (current)' : ''}</td><td data-label="Army home">${timeHtml(row.returnMs,true)}</td><td data-label="Change">${row.deltaMs === 0 ? 'Same' : (row.deltaMs < 0 ? '-' : '+')+duration(row.deltaMs)}</td><td data-label="Snipe lands">${timeHtml(row.hitMs)}</td><td data-label="Your send">${timeHtml(row.sendAt,true)}</td></tr>`).join('')}</tbody></table></div></div>`;
+    $('return-results').innerHTML = `<div class="panel"><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(scenario.attack.attacker.tribe,options.speed))}</span>Home: ${locationHtml(scenario.attack.attacker)}</h3>${copyButton('returns')}</div><p class="hint">Battle at ${locationHtml(scenario.attack.defender)}: ${C.formatUTC(scenario.arrivalMs)}. ${esc(paceText(options))}. ${scenario.tsLevels ? `Outbound TS ${formatTsLevels(scenario.tsLevels)}; ` : ''}highlighted return TS: ${options.currentTs}. Identical timings share a row.</p><div class="table-wrap"><table class="responsive"><thead><tr><th>Return TS</th><th>Army home</th><th>Change vs current TS</th><th>Snipe lands</th><th>Your send time</th></tr></thead><tbody>${compactReturns(rows).map(row => `<tr${row.current ? ' class="selected"' : ''}><td data-label="Return TS">${formatTsLevels(row.tsLevels)}${row.current ? row.tsLevels.length > 1 ? ` (current ${options.currentTs})` : ' (current)' : ''}</td><td data-label="Army home">${timeHtml(row.returnMs,true)}</td><td data-label="Change">${row.deltaMs === 0 ? 'Same' : (row.deltaMs < 0 ? '-' : '+')+duration(row.deltaMs)}</td><td data-label="Snipe lands">${timeHtml(row.hitMs)}</td><td data-label="Your send">${timeHtml(row.sendAt,true)}</td></tr>`).join('')}</tbody></table></div></div>`;
     status('return-status',''); tick();
   },'return-status');
-  for (const id of ['return-current-ts','return-speed','return-boots','return-artefact','return-map','return-offset','return-travel']) $(id).addEventListener('input',() => { returnResult = null; $('return-results').replaceChildren(); });
+  for (const id of [...returnInputIds,'return-impact-date','return-impact-time']) $(id).addEventListener('input',() => {
+    if (returnMode === 'manual') manualReturnTouched = true;
+    invalidateReturn();
+  });
 
   $('roster-file').addEventListener('change',async () => {
     const file = $('roster-file').files[0]; if (!file) return;
@@ -1305,7 +1381,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
 
   function preferences() {
     return {scoutOffset:$('scout-offset').valueAsNumber,scoutTravel:$('scout-travel').value,
-      returnOffset:$('return-offset').valueAsNumber,returnTravel:$('return-travel').value,defenceBuffer:$('def-buffer').valueAsNumber,
+      returnOffset:returnMode === 'planned' ? $('return-offset').valueAsNumber : Number(plannedReturnDraft?.['return-offset'] ?? state.preferences.returnOffset),
+      returnTravel:returnMode === 'planned' ? $('return-travel').value : plannedReturnDraft?.['return-travel'] ?? state.preferences.returnTravel,
+      defenceBuffer:$('def-buffer').valueAsNumber,
       forecastView:$('forecast-group').value,forecastFilter:$('forecast-filter').value};
   }
   function download(value,name,type) {
@@ -1317,7 +1395,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   action('save-plan',() => {
     const normalized = normalizePlan({type:'travian-leadership-plan',version:3,server:C.SERVER,...state,preferences:preferences()});
     download(JSON.stringify({type:'travian-leadership-plan',version:3,server:C.SERVER,...normalized},null,2),'ts12-leadership-plan.json','application/json');
-    status('app-status','Saved both lists, added attacks, tool settings and report observations. Map data and the defence roster were not exported.');
+    status('app-status','Saved both lists, added attacks, tool settings and report observations. Map data and the defence roster were not exported.'
+      +(returnMode === 'manual' && activeTab === 'returns' ? ' Manual return inputs were not exported.' : ''));
   });
   action('load-plan',() => { $('plan-file').value = ''; $('plan-file').click(); });
   $('plan-file').addEventListener('change',async () => {
@@ -1329,7 +1408,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       const next = normalizePlan(JSON.parse(await file.text()));
       state = next; setRole(next.role); refreshIncoming();
       $('scout-offset').value = next.preferences.scoutOffset; $('scout-travel').value = next.preferences.scoutTravel;
-      $('return-offset').value = next.preferences.returnOffset; $('return-travel').value = next.preferences.returnTravel;
+      plannedReturnDraft = {...plannedReturnDraft,'return-offset':next.preferences.returnOffset,'return-travel':next.preferences.returnTravel};
       $('def-buffer').value = next.preferences.defenceBuffer;
       $('forecast-group').value = next.preferences.forecastView; $('forecast-filter').value = next.preferences.forecastFilter;
       const hiddenAttacks = $('role-attacking').hidden ? next.operations.filter(op => op.role === 'attacking').length : 0;
@@ -1465,8 +1544,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       if (Number(response.headers.get('content-length')) > C.MAP_LIMIT) throw new Error('Map exceeds 40 MB.');
       world = C.parseMapSql(await response.text()); searchIndex = C.createTargetIndex(world);
       byPoint = new Map(world.map(v => [`${v.x}|${v.y}`,v]));
-      originPicker.refresh(); targetPicker.refresh(); defenderPicker.refresh();
+      originPicker.refresh(); targetPicker.refresh(); defenderPicker.refresh(); returnHomePicker.refresh(); returnBattlePicker.refresh();
       speedOptions($('op-speed'),originPicker.tribe(),$('op-speed').value);
+      if (returnMode === 'manual') { speedOptions($('return-speed'),returnHomePicker.tribe(),$('return-speed').value); invalidateReturn(); }
       status('map-status',`${world.length.toLocaleString()} villages loaded. Search any player, village, alliance or coordinates.`);
       renderOperations(); renderBuilder(); renderIncoming(); renderScenarioSelects();
       if (computed.length) renderForecasts();
@@ -1474,6 +1554,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     finally { clearTimeout(timeout); }
   }
   resetEditor(false); $('def-date').value = C.isoTime(Date.now()).slice(0,10);
+  $('return-impact-date').value = C.isoTime(Date.now()).slice(0,10);
+  speedOptions($('return-speed'),returnHomePicker.tribe());
+  manualReturnDraft = captureReturnInputs();
   renderOperations(); renderBuilder(); renderScenarioSelects(); renderIncoming(); tick();
   setInterval(tick,1000);
   loadWorld();

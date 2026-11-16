@@ -45,6 +45,9 @@
     .clock-date { margin-top: 6px; color: var(--muted); font-size: .8rem; }
     .inputs-panel { padding: 16px 18px 10px; background: #111923; border: 1px solid var(--line); border-radius: 14px; }
     .input-grid { display: grid; grid-template-columns: 1fr 1.65fr; gap: 18px; }
+    .travel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .trip-option { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: .72rem; font-weight: 400; cursor: pointer; white-space: nowrap; }
+    .trip-option:has(input:checked) { color: var(--accent); }
     label, legend { display: block; font-size: .8rem; font-weight: 550; }
     .arrival-field { min-width: 0; margin: 0; padding: 0; border: 0; }
     .arrival-field legend { width: 100%; padding: 0; }
@@ -86,11 +89,16 @@
     .volume-control { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .75rem; }
     input[type="range"] { width: 95px; margin: 0; accent-color: var(--accent); }
     .volume-value { width: 4ch; text-align: right; font-family: var(--mono); }
-    .reminder-controls { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .73rem; }
+    .reminder-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); font-size: .73rem; }
     .reminder-option { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: #141d27; cursor: pointer; font-size: .75rem; font-weight: 400; }
-    .reminder-option input { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+    .reminder-option input, .trip-option input { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); cursor: pointer; }
     .reminder-option:has(input:checked) { color: var(--accent); border-color: #437e70; background: #0e2823; }
-    .audio-note { flex: 1 1 240px; color: var(--muted); font-size: .73rem; }
+    .custom-reminder-row { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+    .custom-reminder-row label { font-size: .73rem; color: var(--muted); }
+    .custom-reminder-row input[type="text"] { width: 170px; max-width: 100%; height: 34px; margin: 0; padding: 7px 9px; font-size: .8rem; }
+    .custom-reminder-message { flex: 1 1 240px; font-size: .73rem; color: var(--muted); }
+    .custom-reminder-message[data-error="true"] { color: var(--danger); }
+    .audio-note { flex: 1 1 200px; min-width: 0; color: var(--muted); font-size: .73rem; overflow-wrap: anywhere; }
     .audio-note[data-error="true"] { color: var(--warning); }
     .sync-panel { padding-top: 12px; border-top: 1px solid var(--line); font-size: .74rem; }
     .sync-status { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -116,6 +124,14 @@
       .countdown { font-size: 3.7rem; }
       .sound-row { margin: 10px 0; }
       footer { margin-top: 8px; }
+      .app:has(#custom-reminders-enabled:checked) .clock-panel { padding: 4px 0; }
+      .app:has(#custom-reminders-enabled:checked) .live-clock { font-size: 4.7rem; }
+      .app:has(#custom-reminders-enabled:checked) .clock-date { margin-top: 3px; }
+      .app:has(#custom-reminders-enabled:checked) .inputs-panel { padding: 12px 18px 8px; }
+      .app:has(#custom-reminders-enabled:checked) .send-block { margin: 8px 0; }
+      .app:has(#custom-reminders-enabled:checked) .send-time { font-size: 3.05rem; }
+      .app:has(#custom-reminders-enabled:checked) .countdown { font-size: 3.4rem; }
+      .app:has(#custom-reminders-enabled:checked) .sound-row { margin: 8px 0; }
     }
 
     @media (min-width: 720px) and (max-height: 740px) {
@@ -132,6 +148,12 @@
       .sound-row { margin: 8px 0; }
       .sync-panel { padding-top: 9px; }
       footer { margin-top: 6px; }
+      .app:has(#custom-reminders-enabled:checked) .clock-panel { padding: 0 0 4px; }
+      .app:has(#custom-reminders-enabled:checked) .live-clock { font-size: 4.1rem; }
+      .app:has(#custom-reminders-enabled:checked) .send-time { font-size: 2.8rem; }
+      .app:has(#custom-reminders-enabled:checked) .countdown-panel { padding: 6px 16px; }
+      .app:has(#custom-reminders-enabled:checked) .countdown { font-size: 3rem; }
+      .app:has(#custom-reminders-enabled:checked) .cue { height: 22px; }
     }
 
     @media (max-width: 600px) {
@@ -184,15 +206,20 @@
     <section class="inputs-panel" aria-label="Send-time calculator">
       <div class="input-grid">
         <div>
-          <label for="travel">Travel duration <span class="field-hint">H / H:MM / H:MM:SS</span></label>
+          <div class="travel-heading">
+            <label for="travel">Travel duration</label>
+            <label class="trip-option" title="Enter one-way travel. Round trip doubles it and targets the army's return home.">
+              <input id="round-trip" type="checkbox" autocomplete="off" aria-describedby="input-message">Round trip &times;2
+            </label>
+          </div>
           <input id="travel" type="text" placeholder="00:00:00" autocomplete="off" spellcheck="false" aria-describedby="input-message">
         </div>
         <fieldset class="arrival-field">
-          <legend>Desired arrival <span class="field-hint">Date + time</span></legend>
+          <legend><span id="arrival-label">Desired arrival</span> <span class="field-hint">Date + time</span></legend>
           <div class="arrival-inputs">
-            <label class="visually-hidden" for="arrival-date">Arrival date</label>
+            <label class="visually-hidden" id="arrival-date-label" for="arrival-date">Arrival date</label>
             <input id="arrival-date" type="date" min="0001-01-01" max="9999-12-31" autocomplete="off" aria-describedby="input-message">
-            <label class="visually-hidden" for="arrival-time">Arrival time</label>
+            <label class="visually-hidden" id="arrival-time-label" for="arrival-time">Arrival time</label>
             <input id="arrival-time" type="text" placeholder="13:10:01" autocomplete="off" spellcheck="false" aria-describedby="input-message">
           </div>
         </fieldset>
@@ -201,7 +228,7 @@
         <label for="arrival-fold">London clocks go back: this arrival time occurs twice.</label>
         <select id="arrival-fold" aria-describedby="input-message"></select>
       </div>
-      <p class="input-message" id="input-message" aria-live="polite">Arrival uses UTC. Both time fields accept H, H:MM, or H:MM:SS; .mmm is optional.</p>
+      <p class="input-message" id="input-message" aria-live="polite">Arrival uses UTC. Use : or . between hours, minutes and seconds; .mmm is optional after seconds.</p>
     </section>
 
     <section class="send-block" aria-label="Calculated send time">
@@ -232,8 +259,14 @@
         <label class="reminder-option"><input id="reminder-10m" name="sound-reminder" type="checkbox" value="600000" autocomplete="off" aria-label="10 minutes before send time">10m</label>
         <label class="reminder-option"><input id="reminder-5m" name="sound-reminder" type="checkbox" value="300000" autocomplete="off" aria-label="5 minutes before send time">5m</label>
         <label class="reminder-option"><input id="reminder-1m" name="sound-reminder" type="checkbox" value="60000" autocomplete="off" aria-label="1 minute before send time">1m</label>
+        <label class="reminder-option"><input id="custom-reminders-enabled" type="checkbox" autocomplete="off" aria-controls="custom-reminder-row">Custom</label>
       </div>
       <div class="audio-note" id="audio-note" role="status">Sound is off. Select reminders, then enable sound.</div>
+      <div class="custom-reminder-row" id="custom-reminder-row" hidden>
+        <label for="custom-reminders">Custom minutes before send</label>
+        <input id="custom-reminders" type="text" placeholder="15, 2, 0.5" autocomplete="off" spellcheck="false" aria-describedby="custom-reminder-message">
+        <div class="custom-reminder-message" id="custom-reminder-message" role="status">Comma-separated minutes; 0.5 = 30 seconds. Each plays once.</div>
+      </div>
     </div>
 
     <section class="sync-panel" id="sync-panel" data-synced="false" aria-label="Clock synchronization">
@@ -252,7 +285,7 @@
     <footer>
       <p class="footer-warning">Travian resolves arrivals to whole seconds. Browser, network, and game delays mean precise arrival cannot be guaranteed. Nothing is sent to the game.</p>
       <!-- Update this fixed timestamp when revising the file. -->
-      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-11-14T09:03:55Z">2026-11-14 09:03:55 UTC</time></p>
+      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-11-16T11:56:54Z">2026-11-16 11:56:54 UTC</time></p>
     </footer>
   </main>
 
@@ -289,8 +322,8 @@
         if (candidates.length !== 1) throw new Error("Include exactly one time, such as 2:32:37.");
         timeValue = candidates[0];
       }
-      const match = /^(\d+)(?::([0-5]?\d)(?::([0-5]?\d)(?:\.(\d{1,3}))?)?)?$/.exec(timeValue);
-      if (!match) throw new Error("Use H, H:MM, or H:MM:SS, optionally .mmm after seconds; minutes and seconds must be 00-59.");
+      const match = /^(\d+)(?:[:.]([0-5]?\d)(?:[:.]([0-5]?\d)(?:\.(\d{1,3}))?)?)?$/.exec(timeValue);
+      if (!match) throw new Error("Use H, H:MM, or H.MM.SS, optionally .mmm after seconds; minutes and seconds must be 00-59.");
       const hour = Number(match[1]);
       if (!Number.isSafeInteger(hour)) throw new Error("That hours value is too large.");
       return {
@@ -327,6 +360,26 @@
       const duration = parts.hour * 3600000 + parts.minute * 60000 + parts.second * 1000 + parts.millisecond;
       if (!Number.isSafeInteger(duration)) throw new Error("That travel duration is too large.");
       return duration;
+    }
+
+    function parseTripDuration(value, roundTrip) {
+      const duration = parseDuration(value) * (roundTrip ? 2 : 1);
+      if (!Number.isSafeInteger(duration)) throw new Error("That round-trip duration is too large.");
+      return duration;
+    }
+
+    function parseCustomReminders(value) {
+      if (!value.trim()) return [];
+      const leads = value.split(",").map(entry => {
+        const minutes = entry.trim();
+        if (!/^(?:\d+(?:\.\d{1,3})?|\.\d{1,3})$/.test(minutes)) {
+          throw new Error("Use comma-separated minutes, e.g. 15, 2, 0.5 (up to 3 decimals).");
+        }
+        const lead = Math.round(Number(minutes) * 60000);
+        if (!Number.isSafeInteger(lead) || lead <= 0) throw new Error("Reminder minutes must be positive and not excessively large.");
+        return lead;
+      });
+      return [...new Set(leads)].sort((a, b) => b - a);
     }
 
     function wallParts(epoch, zone) {
@@ -440,9 +493,13 @@
       clockMillis: document.getElementById("clock-millis"),
       clockZone: document.getElementById("clock-zone"),
       clockDate: document.getElementById("clock-date"),
+      arrivalLabel: document.getElementById("arrival-label"),
+      arrivalDateLabel: document.getElementById("arrival-date-label"),
+      arrivalTimeLabel: document.getElementById("arrival-time-label"),
       arrivalDate: document.getElementById("arrival-date"),
       arrivalTime: document.getElementById("arrival-time"),
       travel: document.getElementById("travel"),
+      roundTrip: document.getElementById("round-trip"),
       message: document.getElementById("input-message"),
       foldField: document.getElementById("fold-field"),
       fold: document.getElementById("arrival-fold"),
@@ -460,6 +517,10 @@
       volume: document.getElementById("volume"),
       volumeValue: document.getElementById("volume-value"),
       reminders: [...document.querySelectorAll('input[name="sound-reminder"]')],
+      customRemindersEnabled: document.getElementById("custom-reminders-enabled"),
+      customReminders: document.getElementById("custom-reminders"),
+      customReminderRow: document.getElementById("custom-reminder-row"),
+      customReminderMessage: document.getElementById("custom-reminder-message"),
       audioNote: document.getElementById("audio-note"),
       syncPanel: document.getElementById("sync-panel"),
       syncStatus: document.getElementById("sync-status"),
@@ -491,6 +552,7 @@
     let audioContext = null;
     let masterGain = null;
     let soundEnabled = false;
+    let customReminderLeads = [];
     const audioCues = new Map();
     const playedCues = new Set();
 
@@ -514,14 +576,33 @@
     }
 
     function selectedReminderLeads() {
-      return ui.reminders.filter(input => input.checked).map(input => Number(input.value));
+      const presets = ui.reminders.filter(input => input.checked).map(input => Number(input.value));
+      return [...new Set([...presets, ...customReminderLeads])].sort((a, b) => b - a);
+    }
+
+    function updateCustomReminders() {
+      ui.customReminderRow.hidden = !ui.customRemindersEnabled.checked;
+      customReminderLeads = [];
+      ui.customReminders.setAttribute("aria-invalid", "false");
+      ui.customReminderMessage.dataset.error = "false";
+      try {
+        if (ui.customRemindersEnabled.checked) customReminderLeads = parseCustomReminders(ui.customReminders.value);
+        setText(ui.customReminderMessage, "Comma-separated minutes; 0.5 = 30 seconds. Each plays once.");
+      } catch (error) {
+        ui.customReminders.setAttribute("aria-invalid", "true");
+        ui.customReminderMessage.dataset.error = "true";
+        setText(ui.customReminderMessage, `${error.message} Custom reminders are off until corrected; preset/final cues are unchanged.`);
+      }
+      scheduleAudioCues();
+      updateAudioStatus();
     }
 
     function scheduleAudioCues() {
       cancelAudioCues();
       if (!soundEnabled || !audioContext || audioContext.state !== "running" || target === null) return;
       const now = clockNow();
-      for (const lead of [...selectedReminderLeads(), 3000, 2000, 1000, 0]) {
+      const leads = [...new Set([...selectedReminderLeads(), 3000, 2000, 1000, 0])].sort((a, b) => b - a);
+      for (const lead of leads) {
         const key = `${target}:${lead}`;
         if (playedCues.has(key)) continue;
         const remaining = target - lead - now;
@@ -613,7 +694,7 @@
       target = epoch;
       if (epoch === null) {
         ui.sendTime.replaceChildren(document.createTextNode("--:--:--.---"));
-        setText(ui.sendDate, "Enter your arrival and travel time");
+        setText(ui.sendDate, `Enter your ${ui.roundTrip.checked ? "return" : "arrival"} and travel time`);
       } else {
         const parts = wallParts(epoch, zone);
         const fraction = document.createElement("span");
@@ -660,6 +741,7 @@
         }
         ui.route.hidden = false;
         zone = "UTC"; ui.zone.value = zone;
+        ui.roundTrip.checked = false;
         ui.travel.value = durationText(data.travelMs).replace(/\.000$/, "");
         prefillArrival(data.arrivalMs);
       } catch (error) {
@@ -687,7 +769,7 @@
         input.setAttribute("aria-invalid", "true");
         ui.foldField.hidden = true;
         ui.message.dataset.error = "true";
-        setText(ui.message, `${input === ui.travel ? "Travel duration" : "Arrival time"}: ${error.message}`);
+        setText(ui.message, `${input === ui.travel ? "Travel duration" : ui.roundTrip.checked ? "Return time" : "Arrival time"}: ${error.message}`);
         setTarget(null);
         return;
       }
@@ -695,6 +777,10 @@
     }
 
     function recalculate() {
+      const arrivalName = ui.roundTrip.checked ? "Return" : "Arrival";
+      setText(ui.arrivalLabel, ui.roundTrip.checked ? "Desired return home" : "Desired arrival");
+      setText(ui.arrivalDateLabel, `${arrivalName} date`);
+      setText(ui.arrivalTimeLabel, `${arrivalName} time`);
       const arrivalDate = ui.arrivalDate.value;
       const arrivalTime = ui.arrivalTime.value.trim();
       const travel = ui.travel.value.trim();
@@ -709,7 +795,7 @@
       if (!arrivalDate) {
         ui.arrivalDate.setAttribute("aria-invalid", "true");
         ui.message.dataset.error = "true";
-        setText(ui.message, "Choose a valid arrival date.");
+        setText(ui.message, `Choose a valid ${arrivalName.toLowerCase()} date.`);
         setTarget(null);
         return;
       }
@@ -727,7 +813,7 @@
       } catch (error) {
         ui.arrivalTime.setAttribute("aria-invalid", "true");
         ui.message.dataset.error = "true";
-        setText(ui.message, `Arrival time: ${error.message}`);
+        setText(ui.message, `${arrivalName} time: ${error.message}`);
         setTarget(null);
         return;
       }
@@ -738,7 +824,7 @@
         ui.fold.replaceChildren();
       }
       try {
-        if (travel) duration = parseDuration(travel);
+        if (travel) duration = parseTripDuration(travel, ui.roundTrip.checked);
       } catch (error) {
         ui.travel.setAttribute("aria-invalid", "true");
         ui.message.dataset.error = "true";
@@ -748,8 +834,8 @@
       }
       if (!timeParts || duration === undefined) {
         setText(ui.message, duration === undefined
-          ? `Arrival uses ${zone}. Both time fields accept H, H:MM, or H:MM:SS; .mmm is optional.`
-          : `Travel ${durationText(duration)} / Enter an arrival time in ${zone} (H, H:MM, or H:MM:SS).`);
+          ? `${arrivalName} uses ${zone}. ${ui.roundTrip.checked ? "Enter one-way travel; both legs count. " : ""}Use : or . as time separators; .mmm is optional after seconds.`
+          : `${ui.roundTrip.checked ? "Round trip" : "Travel"} ${durationText(duration)} / Enter ${arrivalName.toLowerCase()} time in ${zone} (H, H:MM or H.MM.SS).`);
         setTarget(null);
         return;
       }
@@ -757,7 +843,7 @@
       if (instants.length === 0) {
         ui.arrivalTime.setAttribute("aria-invalid", "true");
         ui.message.dataset.error = "true";
-        setText(ui.message, "This London time does not exist when clocks go forward. Choose a different arrival.");
+        setText(ui.message, `This London time does not exist when clocks go forward. Choose a different ${arrivalName.toLowerCase()} time.`);
         setTarget(null);
         return;
       }
@@ -790,7 +876,9 @@
         setTarget(null);
         return;
       }
-      setText(ui.message, `Travel ${durationText(duration)} / Arrival uses ${zone}. Midnight and DST are handled.`);
+      setText(ui.message, ui.roundTrip.checked
+        ? `Round trip ${durationText(duration)} (2 x one-way, equal legs) / Return home in ${zone}.`
+        : `Travel ${durationText(duration)} / Arrival uses ${zone}. Midnight and DST are handled.`);
       setTarget(send);
     }
 
@@ -1012,6 +1100,7 @@
       });
     }
     ui.travel.addEventListener("input", recalculate);
+    ui.roundTrip.addEventListener("change", recalculate);
     for (const input of [ui.travel, ui.arrivalTime]) {
       input.addEventListener("paste", event => {
         const text = event.clipboardData && event.clipboardData.getData("text/plain");
@@ -1031,7 +1120,7 @@
     }
     ui.fold.addEventListener("change", recalculate);
     ui.zone.addEventListener("change", () => {
-      const arrival = defenceRoute && target !== null ? target + parseDuration(ui.travel.value) : null;
+      const arrival = defenceRoute && target !== null ? target + parseTripDuration(ui.travel.value, ui.roundTrip.checked) : null;
       zone = ui.zone.value;
       clockSecond = null;
       if (arrival !== null) prefillArrival(arrival);
@@ -1039,6 +1128,8 @@
       renderClock(clockNow());
     });
     ui.sound.addEventListener("click", toggleSound);
+    ui.customRemindersEnabled.addEventListener("change", updateCustomReminders);
+    ui.customReminders.addEventListener("input", updateCustomReminders);
     for (const input of ui.reminders) {
       input.addEventListener("change", () => {
         scheduleAudioCues();

@@ -4,10 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://static.cloudflareinsights.com/beacon.min.js; connect-src https://cloudflareinsights.com/cdn-cgi/rum; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>Travian - standalone EI / TT / EI + EC farm list</title>
+<title>Travian - Roman, Gaul and Hun farm rotation planner</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1421;--panel:#142338;--line:#30465e;--ink:#edf3fc;--muted:#a8bed5;--green:#7de1b2;--blue:#8abdff;--amber:#f0ca81;--red:#ffa7b1}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,"Segoe UI",sans-serif}main{max-width:1320px;margin:auto;padding:34px 24px 65px}h1{font-size:clamp(29px,4vw,43px);line-height:1.15;margin:10px 0}h2{font-size:23px;line-height:1.25;margin:25px 0 12px}h3{font-size:17px}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}button,input,textarea{font:inherit}button{cursor:pointer;border:1px solid #456681;border-radius:7px;background:#20374e;color:var(--ink);padding:10px 15px}button:hover:not(:disabled){border-color:var(--green);background:#29465f}button:disabled{cursor:not-allowed;opacity:.5}.primary{background:#216248;border-color:#45896c;color:#fff}input[type=url],textarea{width:100%;background:#0c1a2a;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:10px 12px}input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--amber);outline-offset:3px}textarea{resize:vertical;min-height:190px;font:12px/1.5 Consolas,monospace}input[type=file]{max-width:100%;font-size:13px}input[type=radio]{accent-color:var(--green)}.eyebrow{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--green);font-weight:750}.lead{color:#c5d6e8;font-size:17px;max-width:1050px}.muted,.small{color:var(--muted)}.small{font-size:12px}.settings{display:grid;grid-template-columns:auto minmax(220px,1fr) auto;align-items:end;gap:20px;padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:11px;margin:24px 0}fieldset{border:0;padding:0;margin:0}legend,.field-label{display:block;font-size:12px;color:var(--muted);margin-bottom:7px}.troops{display:flex;gap:8px}.troops label{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:7px;white-space:nowrap}.troops label:has(input:checked){border-color:var(--green);background:#1a3b35}.locked{display:inline-block;margin-top:7px;color:var(--green);font-size:11px}.presets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.preset{text-align:left;padding:16px;min-width:0;background:#172a3e}.preset strong,.preset span{display:block;overflow-wrap:anywhere}.preset span{color:var(--muted);font-size:12px;margin-top:4px}.preset[aria-pressed=true]{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}.custom{margin:18px 0;border:1px solid var(--line);border-radius:9px;padding:14px 18px;background:#101e2e}summary{cursor:pointer;font-weight:650}.custom-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.65fr);gap:22px;margin-top:15px}.custom-grid>*{min-width:0}.file-label{display:block;margin:12px 0}.actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}.status{padding:11px 15px;border:1px solid var(--line);border-radius:7px;margin:18px 0;font-size:13px;overflow-wrap:anywhere}.status.good{border-color:#34765b;background:#132f29}.status.bad{border-color:#9c5760;background:#3a2029;color:var(--red)}.result-head{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}.result-head h2{margin:12px 0 6px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:20px 0}.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}.kpi strong{display:block;font-size:29px;line-height:1.25;color:var(--green)}.kpi span{display:block;font-size:12px;color:var(--muted);margin-top:6px}.callout{border-left:4px solid var(--amber);background:#29281f;padding:15px 20px;border-radius:0 8px 8px 0;margin:18px 0}.callout p{margin:6px 0}.table-scroll{overflow:auto;border:1px solid var(--line);border-radius:9px;margin:16px 0}table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}th,td{padding:11px 13px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{background:#20364e;color:#bfd2e7;font-size:10px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:#1c3047}.list-scroll{max-height:76vh}.farm-list th{position:sticky;top:0;z-index:1}.farm-list td{white-space:nowrap}.farm-list a{font-weight:750}.farm-list tbody tr:nth-child(10n){border-bottom:2px solid #52748f}.clay{color:#efa57a}.iron{color:#8dbfff}.total{color:var(--green);font-weight:750}.two-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px}.two-col>*{min-width:0}code,pre{font:12px/1.6 Consolas,monospace;overflow-wrap:anywhere}pre{white-space:pre-wrap;background:#0a1827;padding:13px;border-radius:7px}.formula{background:#192d41;border:1px solid var(--line);border-radius:8px;padding:15px;font:13px/1.6 Consolas,monospace;overflow-wrap:anywhere}footer{border-top:1px solid var(--line);padding-top:18px;margin-top:30px;color:var(--muted);font-size:12px}[hidden]{display:none!important}
+.settings{grid-template-columns:minmax(0,1fr) auto}.troop-plans{grid-column:1/-1}.troops label{white-space:normal}.troop-group{margin:12px 0 7px}
 @media(max-width:950px){.settings{grid-template-columns:minmax(0,1fr);gap:15px}.presets{grid-template-columns:repeat(2,minmax(0,1fr))}.settings button{justify-self:start}.two-col{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:600px){main{padding:24px 14px 40px}.custom-grid{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.preset{padding:12px}.troops{flex-wrap:wrap}.settings{padding:15px}th,td{padding:10px}}
 .troops{flex-wrap:wrap}.settings>*{min-width:0}.yield-settings{grid-column:1/-1;border-top:1px solid var(--line);padding-top:14px}.yield-settings label{display:block}.yield-settings input{display:block;margin:10px 0;width:100%;max-width:600px;accent-color:var(--green)}.yield-settings output{color:var(--green);font-weight:750}.wood{color:#9dd49e}.crop{color:#efcf7e}.mixed-list td{padding:10px}.kpi strong{font-size:clamp(18px,2vw,29px)}.kpi .budget{font-size:clamp(16px,2vw,22px)}.cost-note{margin:18px 0;font-family:inherit}.cost-note p{margin:6px 0}
@@ -21,20 +22,27 @@
 <body><main>
 <header>
   <div class="eyebrow">Travian / standalone farm rotation planner</div>
-  <h1>EI, TT or EI + EC.</h1>
+  <h1>Roman, Gaul &amp; Hun farm rotations.</h1>
   <p class="lead">Paste raw map JSON or add dump files. Every addition <strong>merges into this workspace</strong>, with one tile per coordinate.
   Set the game server, then enter your village coordinates below Tournament Square.
-  Choose a <strong>6-minute</strong> plan or <strong>EI + EC every 10 minutes</strong>.
-  EI/TT lists clay/iron nearest-first; both EI + EC plans include all free oasis types and rank by <strong>troop cost per relative yield</strong>.</p>
+  Choose a <strong>6-minute</strong> or <strong>10-minute</strong> plan.
+  Solo EI, TT and Steppe Riders list clay/iron nearest-first; multi-unit plans include all free oasis types and rank by <strong>troop cost per relative yield</strong>.</p>
 </header>
 <fieldset id="workspace-controls" class="controls">
   <form id="settings" class="settings" novalidate>
-    <fieldset><legend>Troop plan</legend>
+    <fieldset class="troop-plans"><legend>Troop plan</legend>
+      <div class="field-label">Romans / Gauls</div>
       <div class="troops">
         <label><input type="radio" name="troop" value="ei" checked> <span><strong>EI</strong> &middot; 14 fields/h</span></label>
         <label><input type="radio" name="troop" value="tt"> <span><strong>TT</strong> &middot; 19 fields/h</span></label>
         <label><input type="radio" name="troop" value="mixed"> <span><strong>EI + EC</strong> &middot; 6 min</span></label>
         <label><input type="radio" name="troop" value="paired10"> <span><strong>EI + EC</strong> &middot; 10 min</span></label>
+      </div>
+      <div class="field-label troop-group">Huns</div>
+      <div class="troops">
+        <label><input type="radio" name="troop" value="steppe"> <span><strong>1 Steppe Rider</strong> &middot; 6 min</span></label>
+        <label><input type="radio" name="troop" value="hunPair10"> <span><strong>1 Steppe + 1 Marksman</strong> &middot; 10 min</span></label>
+        <label><input type="radio" name="troop" value="hunTrio10"> <span><strong>1 Steppe + 1 Marksman + 1 Marauder</strong> &middot; 10 min</span></label>
       </div>
       <span id="interval-note" class="locked">Fixed interval: 6 minutes. Tournament Square below; no other speed bonuses.</span>
     </fieldset>
@@ -57,6 +65,9 @@
         <label id="available-ei-field"><span class="field-label">EI available for this list</span><input id="available-ei" type="number" min="0" step="1" placeholder="Not set" aria-describedby="army-help"></label>
         <label id="available-ec-field" hidden><span class="field-label">EC available for this list</span><input id="available-ec" type="number" min="0" step="1" placeholder="Not set" disabled aria-describedby="army-help"></label>
         <label id="available-tt-field" hidden><span class="field-label">TT available for this list</span><input id="available-tt" type="number" min="0" step="1" placeholder="Not set" disabled aria-describedby="army-help"></label>
+        <label id="available-steppe-field" hidden><span class="field-label">Steppe Riders available</span><input id="available-steppe" type="number" min="0" step="1" placeholder="Not set" disabled aria-describedby="army-help"></label>
+        <label id="available-marksman-field" hidden><span class="field-label">Marksmen available</span><input id="available-marksman" type="number" min="0" step="1" placeholder="Not set" disabled aria-describedby="army-help"></label>
+        <label id="available-marauder-field" hidden><span class="field-label">Marauders available</span><input id="available-marauder" type="number" min="0" step="1" placeholder="Not set" disabled aria-describedby="army-help"></label>
       </div>
       <p id="army-help" class="small">Enter the total troops you can dedicate to these rotations, including those already out on these farms.
       Blank means unknown; 0 means none. Highlights follow the existing add order and never deactivate or send anything.
@@ -152,7 +163,7 @@
 <footer>Calculations run locally. Cloudflare Web Analytics records page visits and performance statistics.
 No automatic game requests, farming timers, polling or troop sending.
 The selected six- or ten-minute interval is only used in the calculation. Map geometry: 401 &times; 401, wrapping at -200/+200.
-Occupied oases are excluded. EI/TT only include clay/iron; EI + EC includes all free oases.
+Occupied oases are excluded. Solo EI/TT/Steppe plans only include clay/iron; multi-unit plans include all free oases.
 Clay/crop and iron/crop still use the clay/iron recipe and count once each.</footer>
 <noscript><p>This calculator needs JavaScript enabled; calculations run locally.</p></noscript>
 </main>
@@ -164,19 +175,43 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   const TS_FREE = 20, TS_STEP = 0.2, MAX_TS_LEVEL = 20;
   const DEFAULT_YIELD_BONUS = 80, MAX_YIELD_BONUS = 400;
   const DEFAULT_SERVER = '';
-  const STATE_FORMAT = 'travian-farm-list-workspace', STATE_VERSION = 1;
+  const STATE_FORMAT = 'travian-farm-list-workspace', STATE_VERSION = 2;
   const UNITS = Object.freeze({
-    ei: Object.freeze({ key:'ei', short:'EI', name:'Equites Imperatoris', speed:14, cost:1410 }),
-    tt: Object.freeze({ key:'tt', short:'TT', name:'Theutates Thunder', speed:19, cost:1090 }),
-    ec: Object.freeze({ key:'ec', short:'EC', name:'Equites Caesaris', speed:10, cost:2170 })
+    ei: Object.freeze({ key:'ei', short:'EI', name:'Equites Imperatoris', speed:14, cost:1410,
+      resources:Object.freeze([550,440,320,100]),source:'https://travian.fandom.com/wiki/Equites_Imperatoris' }),
+    tt: Object.freeze({ key:'tt', short:'TT', name:'Theutates Thunder', speed:19, cost:1090,
+      resources:Object.freeze([350,450,230,60]),source:'https://travian.fandom.com/wiki/Theutates_Thunder' }),
+    ec: Object.freeze({ key:'ec', short:'EC', name:'Equites Caesaris', speed:10, cost:2170,
+      resources:Object.freeze([550,640,800,180]),source:'https://travian.fandom.com/wiki/Equites_Caesaris' }),
+    steppe: Object.freeze({ key:'steppe', short:'Steppe', name:'Steppe Rider', speed:16, cost:895,
+      resources:Object.freeze([290,370,190,45]),source:'https://siegewise.com/en/travian/units/huns#steppe-rider' }),
+    marksman: Object.freeze({ key:'marksman', short:'Marksman', name:'Marksman', speed:15, cost:1050,
+      resources:Object.freeze([320,350,330,50]),source:'https://siegewise.com/en/travian/units/huns#marksman' }),
+    marauder: Object.freeze({ key:'marauder', short:'Marauder', name:'Marauder', speed:14, cost:1760,
+      resources:Object.freeze([450,560,610,140]),source:'https://siegewise.com/en/travian/units/huns#marauder' })
   });
   const MODES = Object.freeze({
     ei:UNITS.ei, tt:UNITS.tt,
     mixed:Object.freeze({ key:'mixed', short:'EI + EC', name:'EI/EC mixture', mixed:true,
-      intervalSeconds:360,defaultYieldBonus:DEFAULT_YIELD_BONUS,pairedAll:false }),
+      intervalSeconds:360,defaultYieldBonus:DEFAULT_YIELD_BONUS,types:Object.freeze(['ei','ec']),splitRecipe:true }),
     paired10:Object.freeze({ key:'paired10', short:'EI + EC (10 min)', name:'EI/EC pairs every ten minutes', mixed:true,
-      intervalSeconds:600,defaultYieldBonus:20,pairedAll:true })
+      intervalSeconds:600,defaultYieldBonus:20,types:Object.freeze(['ei','ec']) }),
+    steppe:UNITS.steppe,
+    hunPair10:Object.freeze({ key:'hunPair10', short:'Steppe + Marksman', name:'Hun pairs every ten minutes', mixed:true,
+      intervalSeconds:600,defaultYieldBonus:20,types:Object.freeze(['steppe','marksman']) }),
+    hunTrio10:Object.freeze({ key:'hunTrio10', short:'Steppe + Marksman + Marauder', name:'Hun trios every ten minutes', mixed:true,
+      intervalSeconds:600,defaultYieldBonus:20,types:Object.freeze(['steppe','marksman','marauder']) })
   });
+  const UNIT_TYPES = Object.freeze(Object.keys(UNITS));
+  const YIELD_MODES = Object.freeze(Object.keys(MODES).filter(mode => MODES[mode].mixed));
+  const unitCounts = (value = 0) => Object.fromEntries(UNIT_TYPES.map(type => [type,value]));
+  const defaultBonuses = () => Object.fromEntries(YIELD_MODES.map(mode => [mode,MODES[mode].defaultYieldBonus]));
+  const modeTypes = mode => mode.types ?? [mode.key];
+  const recipeTypes = (mode,woodCrop = true) => mode.splitRecipe && !woodCrop ? [modeTypes(mode)[0]] : modeTypes(mode);
+  const recipeSpeed = types => Math.min(...types.map(type => UNITS[type].speed));
+  const recipeLabel = (types,count = 1) => types.map(type => `${count} ${UNITS[type].short}`).join(' + ');
+  const countField = (prefix,type) => prefix ? `${prefix}${type[0].toUpperCase()}${type.slice(1)}` : type;
+  const prefixedCounts = (prefix,counts) => Object.fromEntries(Object.entries(counts).map(([type,count]) => [countField(prefix,type),count]));
   const RESOURCES = { r1:'Wood', r2:'Clay', r3:'Iron', r4:'Crop' };
   const ANIMALS = {
     u31:'rat', u32:'spider', u33:'snake', u34:'bat', u35:'boar',
@@ -346,7 +381,8 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     if (!record(state) || state.format !== STATE_FORMAT) {
       throw new Error('Choose a JSON backup created by Export workspace, not a map dump.');
     }
-    if (state.version !== STATE_VERSION) throw new Error(`Unsupported workspace version: ${String(state.version)}.`);
+    const legacy = state.version === 1;
+    if (!legacy && state.version !== STATE_VERSION) throw new Error(`Unsupported workspace version: ${String(state.version)}.`);
     requireFields(state,['format','version','data','settings','draft'],'top-level');
     requireFields(state.data,['tiles','sources'],'map');
     requireFields(state.settings,['server','origin','troop','tournamentSquare','available','yieldBonuses','resourceFilter','inactive'],'settings');
@@ -357,11 +393,13 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       requireFields(settings.origin,['x','y'],'origin');
       validateOrigin(settings.origin);
     }
-    if (typeof settings.troop !== 'string' || !own(MODES,settings.troop)) throw new Error('The workspace has an invalid troop plan.');
+    if (typeof settings.troop !== 'string' || !own(MODES,settings.troop) ||
+        legacy && !['ei','tt','mixed','paired10'].includes(settings.troop)) throw new Error('The workspace has an invalid troop plan.');
     validateTS(settings.tournamentSquare);
-    requireFields(settings.available,['ei','ec','tt'],'troop availability');
-    for (const type of ['ei','ec','tt']) availableCount(settings.available[type],type);
-    requireFields(settings.yieldBonuses,['mixed','paired10'],'yield bonuses');
+    const types = legacy ? ['ei','ec','tt'] : UNIT_TYPES;
+    requireFields(settings.available,types,'troop availability');
+    for (const type of types) availableCount(settings.available[type],type);
+    requireFields(settings.yieldBonuses,legacy ? ['mixed','paired10'] : YIELD_MODES,'yield bonuses');
     for (const bonus of Object.values(settings.yieldBonuses)) {
       if (!Number.isInteger(bonus) || bonus < 0 || bonus > MAX_YIELD_BONUS || bonus % 5 !== 0) {
         throw new Error(`Workspace yield bonuses must be in steps of 5 from 0 to ${MAX_YIELD_BONUS}%.`);
@@ -395,6 +433,12 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     if (inactive.size !== settings.inactive.length || settings.inactive.some(id => !inactive.has(id) || !known.has(id))) {
       throw new Error('The workspace has duplicate, noncanonical or unknown inactive oasis coordinates.');
     }
+    if (legacy) state = {
+      ...state,version:STATE_VERSION,settings:{
+        ...settings,available:{...unitCounts(null),...settings.available},
+        yieldBonuses:{...defaultBonuses(),...settings.yieldBonuses}
+      }
+    };
     return {
       state,dataset:{tiles,rawTiles:state.data.tiles,sources:state.data.sources,rawCount:observations,duplicates:observations-tiles.length},
       inactive
@@ -458,9 +502,9 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   function buildPlan(model, unitKey, yieldBonusPercent, inactiveKeys = [], tsLevel = 0) {
     if (!model || !Array.isArray(model.tiles)) throw new Error('Load a valid map dump first.');
     validateOrigin(model.origin);
-    if (!own(MODES,unitKey)) throw new Error('Select EI or TT, or an EI + EC plan.');
+    if (typeof unitKey !== 'string' || !own(MODES,unitKey)) throw new Error('Select EI or TT, an EI + EC plan, or a Hun plan.');
     validateTS(tsLevel);
-    const unit = MODES[unitKey], mixed = unit.mixed === true;
+    const unit = MODES[unitKey], mixed = unit.mixed === true, types = modeTypes(unit);
     const intervalSeconds = unit.intervalSeconds ?? INTERVAL_SECONDS;
     if (yieldBonusPercent === undefined) yieldBonusPercent = unit.defaultYieldBonus ?? DEFAULT_YIELD_BONUS;
     if (mixed && (!Number.isFinite(yieldBonusPercent) || yieldBonusPercent < 0 || yieldBonusPercent > MAX_YIELD_BONUS)) {
@@ -473,24 +517,24 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     const warnings = [];
     if (!home) warnings.push('The origin is not included in the merged map. Distances still use your entered coordinates, but local coverage is incomplete.');
     else if (home.kind === 'empty') warnings.push('The origin was an empty settlement tile in this snapshot. This is a prospective-village plan; check current ownership.');
-    let total = 0, totalEi = 0, totalEc = 0, totalTt = 0, totalCost = 0, activeCount = 0;
+    let total = 0, totalCost = 0, activeCount = 0;
+    const totals = unitCounts();
     const rows = model.tiles.filter(t => t.free && (mixed || ['clay','iron'].includes(t.group))).map(t => {
       const dx = wrap(t.x-model.origin.x), dy = wrap(t.y-model.origin.y);
       const fields = Math.hypot(dx,dy), woodCrop = ['wood','crop'].includes(t.group);
-      const paired = mixed && (unit.pairedAll || woodCrop);
-      const speed = paired ? Math.min(UNITS.ei.speed,UNITS.ec.speed) : mixed ? UNITS.ei.speed : unit.speed;
+      const recipe = recipeTypes(unit,woodCrop), speed = recipeSpeed(recipe);
       const rotation = rotationUnits(fields,speed,tsLevel,intervalSeconds);
       const oneWaySeconds = travelSeconds(fields,speed,tsLevel);
-      const ei = mixed || unitKey === 'ei' ? rotation : 0;
-      const ec = paired ? rotation : 0, tt = unitKey === 'tt' ? rotation : 0;
-      const trainingCost = ei*UNITS.ei.cost + ec*UNITS.ec.cost + tt*UNITS.tt.cost;
+      const counts = unitCounts(), perRaid = unitCounts();
+      for (const type of recipe) { counts[type] = rotation; perRaid[type] = 1; }
+      const trainingCost = recipe.reduce((sum,type) => sum+counts[type]*UNITS[type].cost,0);
       const yieldWeight = mixed && woodCrop ? 100+yieldBonusPercent : 100;
       const yieldMultiplier = yieldWeight/100;
       return {
-        ...t, squared:dx*dx+dy*dy, distance:fields, speed, rotation, ei, ec, tt,
-        perRaidEi:ei ? 1 : 0, perRaidEc:ec ? 1 : 0,
-        raidLabel:paired ? '1 EI + 1 EC' : `1 ${mixed ? 'EI' : unit.short}`,
-        units:ei+ec+tt, trainingCost, yieldWeight, yieldMultiplier, adjustedCost:trainingCost*100/yieldWeight,
+        ...t, squared:dx*dx+dy*dy, distance:fields, speed, rotation, ...counts,
+        ...prefixedCounts('perRaid',perRaid),raidLabel:recipeLabel(recipe),
+        troopLabel:recipe.map(type => UNITS[type].short).join(' + '),
+        units:rotation*recipe.length, trainingCost, yieldWeight, yieldMultiplier, adjustedCost:trainingCost*100/yieldWeight,
         oneWaySeconds, roundTripSeconds:2*oneWaySeconds
       };
     }).sort((a,b) => (mixed ? a.trainingCost*b.yieldWeight-b.trainingCost*a.yieldWeight : 0) ||
@@ -499,10 +543,11 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       if (active) {
         activeCount++;
         total += t.units;
-        totalEi += t.ei; totalEc += t.ec; totalTt += t.tt; totalCost += t.trainingCost;
+        for (const type of types) totals[type] += t[type];
+        totalCost += t.trainingCost;
       }
       return { ...t, order:index+1, active, activeOrder:active ? activeCount : null,
-        cumulative:total, cumulativeEi:totalEi, cumulativeEc:totalEc, cumulativeTt:totalTt, cumulativeCost:totalCost };
+        cumulative:total, ...prefixedCounts('cumulative',totals), cumulativeCost:totalCost };
     });
     const activeRows = rows.filter(t => t.active);
     const complete = completeRadius(known,model.origin);
@@ -522,14 +567,14 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
         targets:inside.length,units:inside.reduce((sum,t) => sum+t.units,0),
         ...(mixed ? {
           wood:inside.filter(t => t.group === 'wood').length, crop:inside.filter(t => t.group === 'crop').length,
-          ei:inside.reduce((sum,t) => sum+t.ei,0), ec:inside.reduce((sum,t) => sum+t.ec,0),
+          ...Object.fromEntries(types.map(type => [type,inside.reduce((sum,t) => sum+t[type],0)])),
           cost:inside.reduce((sum,t) => sum+t.trainingCost,0)
         } : {})
       };
     });
     return {
-      model,unit,mixed,intervalSeconds,tsLevel,yieldBonusPercent:mixed ? yieldBonusPercent : 0,
-      rows,activeCount,disabledCount:rows.length-activeCount,total,totalEi,totalEc,totalTt,totalCost,warnings,bands,completeRadius:complete,
+      model,unit,types,mixed,intervalSeconds,tsLevel,yieldBonusPercent:mixed ? yieldBonusPercent : 0,
+      rows,activeCount,disabledCount:rows.length-activeCount,total,...prefixedCounts('total',totals),totalCost,warnings,bands,completeRadius:complete,
       clay:activeRows.filter(t => t.group === 'clay').length,
       iron:activeRows.filter(t => t.group === 'iron').length,
       wood:activeRows.filter(t => t.group === 'wood').length,
@@ -543,14 +588,14 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       throw new Error('Calculate a valid farm plan before checking troop availability.');
     }
     if (!available || typeof available !== 'object' || Array.isArray(available)) throw new Error('Troop availability must be an object.');
-    const types = plan.mixed ? ['ei','ec'] : [plan.unit.key];
+    const types = modeTypes(plan.unit);
     const counts = Object.fromEntries(types.map(type => {
       const count = available[type] ?? null;
       return [type,availableCount(count,type)];
     }));
     const missing = types.filter(type => counts[type] === null);
     if (missing.length) return {known:false,types,available:counts,missing};
-    const cumulative = (row,type) => row[`cumulative${type[0].toUpperCase()}${type.slice(1)}`];
+    const cumulative = (row,type) => row[countField('cumulative',type)];
     const active = plan.rows.filter(row => row.active);
     const funded = active.filter(row => types.every(type => cumulative(row,type) <= counts[type]));
     const last = funded[funded.length-1], firstUnfunded = active[funded.length] || null;
@@ -592,15 +637,17 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     const rows = [[
       'order','x','y','oasis_type','distance_fields','one_way_seconds','round_trip_seconds',
       'troop','fields_per_hour','interval_minutes','units_for_target','cumulative_units',
-      ...(plan.mixed ? ['ei_per_raid','ec_per_raid','ei_in_rotation','ec_in_rotation','cumulative_ei','cumulative_ec',
+      ...(plan.mixed ? [...plan.types.map(type => `${type}_per_raid`),...plan.types.map(type => `${type}_in_rotation`),
+        ...plan.types.map(type => `cumulative_${type}`),
         'training_cost','cumulative_training_cost','yield_multiplier','adjusted_cost','wood_crop_bonus_percent'] : []),
       'active','active_order','tournament_square'
     ]];
     for (const row of plan.rows) rows.push([
       row.order,row.x,row.y,oasisName(row),row.distance.toFixed(8),
       row.oneWaySeconds.toFixed(6),row.roundTripSeconds.toFixed(6),
-      plan.mixed ? row.ec ? 'EI + EC' : 'EI' : plan.unit.short,row.speed,plan.intervalSeconds/60,row.units,row.cumulative,
-      ...(plan.mixed ? [row.perRaidEi,row.perRaidEc,row.ei,row.ec,row.cumulativeEi,row.cumulativeEc,
+      row.troopLabel,row.speed,plan.intervalSeconds/60,row.units,row.cumulative,
+      ...(plan.mixed ? [...plan.types.map(type => row[countField('perRaid',type)]),...plan.types.map(type => row[type]),
+        ...plan.types.map(type => row[countField('cumulative',type)]),
         row.trainingCost,row.cumulativeCost,row.yieldMultiplier,row.adjustedCost.toFixed(8),plan.yieldBonusPercent] : []),
       row.active,row.activeOrder ?? '',plan.tsLevel
     ]);
@@ -617,7 +664,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   const $ = id => document.getElementById(id);
   let dataset = emptyDataset(), inactive = new Set(), currentPlan = null, busy = false;
   const downloadUrls = new Map();
-  const yieldByMode = new Map(Object.values(MODES).filter(mode => mode.mixed).map(mode => [mode.key,mode.defaultYieldBonus]));
+  const yieldByMode = new Map(Object.entries(defaultBonuses()));
   const RESOURCE_VIEWS = {
     all:{label:'All resources',groups:['clay','iron','wood','crop']},
     'clay-iron':{label:'Clay / iron',groups:['clay','iron']},
@@ -625,16 +672,18 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   };
   const troop = () => document.querySelector('input[name="troop"]:checked').value;
   const selectedMode = () => MODES[troop()];
-  const selectedTypes = () => selectedMode().mixed ? ['ei','ec'] : [troop()];
+  const selectedTypes = () => modeTypes(selectedMode());
+  const formattedCounts = (types,counts,prefix='',separator=' + ') =>
+    types.map(type => `${number(counts?.[countField(prefix,type)] ?? 0)} ${UNITS[type].short}`).join(separator);
   function updateVillageControls() {
     $('tournament-square').disabled = busy;
     const level = Number($('tournament-square').value);
     $('ts-value').textContent = level;
     $('ts-hint').textContent = `The first 20 fields stay at base speed; beyond that, speed is ${(1+TS_STEP*level).toFixed(1)}x. `+
       (selectedMode().mixed
-        ? 'EI + EC modes re-rank rounded troop costs, so priorities can change.'
+        ? 'Multi-unit modes re-rank rounded troop costs, so priorities can change.'
         : 'Closest-first order stays the same; distant targets need fewer rotation troops.');
-    for (const type of ['ei','ec','tt']) {
+    for (const type of UNIT_TYPES) {
       $('available-'+type+'-field').hidden = !selectedTypes().includes(type);
       $('available-'+type).disabled = busy || !selectedTypes().includes(type);
     }
@@ -656,7 +705,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     return available;
   }
   function updateYieldControl(restore=false) {
-    const mode = selectedMode(), mixed = mode.mixed === true;
+    const mode = selectedMode(), mixed = mode.mixed === true, types = modeTypes(mode);
     $('yield-settings').hidden = !mixed;
     $('yield-bonus').disabled = busy || !mixed;
     if (restore) $('yield-bonus').value = yieldByMode.get(mixed ? mode.key : 'mixed');
@@ -665,9 +714,9 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     const minutes = (mode.intervalSeconds ?? INTERVAL_SECONDS)/60;
     $('interval-note').textContent = `Fixed interval: ${minutes} minutes. Tournament Square below; no other speed bonuses.`;
     $('yield-note').innerHTML = `0% = equal yield; ${bonus}% = ${(1+bonus/100).toFixed(2)} times the resources. `+
-      (mode.pairedAll
-        ? '<strong>1 EI + 1 EC together to every oasis type, at base 10 fields/h.</strong> '
-        : 'Clay/iron: <strong>1 EI at base 14 fields/h</strong>. Wood/crop: <strong>1 EI + 1 EC together at base 10 fields/h</strong>. ')+
+      (mode.splitRecipe
+        ? 'Clay/iron: <strong>1 EI at base 14 fields/h</strong>. Wood/crop: <strong>1 EI + 1 EC together at base 10 fields/h</strong>. '
+        : `<strong>${recipeLabel(types)} together to every oasis type, at base ${recipeSpeed(types)} fields/h.</strong> `)+
       `One raid every ${minutes} minutes. The extra-yield bonus applies only to wood/crop.`;
   }
   function status(message,kind='') {
@@ -725,7 +774,10 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
   }
 
   function render(plan,server,budget) {
-    const {model,unit,rows,mixed} = plan;
+    const {model,unit,types,rows,mixed} = plan;
+    const groupSpeed = recipeSpeed(types), groupRecipe = recipeLabel(types);
+    const groupCost = types.reduce((sum,type) => sum+UNITS[type].cost,0);
+    const typeLabels = types.map(type => UNITS[type].short).join(' / ');
     const minutes = plan.intervalSeconds/60;
     const funded = new Set(budget.known ? budget.fundedKeys : []);
     const marker = row => budget.known && row.active
@@ -735,16 +787,16 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     const firstCost = first?.cumulative || 0;
     $('result-title').innerHTML = `${esc(model.label)} &mdash; ${link(model.origin,server)}`;
     $('result-subtitle').textContent = (mixed
-      ? (unit.pairedAll ? '1 EI + 1 EC to every oasis type (base 10 fields/h). '
-        : '1 EI to clay/iron (base 14 fields/h); 1 EI + 1 EC to wood/crop (base 10 fields/h). ')+
+      ? (unit.splitRecipe ? '1 EI to clay/iron (base 14 fields/h); 1 EI + 1 EC to wood/crop (base 10 fields/h). '
+        : `${groupRecipe} to every oasis type (base ${groupSpeed} fields/h). `)+
         `Every ${minutes} minutes. ${plan.clay} clay, ${plan.iron} iron, ${plan.wood} wood, ${plan.crop} crop. `
       : `1 ${unit.short} per raid, every ${minutes} minutes, at base ${unit.speed} fields/hour. `) +
       `Tournament Square ${plan.tsLevel}. ${model.sourceName}; origin entered below Tournament Square.`;
     const stats = mixed ? [
       [`${number(plan.activeCount)} / ${number(rows.length)}`,'enabled / available oases'],
-      [`<span class="budget">${number(plan.totalEi)} EI<br>${number(plan.totalEc)} EC</span>`,'rotation budget for enabled targets'],
+      [`<span class="budget">${formattedCounts(types,plan,'total','<br>')}</span>`,'rotation budget for enabled targets'],
       [number(plan.totalCost),'actual troop cost for enabled targets'],
-      [number(first?.cumulativeCost || 0),`actual cost of first ${firstCount}: ${number(first?.cumulativeEi || 0)} EI + ${number(first?.cumulativeEc || 0)} EC`]
+      [number(first?.cumulativeCost || 0),`actual cost of first ${firstCount}: ${formattedCounts(types,first,'cumulative')}`]
     ] : [
       [`${number(plan.activeCount)} / ${number(rows.length)}`,'enabled / available clay/iron'],[`${plan.clay} / ${plan.iron}`,'enabled clay-family / iron-family'],
       [`${number(plan.total)} ${unit.short}`,'rotation budget for enabled targets'],
@@ -755,7 +807,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       $('army-summary').textContent = 'No enabled targets to fund. Enable targets to check your troop coverage.';
     } else if (!budget.known) {
       $('army-summary').innerHTML = `<strong>Highlight your raiding range:</strong> enter ${budget.missing.map(type => UNITS[type].short).join(' and ')} availability above.
-        Blank is unknown, not unlimited; EI + EC modes need both troop counts.`;
+        Blank is unknown, not unlimited; every troop type in the selected plan needs a count.`;
     } else {
       const counts = values => budget.types.map(type => `${number(values[type])} ${UNITS[type].short}`).join(' + ');
       const shortage = budget.types.filter(type => budget.shortfall[type] > 0)
@@ -767,23 +819,25 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
         <p class="small">Green/Fits rows form an ordered prefix. The first shortage stops it; later cheaper targets are not silently substituted.
         Use the checkboxes to choose another set. This is rotation staffing, without a reserve for losses or delays; CSV still includes the full list.</p>`;
     }
-    $('raid-note').textContent = unit.pairedAll ? 'Send 1 EI + 1 EC together to every oasis, once per 10 minutes.'
-      : mixed ? 'Send 1 EI to clay/iron; send 1 EI + 1 EC together to wood/crop.' : `Send just 1 ${unit.short} per raid.`;
+    $('raid-note').textContent = unit.splitRecipe ? 'Send 1 EI to clay/iron; send 1 EI + 1 EC together to wood/crop.'
+      : mixed ? `Send ${groupRecipe} together to every oasis, once per ${minutes} minutes.` : `Send just 1 ${unit.short} per raid.`;
     $('order-title').textContent = mixed ? 'Add order - lowest yield-adjusted cost first' : 'Full add order - closest first';
     $('cost-note').hidden = !mixed;
     $('cost-note').innerHTML = mixed ? `<p><strong>Rank score = actual troop purchase cost / relative resource yield. Lower is better.</strong>
       Clay/iron uses 1x yield; wood/crop uses ${(1+plan.yieldBonusPercent/100).toFixed(2)}x (+${plan.yieldBonusPercent}%).
       All four resources are valued equally. A ${plan.yieldBonusPercent}% bonus changes the ranking, not the price you pay.</p>
-      <p>Both troops in a pair have base speed 10 fields/h. Square ${plan.tsLevel} speeds only the distance past 20 fields.
-      The slower return needs more EI/EC pairs in rotation, not a faster raid timer.
-      ${unit.pairedAll ? 'Clay/crop and iron/crop also use a pair, but keep baseline 1x yield.' : 'Clay/crop and iron/crop use the 1-EI recipe and no extra-yield bonus.'}</p>
+      <p>The group travels at its slowest unit's base speed: ${groupSpeed} fields/h. Square ${plan.tsLevel} speeds only the distance past 20 fields.
+      The return time determines how many groups are needed in rotation, not a faster raid timer.
+      ${unit.splitRecipe ? 'Clay/crop and iron/crop use the 1-EI recipe and no extra-yield bonus.'
+        : 'Clay/crop and iron/crop also use the full group, but keep baseline 1x yield.'}</p>
       <p>This is a <strong>relative payback ranking</strong>, assuming equal base income per oasis and your chosen wood/crop uplift.
       It is not measured loot or payback in hours; losses, upkeep, clearing costs and training time are excluded.
-      ${unit.pairedAll ? 'Compare targets within this ten-minute plan: fewer rotation troops do not prove higher income than a six-minute plan.' : ''}</p>` : '';
+      ${minutes === 10 ? 'Compare targets within this ten-minute plan: fewer rotation troops do not prove higher income than a six-minute plan.' : ''}</p>` : '';
     $('plan-warnings').innerHTML = plan.warnings.map(w => `<p>${esc(w)}</p>`).join('');
     $('plan-warnings').hidden = plan.warnings.length === 0;
     $('target-table').innerHTML = table(
-      mixed ? ['Use','#','Game coordinate','Oasis type','Fields','One-way / round trip','Per raid','+ EI','+ EC','Cumulative EI / EC','Troop cost','Adjusted cost','Cumulative cost']
+      mixed ? ['Use','#','Game coordinate','Oasis type','Fields','One-way / round trip','Per raid',
+        ...types.map(type => '+ '+UNITS[type].short),`Cumulative ${typeLabels}`,'Troop cost','Adjusted cost','Cumulative cost']
         : ['Use','#','Game coordinate','Oasis type','Fields','One-way','Round trip',`+ ${unit.short} for target`,`Cumulative ${unit.short}`],
       rows.map(row => {
         const common = [
@@ -793,8 +847,8 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
         return mixed ? [...common,
           row.distance.toFixed(2),`${duration(row.oneWaySeconds)}<br><span class="small">${duration(row.roundTripSeconds)} RT</span>`,
           `${row.raidLabel}<br><span class="small">${row.speed} fields/h base</span>`,
-          `<strong>+${row.ei}</strong>`,`<strong>+${row.ec}</strong>`,
-          `<span class="total">${number(row.cumulativeEi)} EI<br>${number(row.cumulativeEc)} EC</span>${marker(row)}`,
+          ...types.map(type => `<strong>+${row[type]}</strong>`),
+          `<span class="total">${formattedCounts(types,row,'cumulative','<br>')}</span>${marker(row)}`,
           number(row.trainingCost),`<strong class="total" title="${row.trainingCost} / ${row.yieldMultiplier.toFixed(2)}">${money(row.adjustedCost)}</strong>`,
           number(row.cumulativeCost)
         ] : [...common,
@@ -813,7 +867,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     if (!rows.length) $('target-table').insertAdjacentHTML('beforeend',`<p class="small">No free ${mixed ? '' : 'clay/iron '}oases were found in the merged map.</p>`);
     else if (!plan.activeCount) $('target-table').insertAdjacentHTML('beforeend','<p class="small">All oases are deactivated. Enable a row or click Reactivate all oases to restore a budget.</p>');
     $('radius-table').innerHTML = table(
-      mixed ? ['Radius','Clay','Iron','Wood','Crop','Targets','EI / EC budget','Actual troop cost','Scanned tiles']
+      mixed ? ['Radius','Clay','Iron','Wood','Crop','Targets',`${typeLabels} budget`,'Actual troop cost','Scanned tiles']
         : ['Radius','Clay','Iron','Targets',`${unit.short} budget`,'Scanned tiles'],
       plan.bands.map((band,index) => {
         const suffix = band.complete ? '' : '+';
@@ -821,7 +875,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
         const badge = budget.known && band.targets > 0
           ? `<span class="budget-marker">${budget.bands[index].fits ? band.complete ? 'Fits' : 'Fits listed' : 'Over pool'}</span>` : '';
         return mixed ? [band.radius,`${band.clay}${suffix}`,`${band.iron}${suffix}`,`${band.wood}${suffix}`,`${band.crop}${suffix}`,
-          `${band.targets}${suffix}`,`${number(band.ei)} EI / ${number(band.ec)} EC${suffix}${badge}`,`${number(band.cost)}${suffix}`,scanned]
+          `${band.targets}${suffix}`,`${formattedCounts(types,band,'',' / ')}${suffix}${badge}`,`${number(band.cost)}${suffix}`,scanned]
           : [band.radius,`${band.clay}${suffix}`,`${band.iron}${suffix}`,`${band.targets}${suffix}`,`${number(band.units)}${suffix}${badge}`,scanned];
       })
     );
@@ -834,15 +888,16 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       round-trip minutes = 2 &times; one-way minutes<br>`;
     $('formula').innerHTML = travelFormula + (mixed
       ? `n = ceil(round-trip minutes / ${minutes})<br>`+
-        (unit.pairedAll ? 'Every oasis: n EI + n EC, speed 10; cost = n &times; (1,410 + 2,170)<br>'
-          : 'Clay/iron: n EI, speed 14; cost = n &times; 1,410<br>Wood/crop: n EI + n EC, speed 10; cost = n &times; (1,410 + 2,170)<br>')+
+        (unit.splitRecipe ? 'Clay/iron: n EI, speed 14; cost = n &times; 1,410<br>Wood/crop: n EI + n EC, speed 10; cost = n &times; (1,410 + 2,170)<br>'
+          : `Every oasis: ${recipeLabel(types,'n')}, speed ${groupSpeed}; cost = n &times; (${types.map(type => number(UNITS[type].cost)).join(' + ')})<br>`)+
         `Rank score = cost / ${((1+plan.yieldBonusPercent/100)).toFixed(2)} for wood/crop, or cost for clay/iron.<br>`+
-        (unit.pairedAll ? '' : `Example: 6 EI = ${number(6*UNITS.ei.cost)} resources.<br>`)+
-        `3 EI + 3 EC = ${number(3*(UNITS.ei.cost+UNITS.ec.cost))} resources; wood/crop adjusted = ${money(3*(UNITS.ei.cost+UNITS.ec.cost)/(1+plan.yieldBonusPercent/100))}.<br><br>
-        Base stable costs (wood/clay/iron/crop):<br>EI: 550 + 440 + 320 + 100 = 1,410<br>EC: 550 + 640 + 800 + 180 = 2,170.<br>
-        Sources: <a href="https://travian.fandom.com/wiki/Equites_Imperatoris" target="_blank" rel="noopener noreferrer">EI</a>,
-        <a href="https://travian.fandom.com/wiki/Equites_Caesaris" target="_blank" rel="noopener noreferrer">EC</a>. No Great Stable surcharge.`
+        (unit.splitRecipe ? `Example: 6 EI = ${number(6*UNITS.ei.cost)} resources.<br>` : '')+
+        `${recipeLabel(types,3)} = ${number(3*groupCost)} resources; wood/crop adjusted = ${money(3*groupCost/(1+plan.yieldBonusPercent/100))}.`
       : `${unit.short} for one target = ceil(round-trip minutes / ${minutes})<br>base speed = ${unit.speed} fields/hour<br>cumulative = sum of the individually rounded allocations`);
+    $('formula').innerHTML += `<br><br>Base stable costs (wood/clay/iron/crop):<br>`+
+      types.map(type => `${UNITS[type].short}: ${UNITS[type].resources.map(number).join(' + ')} = ${number(UNITS[type].cost)}`).join('<br>')+
+      '<br>Sources: '+types.map(type => `<a href="${UNITS[type].source}" target="_blank" rel="noopener noreferrer">${UNITS[type].name}</a>`).join(', ')+
+      '. No Great Stable surcharge.';
     const covered = model.tiles.length === SIZE*SIZE ? 'The entire world is covered.'
       : plan.completeRadius > 0 ? `Complete circular coverage through <strong>${plan.completeRadius} fields</strong>.`
       : 'No fully scanned surrounding circle is available.';
@@ -888,7 +943,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       if (plan.mixed) yieldByMode.set(plan.unit.key,plan.yieldBonusPercent);
       currentPlan = plan;
       status(prefix+`${model.label} ${coord(model.origin)}: ` + (plan.mixed
-        ? `${plan.activeCount}/${plan.rows.length} targets enabled, ordered by adjusted cost (+${plan.yieldBonusPercent}% wood/crop yield); ${number(plan.totalEi)} EI + ${number(plan.totalEc)} EC; ${number(plan.totalCost)} resources to train enabled rotations.`
+        ? `${plan.activeCount}/${plan.rows.length} targets enabled, ordered by adjusted cost (+${plan.yieldBonusPercent}% wood/crop yield); ${formattedCounts(plan.types,plan,'total')}; ${number(plan.totalCost)} resources to train enabled rotations.`
         : `${plan.clay} clay + ${plan.iron} iron enabled; ${number(plan.total)} ${plan.unit.short} in rotation.`), 'good');
     } catch (error) {
       clearResults();
@@ -904,7 +959,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
       data:{tiles:dataset.rawTiles,sources:dataset.sources},
       settings:{
         server:$('server').value,origin:readOrigin(),troop:troop(),tournamentSquare:Number($('tournament-square').value),
-        available:readAvailable(['ei','ec','tt']),yieldBonuses:Object.fromEntries(yieldByMode),
+        available:readAvailable(UNIT_TYPES),yieldBonuses:Object.fromEntries(yieldByMode),
         resourceFilter:$('resource-filter').value,inactive:[...inactive]
       },
       draft:$('dump-text').value
@@ -921,8 +976,8 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     $('origin-y').value = settings.origin?.y ?? '';
     document.querySelector(`input[name="troop"][value="${settings.troop}"]`).checked = true;
     $('tournament-square').value = settings.tournamentSquare;
-    for (const type of ['ei','ec','tt']) $('available-'+type).value = settings.available[type] ?? '';
-    for (const mode of ['mixed','paired10']) yieldByMode.set(mode,settings.yieldBonuses[mode]);
+    for (const type of UNIT_TYPES) $('available-'+type).value = settings.available[type] ?? '';
+    for (const mode of YIELD_MODES) yieldByMode.set(mode,settings.yieldBonuses[mode]);
     $('resource-filter').value = settings.resourceFilter;
     $('dump-text').value = state.draft;
     updateYieldControl(true);
@@ -968,7 +1023,7 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     updateYieldControl();
     calculate();
   });
-  ['origin-x','origin-y','tournament-square','available-ei','available-ec','available-tt'].forEach(id => {
+  ['origin-x','origin-y','tournament-square',...UNIT_TYPES.map(type => 'available-'+type)].forEach(id => {
     $(id).addEventListener('input',() => {
       if (!busy) calculate();
     });
@@ -1114,8 +1169,8 @@ Clay/crop and iron/crop still use the clay/iron recipe and count once each.</foo
     applyWorkspace(prepareWorkspace({
       format:STATE_FORMAT,version:STATE_VERSION,data:{tiles:[],sources:[]},draft:'',
       settings:{
-        server:DEFAULT_SERVER,origin:null,troop:'ei',tournamentSquare:0,available:{ei:null,ec:null,tt:null},
-        yieldBonuses:{mixed:MODES.mixed.defaultYieldBonus,paired10:MODES.paired10.defaultYieldBonus},
+        server:DEFAULT_SERVER,origin:null,troop:'ei',tournamentSquare:0,available:unitCounts(null),
+        yieldBonuses:defaultBonuses(),
         resourceFilter:'all',inactive:[]
       }
     }));

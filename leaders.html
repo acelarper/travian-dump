@@ -26,6 +26,8 @@ fieldset{border:0;padding:0;margin:0;min-width:0}legend{font-size:12px;font-weig
 summary{cursor:pointer}.advanced{margin-top:12px;color:var(--dim);font-size:12px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px;text-align:left}th,td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:11px;color:var(--dim);white-space:nowrap}
 td{overflow-wrap:anywhere}.selected{background:#12352c}.operation,.player-group{margin-top:16px;border:1px solid #437e70;border-radius:10px;overflow:hidden}.operation>header,.player-group>header{padding:11px 13px;background:#0e2823;overflow-wrap:anywhere}
 .operation .table-wrap,.player-group .table-wrap{background:var(--field)}.tag{display:inline-block;font-size:10px;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--dim)}.row-actions{display:flex;gap:5px;flex-wrap:wrap}.counts{font-size:12px;color:var(--green);margin-top:10px}
+.participant-tag{display:inline-block;max-width:100%;margin-left:5px;padding:2px 6px;border:1px solid #695536;border-radius:5px;background:#262114;color:var(--gold);font-size:12px;font-weight:600;overflow-wrap:anywhere}
+.observed-ts{margin-left:6px}.observed-ts.warn{border-color:#695536;color:var(--gold)}
 .data-list{max-height:260px;overflow:auto}.data-list .item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.data-list .item>div:first-child{min-width:0;overflow-wrap:anywhere}
 .batch-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:14px}.participant-editor{min-width:0;border:1px solid var(--line);border-radius:10px;padding:12px}.participant-editor>h3{margin-bottom:12px}.list-entry{display:flex;align-items:flex-start;gap:8px}.list-entry>div{min-width:0}.list-entry>input{flex-shrink:0;margin-top:5px}.pace-badge{display:inline-block;padding:3px 7px;border:1px solid #496474;border-radius:6px;background:var(--field);color:var(--green);font-size:13px;font-weight:650;margin-right:6px}.forecast-group{margin-top:24px}.forecast-group>.heading{padding-bottom:8px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.forecast-subgroup{margin-top:18px}.forecast-subgroup>.heading{font-size:12px;color:var(--dim);overflow-wrap:anywhere}.forecast-subgroup+.forecast-subgroup{margin-top:28px}
 .player-group+ .player-group{margin-top:24px}.player-score{font:600 17px var(--mono);color:var(--green)}.village-heading{padding:9px 12px;background:#141d27;border-top:1px solid var(--line)}.empty{color:var(--dim);padding:16px 0;font-size:13px}
@@ -62,10 +64,14 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       <div class="batch-grid">
         <section class="participant-editor" aria-labelledby="attackers-heading">
           <h3 id="attackers-heading">Attackers</h3><div id="origin-picker"></div>
+          <label class="spaced">Attacker tag<input id="attacker-note" list="attacker-tags" maxlength="200" placeholder="Hammer, Chiefs, WWK or custom"></label>
+          <datalist id="attacker-tags"><option value="Hammer"><option value="Chiefs"><option value="WWK"></datalist>
           <div class="grid">
             <label>Attacker TS assumptions<input id="op-ts" value="16,17,18" placeholder="15 or 16,17,18 or 10-20"></label>
-            <label>Slowest unit / pace<select id="op-speed"></select></label>
+            <label>Last observed TS<input id="attacker-last-ts" type="number" min="0" max="20" step="1" placeholder="Unknown" title="Historical note for this village; it does not change the TS assumptions."></label>
           </div>
+          <label class="spaced">Slowest unit / pace<select id="op-speed"></select></label>
+          <p class="hint">Last observed TS is historical. The full assumption range is still calculated.</p>
           <details id="op-bonuses" class="advanced"><summary>Attacker speed bonuses (off by default)</summary><div class="grid">
             <label>Hero boots<select id="op-boots"><option value="0">No boots bonus</option><option value="25">Mercenary boots (+25% after 20 fields)</option><option value="50">Warrior boots (+50% after 20 fields)</option><option value="75">Archon boots (+75% after 20 fields)</option></select></label>
             <label>Speed artefact<select id="op-artefact"><option value="1">None</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
@@ -77,6 +83,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
         </section>
         <section class="participant-editor" aria-labelledby="defenders-heading">
           <h3 id="defenders-heading">Defenders / targets</h3><div id="destination-picker"></div>
+          <label class="spaced">Defender tag<input id="defender-note" list="defender-tags" maxlength="200" placeholder="Anvil, Hammer, Capital, WWK or custom"></label>
+          <datalist id="defender-tags"><option value="Anvil"><option value="Hammer"><option value="Capital"><option value="WWK"></datalist>
           <div class="grid">
             <label>Attack state<select id="op-kind"><option value="anticipated">Anticipated</option><option value="active">Already incoming</option></select></label>
             <label>Known time<select id="op-basis"><option value="landing">Landing time</option><option value="launch">Sending time</option></select></label>
@@ -86,16 +94,22 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
           <p id="defender-status" class="status" role="status" hidden></p>
           <div class="heading spaced"><label class="check"><input id="defenders-all" type="checkbox" disabled>All defenders</label><span id="defender-count" class="muted"></span></div>
           <div id="defender-list" class="data-list"></div>
+          <fieldset class="spaced"><legend>Set landing for selected defenders (UTC)</legend><div class="date-time">
+            <input id="bulk-defender-date" type="date" aria-label="Bulk defender landing date UTC">
+            <input id="bulk-defender-time" placeholder="13:00:00" aria-label="Bulk defender landing time UTC">
+          </div></fieldset>
+          <div class="actions"><button id="retime-defenders" type="button" disabled>Update selected landing times</button></div>
+          <p class="hint">Updates targets and attacks matching their village and current timing. Resets updated attacks to anticipated.</p>
+          <p id="bulk-defender-status" class="status" role="status" hidden></p>
         </section>
       </div>
-      <label class="spaced">Note (optional)<input id="op-note" maxlength="1000" placeholder="Note for these routes"></label>
       <p id="source-report" class="status" hidden></p>
       <div class="actions"><button id="generate-pairings" class="primary" type="button" disabled>Add all pairings</button><span id="combination-count" class="muted" role="status"></span></div>
       <div class="actions"><button id="add-operation" type="button">Add this pair only</button><button id="cancel-edit" type="button" hidden>Cancel edit</button></div>
       <p class="hint">Checked attackers are paired with every checked target. A target can appear at several times. Existing attacks are kept.</p>
       <p id="editor-status" class="status" role="status" hidden></p>
     </div>
-    <div class="panel"><div class="heading"><h2>Attacks in this plan</h2><button id="calculate-operations" class="primary" type="button">Calculate times</button></div><div id="operation-list" class="data-list"></div><p class="hint">Each TS value is a hypothesis, not a confirmed launch time. Inputs are saved; calculations refresh on click.</p></div>
+    <div class="panel"><div class="heading"><h2>Attacks in this plan</h2><div class="row-actions"><button id="remove-all-attacks" type="button" disabled>Remove all attacks</button><button id="calculate-operations" class="primary" type="button">Calculate times</button></div></div><div id="operation-list" class="data-list"></div><p class="hint">Each TS value is a hypothesis, not a confirmed launch time. Inputs are saved; calculations refresh on click.</p></div>
     <div id="forecast-view" class="panel controls" hidden>
       <div class="grid">
         <label>View by<select id="forecast-group"><option value="attacker-player">Attacker player / village</option><option value="attacker-village">Attacking village</option><option value="defender-player">Defender player / village</option><option value="defender-village">Defending village</option><option value="arrival">Landing time</option><option value="launch">Sending time</option><option value="none">Individual attacks</option></select></label>
@@ -208,6 +222,13 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (typeof value !== 'string' || value.length > max) throw new Error(`Invalid ${name}.`);
     return value;
   };
+  const participantNote = (value,name) => text(value ?? '',200,name+' tag').trim();
+  function normalizeLastTs(value) {
+    if (value == null) return null;
+    if (typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid last-observed TS.');
+    return {level:C.integer(value.level,0,20,'Last observed TS'),notedAt:C.integer(value.notedAt,0,MAX_TIME,'TS observation record time')};
+  }
+  const attackerVillageKey = attacker => `${attacker.x}|${attacker.y}|${attacker.tribe}`;
   function parseTsLevels(value) {
     if (Array.isArray(value)) {
       if (!value.length || value.length > 21) throw new Error('Choose 1-21 TS levels.');
@@ -299,17 +320,19 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       if (!speeds(attacker.tribe).includes(raw.speed) || ![0,25,50,75].includes(raw.boots) || ![1,1.5,2].includes(raw.artefact) || ![0,30,40,50].includes(mapBonus)) throw new Error('Invalid saved return pace or bonuses.');
       returning = {...timing,currentTs:C.integer(raw.currentTs,0,20,'Saved return TS'),speed:raw.speed,boots:raw.boots,artefact:raw.artefact,mapBonus};
     }
-    return {id,role:value.role,...army,defender,...timing,note:text(value.note ?? '',1000,'attack note'),scouting,returning};
+    return {id,role:value.role,...army,defender,...timing,
+      attackerNote:participantNote(value.attackerNote,'attacker'),defenderNote:participantNote(value.defenderNote,'defender'),
+      lastTs:normalizeLastTs(value.lastTs),note:text(value.note ?? '',1000,'attack note'),scouting,returning};
   }
   function normalizeAttacker(value) {
     const id = recordId(value,'attacker');
     if (typeof value.enabled !== 'boolean') throw new Error('Invalid attacker selection.');
-    return {id,...armySettings(value),enabled:value.enabled};
+    return {id,...armySettings(value),enabled:value.enabled,note:participantNote(value.note,'attacker'),lastTs:normalizeLastTs(value.lastTs)};
   }
   function normalizeDefender(value) {
     const id = recordId(value,'defender');
     if (typeof value.enabled !== 'boolean') throw new Error('Invalid defender selection.');
-    return {id,defender:point(value.defender,'Defender'),...timingSettings(value),enabled:value.enabled};
+    return {id,defender:point(value.defender,'Defender'),...timingSettings(value),enabled:value.enabled,note:participantNote(value.note,'defender')};
   }
   function normalizeBuilder(value = {attackers:[],defenders:[],note:''}) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid saved attacker/defender lists.');
@@ -322,6 +345,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     return {attackers:list(value.attackers,normalizeAttacker,'attackers'),defenders:list(value.defenders,normalizeDefender,'defenders'),
       note:text(value.note ?? '',1000,'list note')};
   }
+  const attackerSignature = entry => JSON.stringify([entry.attacker,entry.tsLevels,entry.speed,entry.boots,entry.artefact]);
+  const defenderSignature = entry => JSON.stringify([entry.defender,entry.kind,entry.basis,entry.timeMs]);
   const operationSignature = op => JSON.stringify([op.role,op.kind,op.attacker,op.defender,op.tsLevels,op.speed,op.boots,op.artefact,op.basis,op.timeMs]);
   function combineOperations(builder,operations,options) {
     const {role,prefix} = options || {};
@@ -334,7 +359,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     let added = 0, duplicates = 0, skipped = 0;
     for (const [a,attacker] of attackers.entries()) for (const [d,defender] of defenders.entries()) {
       if (attacker.attacker.x === defender.defender.x && attacker.attacker.y === defender.defender.y) { skipped++; continue; }
-      const operation = normalizeOperation({...attacker,...defender,attacker:attacker.attacker,id:`${prefix}-${a}-${d}`,role,note:lists.note});
+      const operation = normalizeOperation({...attacker,...defender,attacker:attacker.attacker,id:`${prefix}-${a}-${d}`,role,
+        attackerNote:attacker.note,defenderNote:defender.note,note:''});
       const signature = operationSignature(operation);
       if (existing.has(signature)) { duplicates++; continue; }
       if (next.length >= MAX_ATTACKS) throw new Error(`These combinations exceed the ${MAX_ATTACKS}-attack limit. Choose fewer entries; no attacks were added.`);
@@ -342,6 +368,35 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     }
     attackScenarios(next);
     return {operations:next,added,duplicates,skipped};
+  }
+  function retimeDefenders(builder,operations,landingMs,role = 'defending') {
+    C.integer(landingMs,0,MAX_TIME,'New landing time');
+    if (!['defending','attacking'].includes(role)) throw new Error('Invalid attack role.');
+    if (!Array.isArray(operations) || operations.length > MAX_ATTACKS) throw new Error(`At most ${MAX_ATTACKS} attacks can be saved.`);
+    const lists = normalizeBuilder(builder), selected = new Set(lists.defenders.filter(entry => entry.enabled).map(defenderSignature));
+    if (!selected.size) throw new Error('Select at least one defender.');
+    if (lists.defenders.some(entry => !entry.enabled && selected.has(defenderSignature(entry)))) throw new Error('Selected and unselected targets share a village and time. Remove the duplicate target first.');
+    const changed = value => value.kind !== 'anticipated' || value.basis !== 'landing' || value.timeMs !== landingMs || value.reportedAt !== null;
+    const timing = {kind:'anticipated',basis:'landing',timeMs:landingMs,reportedAt:null};
+    let updatedTargets = 0, updatedAttacks = 0;
+    const defenders = lists.defenders.map(entry => {
+      if (!entry.enabled || !changed(entry)) return entry;
+      updatedTargets++;
+      return {...entry,...timing};
+    });
+    for (let i=0;i<defenders.length;i++) for (let j=i+1;j<defenders.length;j++) {
+      if (defenderSignature(defenders[i]) === defenderSignature(defenders[j])
+        && defenderSignature(lists.defenders[i]) !== defenderSignature(lists.defenders[j])) {
+        throw new Error(`This time would duplicate a target at ${C.coordText(defenders[i].defender)}. Remove one of those target entries first; nothing was changed.`);
+      }
+    }
+    const next = operations.map(normalizeOperation).map(op => {
+      if (op.role !== role || !selected.has(defenderSignature(op)) || !changed(op)) return op;
+      updatedAttacks++;
+      return {...op,...timing,scouting:null,returning:null};
+    });
+    attackScenarios(next);
+    return {builder:{...lists,defenders},operations:next,updatedTargets,updatedAttacks};
   }
   function attackSeconds(fields,speed,ts,boots = 0,artefact = 1) {
     if (![0,25,50,75].includes(boots) || ![1,1.5,2].includes(artefact)) throw new Error('Invalid speed bonus.');
@@ -409,7 +464,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       const from = lookup(row.attack.attacker), to = lookup(row.attack.defender);
       const searchable = [from?.player,from?.name,from?.alliance,C.coordText(row.attack.attacker),`${row.attack.attacker.x} ${row.attack.attacker.y}`,
         to?.player,to?.name,to?.alliance,C.coordText(row.attack.defender),`${row.attack.defender.x} ${row.attack.defender.y}`,
-        C.formatUTC(row.launchMs),C.formatUTC(row.arrivalMs),paceLabel(row.attack.attacker.tribe,row.attack.speed),`TS ${row.ts}`,row.attack.note].join(' ');
+        C.formatUTC(row.launchMs),C.formatUTC(row.arrivalMs),paceLabel(row.attack.attacker.tribe,row.attack.speed),`TS ${row.ts}`,
+        row.attack.attackerNote,row.attack.defenderNote,row.attack.lastTs ? 'Last observed TS '+row.attack.lastTs.level : '',row.attack.note].join(' ');
       if (search && !fold(searchable).includes(search)) continue;
       const time = view === 'arrival' ? row.arrivalMs : view === 'launch' ? row.launchMs : null;
       const key = row.attack.id+(time === null ? '' : ':'+time);
@@ -447,7 +503,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const attacker = {...point(value.attacker,'Home village'),tribe:C.integer(value.attacker.tribe,1,3,'Returning army tribe')};
     const defender = point(value.defender,'Battle village'), fields = C.distance(attacker,defender);
     if (!fields) throw new Error('Home and battle village cannot be the same.');
-    return {attack:{attacker,defender},fields,arrivalMs:C.integer(value.arrivalMs,0,MAX_TIME,'Battle impact')};
+    return {attack:{attacker,defender,lastTs:normalizeLastTs(value.lastTs)},fields,arrivalMs:C.integer(value.arrivalMs,0,MAX_TIME,'Battle impact')};
   }
   function returnScenarios(scenario,options) {
     C.integer(options.currentTs,0,20,'Current return TS');
@@ -720,7 +776,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     return [...latest.values()].sort((a,b) => a.landingMs-b.landingMs || a.id.localeCompare(b.id));
   }
   function normalizePlan(value) {
-    if (!value || value.type !== 'travian-leadership-plan' || ![1,2,3,4].includes(value.version) || value.server !== C.SERVER) throw new Error('Not a supported TS12 leadership plan.');
+    if (!value || value.type !== 'travian-leadership-plan' || ![1,2,3,4,5].includes(value.version) || value.server !== C.SERVER) throw new Error('Not a supported TS12 leadership plan.');
     if (value.version >= 2 && !Object.hasOwn(value,'builder')) throw new Error('Saved attacker/defender lists are missing.');
     if (!['defending','attacking'].includes(value.role) || !Array.isArray(value.operations) || !Array.isArray(value.incoming)) throw new Error('Invalid leadership plan.');
     if (value.operations.length > MAX_ATTACKS || value.incoming.length > 50000) throw new Error('Leadership plan is too large.');
@@ -766,7 +822,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (chunk) chunks.push(chunk);
     return chunks.length ? chunks : ['No calculated rows to share.'];
   }
-  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,manualReturnScenario,returnScenarios,normalizeIncoming,parseIncomingCsv,parseTravcoPage,incomingSpeeds,mergeObservations,latestIncoming,normalizePlan,defenderGroups,discordText,discordChunks});
+  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,retimeDefenders,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,manualReturnScenario,returnScenarios,normalizeIncoming,parseIncomingCsv,parseTravcoPage,incomingSpeeds,mergeObservations,latestIncoming,normalizePlan,defenderGroups,discordText,discordChunks});
   if (typeof document === 'undefined') return;
   const $ = id => document.getElementById(id);
   const esc = value => String(value).replace(/[&<>"']/g,ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -781,7 +837,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   const timeHtml = (ms,live = false) => ms === null ? '<span class="muted">Enter travel time</span>'
     : `<span class="digits">${C.formatClock(ms)}</span><span class="sub">${C.formatDay(ms)} UTC</span>${live ? `<span class="sub mono" data-deadline="${ms}"></span>` : ''}`;
   let world = [], searchIndex = [], byPoint = new Map(), activeTab = 'planning', editingId = null, pendingReport = null;
-  let editingAttackerId = null, editingDefenderId = null;
+  let editingAttackerId = null, editingDefenderId = null, editorContextNote = '', lastTsEdited = false;
   let computed = [], scenarios = [], selectedKey = '', scoutResult = null, returnResult = null, defencePlan = null;
   let returnMode = 'manual', manualReturnTouched = false, manualReturnDraft = null, plannedReturnDraft = null, manualReturnHomeKey = '';
   const returnInputIds = ['return-current-ts','return-speed','return-boots','return-map','return-artefact','return-offset','return-travel'];
@@ -800,6 +856,11 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     return `<a class="village-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(name ?? village?.name ?? 'Unlisted village')}</a>`;
   };
   const locationHtml = p => `${known(p) ? esc(known(p).player)+' / ' : ''}${villageHtml(p)} ${link(p)}`;
+  const tagHtml = note => note ? `<span class="participant-tag">${esc(note)}</span>` : '';
+  const participantHtml = (p,note) => locationHtml(p)+tagHtml(note);
+  const participantText = (p,note) => label(p)+(note ? ` [${note}]` : '');
+  const observedTsText = last => last ? `Last observed TS ${last.level}` : '';
+  const observedTsHtml = (last,levels) => last ? `<span class="tag observed-ts${levels && !levels.includes(last.level) ? ' warn' : ''}" title="Recorded ${C.formatUTC(last.notedAt)}; historical only. TS may have changed.">${observedTsText(last)}${levels && !levels.includes(last.level) ? ' (outside assumptions)' : ''}</span>` : '';
   const copyButton = (kind,id = null,caption = 'Copy') => `<button type="button" class="small" data-copy-kind="${esc(kind)}"${id === null ? '' : ` data-copy-id="${esc(id)}"`}>${esc(caption)}</button>`;
   const uid = () => globalThis.crypto?.randomUUID ? crypto.randomUUID() : `op-${Date.now()}-${++idSequence}`;
   function status(id,message,error = false) {
@@ -907,7 +968,39 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       refresh() { if (x.value && y.value && Number.isInteger(x.valueAsNumber) && Number.isInteger(y.valueAsNumber) && Math.abs(x.valueAsNumber)<=200 && Math.abs(y.valueAsNumber)<=200) present({x:x.valueAsNumber,y:y.valueAsNumber,tribe:tribe ? Number(tribe.value) : undefined},false); },
       tribe:selectedTribe};
   }
-  const originPicker = picker('origin','Enemy origin',true,() => { clearSourceReport(); speedOptions($('op-speed'),originPicker.tribe(),$('op-speed').value); });
+  function latestObservedTs(attacker) {
+    const key = attackerVillageKey(attacker);
+    return [...state.builder.attackers,...state.operations].reduce((latest,entry) =>
+      attackerVillageKey(entry.attacker) === key && entry.lastTs && (!latest || entry.lastTs.notedAt > latest.notedAt) ? entry.lastTs : latest,null);
+  }
+  function refreshObservedTsInput() {
+    const last = latestObservedTs({x:$('origin-x').valueAsNumber,y:$('origin-y').valueAsNumber,tribe:originPicker.tribe()});
+    $('attacker-last-ts').value = last?.level ?? ''; lastTsEdited = false;
+  }
+  function readObservedTs(attacker) {
+    if ($('attacker-last-ts').validity.badInput) throw new Error('Last observed TS must be an integer from 0 to 20.');
+    const previous = latestObservedTs(attacker);
+    if ($('attacker-last-ts').value === '') return lastTsEdited ? null : previous;
+    const level = C.integer($('attacker-last-ts').valueAsNumber,0,20,'Last observed TS');
+    return !lastTsEdited && previous?.level === level ? previous : {level,notedAt:Date.now()};
+  }
+  function syncObservedTs(attacker,lastTs) {
+    const key = attackerVillageKey(attacker);
+    let changed = false;
+    const update = entry => {
+      if (attackerVillageKey(entry.attacker) !== key || JSON.stringify(entry.lastTs) === JSON.stringify(lastTs)) return entry;
+      changed = true; return {...entry,lastTs};
+    };
+    state.builder.attackers = state.builder.attackers.map(update);
+    state.operations = state.operations.map(update);
+    if (returnResult && attackerVillageKey(returnResult.scenario.attack.attacker) === key
+      && JSON.stringify(returnResult.scenario.attack.lastTs) !== JSON.stringify(lastTs)) {
+      changed = true; invalidateReturn();
+    }
+    return changed;
+  }
+  const originPicker = picker('origin','Enemy origin',true,() => { clearSourceReport(); refreshObservedTsInput(); speedOptions($('op-speed'),originPicker.tribe(),$('op-speed').value); });
+  $('attacker-last-ts').addEventListener('input',() => { lastTsEdited = true; });
   const targetPicker = picker('destination','Legends target',false,clearSourceReport);
   const defenderPicker = picker('defender','Defended village',false,() => { $('def-reference').value = ''; defencePlan = null; $('def-results').replaceChildren(); });
   const returnHomePicker = picker('return-home','Returning army home',true,() => {
@@ -994,12 +1087,13 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   }
   function resetEditor(keepTarget) {
     editingId = null; editingAttackerId = null; editingDefenderId = null; clearSourceReport(); originPicker.clear();
+    $('attacker-note').value = ''; editorContextNote = '';
     if (!keepTarget) {
       targetPicker.clear(); $('op-date').value = C.isoTime(Date.now()).slice(0,10); $('op-time').value = '';
+      $('defender-note').value = '';
       $('op-ts').value = $('op-ts').defaultValue; $('op-boots').value = '0'; $('op-artefact').value = '1';
       $('op-kind').value = 'anticipated'; $('op-basis').value = 'landing';
     }
-    $('op-note').value = state.builder.note;
     updateBasis(); updateBuilderControls();
   }
   function updateBasis() {
@@ -1016,7 +1110,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const time = C.normalizeClockTime($('op-time').value);
     const result = normalizeOperation({id:editingId || uid(),role:state.role,kind:$('op-kind').value,attacker,defender,
       tsLevels:parseTsLevels($('op-ts').value),speed:Number($('op-speed').value),boots:Number($('op-boots').value),artefact:Number($('op-artefact').value),
-      basis:$('op-basis').value,timeMs:C.parseUTC($('op-date').value+'T'+time,'Attack time'),note:$('op-note').value,
+      basis:$('op-basis').value,timeMs:C.parseUTC($('op-date').value+'T'+time,'Attack time'),note:previous?.note ?? editorContextNote,
+      attackerNote:$('attacker-note').value,defenderNote:$('defender-note').value,
+      lastTs:readObservedTs(attacker),
       reportedAt:$('op-kind').value === 'active' ? pendingReport?.firstReportedAt ?? pendingReport?.reportedAt ?? Date.now() : null,
       scouting:sameRoute ? previous.scouting : null,returning:sameRoute ? previous.returning : null});
     $('op-time').value = time;
@@ -1027,19 +1123,17 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     speedOptions($('op-speed'),attacker.tribe,$('op-speed').value);
     return normalizeAttacker({id:editingAttackerId || uid(),attacker,tsLevels:parseTsLevels($('op-ts').value),
       speed:Number($('op-speed').value),boots:Number($('op-boots').value),artefact:Number($('op-artefact').value),
-      enabled:state.builder.attackers.find(entry => entry.id === editingAttackerId)?.enabled ?? true});
+      enabled:state.builder.attackers.find(entry => entry.id === editingAttackerId)?.enabled ?? true,note:$('attacker-note').value,lastTs:readObservedTs(attacker)});
   }
   function readDefenderEntry() {
     const time = C.normalizeClockTime($('op-time').value);
     const entry = normalizeDefender({id:editingDefenderId || uid(),defender:targetPicker.get(),kind:$('op-kind').value,
       basis:$('op-basis').value,timeMs:C.parseUTC($('op-date').value+'T'+time,'Target time'),
       reportedAt:$('op-kind').value === 'active' ? pendingReport?.firstReportedAt ?? pendingReport?.reportedAt ?? Date.now() : null,
-      enabled:state.builder.defenders.find(value => value.id === editingDefenderId)?.enabled ?? true});
+      enabled:state.builder.defenders.find(value => value.id === editingDefenderId)?.enabled ?? true,note:$('defender-note').value});
     $('op-time').value = time;
     return entry;
   }
-  const attackerSignature = entry => JSON.stringify([entry.attacker,entry.tsLevels,entry.speed,entry.boots,entry.artefact]);
-  const defenderSignature = entry => JSON.stringify([entry.defender,entry.kind,entry.basis,entry.timeMs]);
   function updateBuilderControls() {
     const attackers = state.builder.attackers.filter(entry => entry.enabled), defenders = state.builder.defenders.filter(entry => entry.enabled);
     let skipped = 0;
@@ -1048,6 +1142,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     $('combination-count').textContent = `${attackers.length} attackers x ${defenders.length} targets = ${pairs} pairings${skipped ? `; ${skipped} same-village pairs excluded` : ''}. Plan limit: ${MAX_ATTACKS.toLocaleString()} attacks.`;
     $('combination-count').classList.toggle('warn',pairs > MAX_ATTACKS);
     $('generate-pairings').disabled = !pairs || !!editingId || !!editingAttackerId || !!editingDefenderId;
+    $('retime-defenders').disabled = !defenders.length || !!editingId || !!editingAttackerId || !!editingDefenderId;
     $('add-operation').textContent = editingId ? 'Update attack' : 'Add this pair only';
     $('add-operation').disabled = !!editingAttackerId || !!editingDefenderId;
     $('cancel-edit').hidden = !editingId;
@@ -1072,7 +1167,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
           : `${entry.basis === 'landing' ? 'Lands' : 'Sends'} ${C.formatUTC(entry.timeMs)}; ${entry.kind === 'active' ? 'already incoming' : 'anticipated'}`;
         const mismatch = kind === 'attacker' && known(p) && known(p).tribe !== p.tribe;
         return `<div class="item"><div class="list-entry"><input type="checkbox" data-entry-enabled="${entry.id}" aria-label="Include ${esc(label(p))}"${entry.enabled ? ' checked' : ''}>
-          <div><strong>${locationHtml(p)}</strong><span class="sub">${esc(summary)}</span>${mismatch ? '<span class="sub warn">Map tribe changed; edit this entry.</span>' : ''}</div></div>
+          <div><strong>${participantHtml(p,entry.note)}</strong>${kind === 'attacker' ? observedTsHtml(entry.lastTs,entry.tsLevels) : ''}<span class="sub">${esc(summary)}</span>${mismatch ? '<span class="sub warn">Map tribe changed; edit this entry.</span>' : ''}</div></div>
           <div class="row-actions"><button type="button" class="small" data-entry-edit="${entry.id}">Edit</button><button type="button" class="small" data-entry-remove="${entry.id}">Remove</button></div></div>`;
       }).join('') : `<p class="empty">No ${kind === 'attacker' ? 'attackers' : 'targets'} listed yet.</p>`;
     }
@@ -1080,14 +1175,16 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   }
   function storeListEntries(kind,entries,editId = null) {
     const key = kind+'s', signature = kind === 'attacker' ? attackerSignature : defenderSignature;
+    const previous = state.builder[key].find(entry => entry.id === editId);
     const next = [...state.builder[key]], seen = new Map(next.filter(entry => entry.id !== editId).map(entry => [signature(entry),entry.id]));
     if (editId && !next.some(entry => entry.id === editId)) throw new Error('This list entry no longer exists.');
-    let added = 0, existing = 0;
+    let added = 0, existing = 0, keptTags = false;
     for (const entry of entries) {
       const match = seen.get(signature(entry));
       if (match) {
         if (editId && match !== editId) throw new Error('That setup is already in this list.');
         const index = next.findIndex(value => value.id === match);
+        if (next[index].note !== entry.note) keptTags = true;
         next[index] = {...next[index],enabled:true}; existing++; continue;
       }
       if (editId) next[next.findIndex(value => value.id === editId)] = entry;
@@ -1098,9 +1195,24 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       seen.set(signature(entry),entry.id);
     }
     state.builder[key] = next;
+    let retagged = 0;
+    if (previous && signature(previous) === signature(entries[0]) && previous.note !== entries[0].note) {
+      state.operations = state.operations.map(op => {
+        if (signature(op) !== signature(previous)) return op;
+        retagged++;
+        return {...op,[kind+'Note']:entries[0].note};
+      });
+    }
+    let observationsChanged = false;
+    if (kind === 'attacker') {
+      for (const entry of entries) observationsChanged = syncObservedTs(entry.attacker,entry.lastTs) || observationsChanged;
+      lastTsEdited = false;
+    }
+    if (retagged || observationsChanged) { invalidateCalculations(); renderOperations(); }
     if (kind === 'attacker') editingAttackerId = null; else editingDefenderId = null;
     renderBuilder();
-    status(kind+'-status',editId ? 'List entry updated.' : `${added} added${existing ? `; ${existing} already listed and selected` : ''}.`);
+    status(kind+'-status',(editId ? `List entry updated.${retagged ? ` Tag updated on ${retagged} planned attacks.` : ''}` : `${added} added${existing ? `; ${existing} already listed and selected` : ''}.`)
+      +(keptTags ? ' Existing tags kept; use Edit to change them.' : ''));
   }
   action('add-attacker',() => storeListEntries('attacker',[readAttackerEntry()],editingAttackerId),'attacker-status');
   action('add-defender',() => storeListEntries('defender',[readDefenderEntry()],editingDefenderId),'defender-status');
@@ -1108,7 +1220,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const base = readAttackerEntry(), owner = known(base.attacker);
     if (!owner?.uid) throw new Error('Select a mapped attacker account first.');
     storeListEntries('attacker',world.filter(v => v.uid === owner.uid && Object.hasOwn(C.TRIBES,v.tribe))
-      .map(v => normalizeAttacker({...base,id:uid(),attacker:{x:v.x,y:v.y,tribe:v.tribe},enabled:true})));
+      .map(v => normalizeAttacker({...base,id:uid(),attacker:{x:v.x,y:v.y,tribe:v.tribe},enabled:true,
+        lastTs:attackerVillageKey(v) === attackerVillageKey(base.attacker) ? base.lastTs : latestObservedTs(v)})));
   },'attacker-status');
   action('add-defender-villages',() => {
     const base = readDefenderEntry(), owner = known(base.defender);
@@ -1141,20 +1254,32 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       resetEditor(false);
       if (kind === 'attacker') {
         editingAttackerId = entry.id; originPicker.set(entry.attacker,false);
+        refreshObservedTsInput();
         $('op-ts').value = entry.tsLevels.join(','); speedOptions($('op-speed'),originPicker.tribe(),entry.speed);
         $('op-boots').value = entry.boots; $('op-artefact').value = entry.artefact;
+        $('attacker-note').value = entry.note;
         status('attacker-status',originPicker.tribe() !== entry.attacker.tribe ? 'Map tribe differs. Review the unit pace before updating.' : 'Editing attacker setup.',originPicker.tribe() !== entry.attacker.tribe);
       } else {
         editingDefenderId = entry.id; targetPicker.set(entry.defender,false);
         $('op-kind').value = entry.kind; $('op-basis').value = entry.basis; updateBasis();
         $('op-date').value = C.isoTime(entry.timeMs).slice(0,10); $('op-time').value = C.isoTime(entry.timeMs).slice(11);
+        $('defender-note').value = entry.note;
         pendingReport = entry.reportedAt === null ? null : {firstReportedAt:entry.reportedAt};
         status('defender-status','Editing target timing.');
       }
       updateBuilderControls();
     });
   }
-  $('op-note').addEventListener('input',() => { if (!editingId) state.builder.note = $('op-note').value; });
+  action('retime-defenders',() => {
+    const time = C.normalizeClockTime($('bulk-defender-time').value);
+    const landingMs = C.parseUTC($('bulk-defender-date').value+'T'+time,'New landing time');
+    const next = retimeDefenders(state.builder,state.operations,landingMs,state.role);
+    state.builder = next.builder; state.operations = next.operations; $('bulk-defender-time').value = time;
+    invalidateCalculations(); renderBuilder(); renderOperations();
+    if (state.operations.some(op => op.role === state.role)) calculateOperations();
+    status('bulk-defender-status',`${next.updatedTargets} targets and ${next.updatedAttacks} matching attacks updated to ${C.formatUTC(landingMs)}.${next.updatedAttacks ? ' Previous report, scouting and return timings were cleared for those attacks.' : ''}`);
+  },'bulk-defender-status');
+  for (const id of ['bulk-defender-date','bulk-defender-time']) $(id).addEventListener('input',() => status('bulk-defender-status',''));
   action('generate-pairings',() => {
     for (const entry of state.builder.attackers.filter(value => value.enabled)) {
       const village = known(entry.attacker);
@@ -1168,15 +1293,25 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   function renderOperations() {
     const operations = state.operations.filter(op => op.role === state.role);
     $('operation-list').innerHTML = operations.length ? operations.map(op => `<div class="item"><div>
-      <strong>${locationHtml(op.attacker)} &rarr; ${locationHtml(op.defender)}</strong>
+      <strong>${participantHtml(op.attacker,op.attackerNote)} ${observedTsHtml(op.lastTs,op.tsLevels)} &rarr; ${participantHtml(op.defender,op.defenderNote)}</strong>
       <span class="sub">${op.kind === 'active' ? 'Already reported' : 'Anticipated'} &middot; TS ${op.tsLevels.join(', ')} &middot; ${op.speed}/h &middot; ${op.basis === 'landing' ? 'lands' : 'leaves'} ${C.formatUTC(op.timeMs)}</span>${op.note ? `<span class="sub">${esc(op.note)}</span>` : ''}
       </div><div class="row-actions"><button type="button" class="small" data-edit="${op.id}">Edit</button><button type="button" class="small" data-remove="${op.id}">Remove</button></div></div>`).join('') : '<p class="empty">Add one or more attacking villages.</p>';
     $('calculate-operations').disabled = !operations.length;
+    $('remove-all-attacks').disabled = !state.operations.length;
   }
+  action('remove-all-attacks',() => {
+    const count = state.operations.length;
+    if (!count || !confirm(`Remove all ${count} attacks from this plan? Attacker/defender lists and incoming reports will be kept.`)) return;
+    state.operations = [];
+    if (editingId) resetEditor(false);
+    invalidateCalculations(); renderOperations(); updateBuilderControls();
+    status('app-status',`${count} attacks removed. Attacker/defender lists and incoming reports were kept.`);
+  });
   action('add-operation',() => {
     const operation = readOperation();
     if (!editingId && state.operations.length >= MAX_ATTACKS) throw new Error(`At most ${MAX_ATTACKS} attacks can be saved.`);
     state.operations = editingId ? state.operations.map(op => op.id === editingId ? operation : op) : [...state.operations,operation];
+    syncObservedTs(operation.attacker,operation.lastTs); renderBuilder();
     invalidateCalculations(); renderOperations(); resetEditor(true);
     status('editor-status','Attack saved in this plan.');
   },'editor-status');
@@ -1193,10 +1328,12 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (!op) return;
     editingId = op.id; editingAttackerId = null; editingDefenderId = null;
     originPicker.set(op.attacker,false); targetPicker.set(op.defender,false);
+    refreshObservedTsInput();
     speedOptions($('op-speed'),originPicker.tribe(),op.speed);
     $('op-ts').value = op.tsLevels.join(','); $('op-kind').value = op.kind; $('op-basis').value = op.basis;
     $('op-date').value = C.isoTime(op.timeMs).slice(0,10); $('op-time').value = C.isoTime(op.timeMs).slice(11);
-    $('op-boots').value = op.boots; $('op-artefact').value = op.artefact; $('op-note').value = op.note;
+    $('op-boots').value = op.boots; $('op-artefact').value = op.artefact;
+    $('attacker-note').value = op.attackerNote; $('defender-note').value = op.defenderNote; editorContextNote = op.note;
     pendingReport = op.reportedAt === null ? null : {firstReportedAt:op.reportedAt};
     updateBasis(); updateBuilderControls();
     status('source-report',op.reportedAt === null ? '' : `Reported by ${C.formatUTC(op.reportedAt)}.`);
@@ -1213,7 +1350,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   action('role-attacking',() => { if (!$('role-attacking').hidden && state.role !== 'attacking') setRole('attacking'); });
 
   function renderScenarioSelects() {
-    const options = scenarios.map(row => `<option value="${row.key}">${esc(label(row.attack.attacker))} ${C.coordText(row.attack.attacker)} &rarr; ${esc(label(row.attack.defender))} ${C.coordText(row.attack.defender)} - ${esc(paceLabel(row.attack.attacker.tribe,row.attack.speed))}; TS ${formatTsLevels(row.tsLevels)}, lands ${C.formatUTC(row.arrivalMs)}</option>`).join('');
+    const options = scenarios.map(row => `<option value="${row.key}">${esc(participantText(row.attack.attacker,row.attack.attackerNote))} ${C.coordText(row.attack.attacker)} &rarr; ${esc(participantText(row.attack.defender,row.attack.defenderNote))} ${C.coordText(row.attack.defender)} - ${esc(paceLabel(row.attack.attacker.tribe,row.attack.speed))}; TS ${formatTsLevels(row.tsLevels)}${row.attack.lastTs ? '; '+observedTsText(row.attack.lastTs) : ''}, lands ${C.formatUTC(row.arrivalMs)}</option>`).join('');
     for (const id of ['scout-scenario','return-scenario']) {
       $(id).innerHTML = options || '<option value="">Calculate attacks first</option>'; $(id).value = selectedKey;
     }
@@ -1257,11 +1394,11 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   }
   function forecastCard(card) {
     const rows = compactScenarios(card.rows), op = rows[0].attack;
-    return `<article class="operation"><header><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(op.attacker.tribe,op.speed))}</span>${locationHtml(op.attacker)} &rarr; ${locationHtml(op.defender)}</h3>${copyButton('planning',card.key)}</div>
-      <p class="hint"><strong>TS ${formatTsLevels(card.rows.map(row => row.ts))}</strong> &middot; ${rows[0].fields.toFixed(2)} fields${op.boots ? ' &middot; boots +'+op.boots+'%' : ''}${op.artefact !== 1 ? ' &middot; artefact x'+op.artefact : ''}${op.reportedAt !== null ? ' &middot; first reported '+C.formatUTC(op.reportedAt) : ''}</p>
+    return `<article class="operation"><header><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(op.attacker.tribe,op.speed))}</span>${participantHtml(op.attacker,op.attackerNote)} &rarr; ${participantHtml(op.defender,op.defenderNote)}</h3>${copyButton('planning',card.key)}</div>
+      <p class="hint"><strong>TS ${formatTsLevels(card.rows.map(row => row.ts))}</strong> &middot; ${rows[0].fields.toFixed(2)} fields${op.boots ? ' &middot; boots +'+op.boots+'%' : ''}${op.artefact !== 1 ? ' &middot; artefact x'+op.artefact : ''}${op.reportedAt !== null ? ' &middot; first reported '+C.formatUTC(op.reportedAt) : ''} ${observedTsHtml(op.lastTs,op.tsLevels)}</p>
       ${op.note ? `<p class="hint">${esc(op.note)}</p>` : ''}${rows[0].fields <= 20 ? '<p class="hint">Within 20 fields: TS and boots do not change travel time.</p>' : ''}
       </header><div class="table-wrap"><table class="responsive"><thead><tr><th>TS</th><th>Travel</th><th>Sending (UTC)</th><th>Landing (UTC)</th><th></th></tr></thead><tbody>${rows.map(row => `<tr>
-        <td data-label="TS">${formatTsLevels(row.tsLevels)}${row.tsLevels.length > 1 ? '<span class="sub">Same timing</span>' : ''}${!row.consistent ? '<span class="sub bad">Launch after first report: inconsistent</span>' : ''}</td>
+        <td data-label="TS">${formatTsLevels(row.tsLevels)}${row.tsLevels.length > 1 ? '<span class="sub">Same timing</span>' : ''}${op.lastTs && row.tsLevels.includes(op.lastTs.level) ? `<span class="sub">${observedTsText(op.lastTs)}</span>` : ''}${!row.consistent ? '<span class="sub bad">Launch after first report: inconsistent</span>' : ''}</td>
         <td data-label="Travel" class="mono">${duration(row.seconds*1000)}</td><td data-label="Sending">${timeHtml(row.launchMs,true)}</td><td data-label="Landing">${timeHtml(row.arrivalMs)}</td>
         <td class="wide"><div class="row-actions"><button class="small" data-scenario="${row.key}" data-tool="scouting">Scouts</button><button class="small" data-scenario="${row.key}" data-tool="returns">Return / snipe</button>${op.role === 'defending' ? `<button class="small" data-scenario="${row.key}" data-tool="defenders">Defenders</button>` : ''}</div></td>
       </tr>`).join('')}</tbody></table></div></article>`;
@@ -1332,8 +1469,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const estimates = records.flatMap(record => {
       const issue = estimateIssue(record);
       if (issue) throw new Error(issue);
+      const attacker = {x:record.attacker.x,y:record.attacker.y,tribe:known(record.attacker).tribe};
       return incomingSpeeds(record).map(speed => normalizeOperation({id:uid(),role:'defending',kind:'active',
-        attacker:{x:record.attacker.x,y:record.attacker.y,tribe:known(record.attacker).tribe},defender:record.defender,
+        attacker,defender:record.defender,lastTs:latestObservedTs(attacker),
         tsLevels:[record.analysis.ts],speed,boots:record.analysis.boots ?? 0,artefact:record.analysis.artefact ?? 1,
         basis:'landing',timeMs:record.landingMs,note:incomingNote(record),reportedAt:incomingFirstReports.get(record.id) ?? record.reportedAt}));
     });
@@ -1441,10 +1579,11 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       const source = incomingCache.find(r => r.id === record.id) || record;
       setRole('defending'); showTab('planning');
       originPicker.set(record.attacker,false); targetPicker.set(record.defender,false);
+      refreshObservedTsInput();
       const race = known(record.attacker)?.tribe;
       speedOptions($('op-speed'),race,3); $('op-kind').value = 'active'; $('op-basis').value = 'landing'; updateBasis();
       $('op-date').value = C.isoTime(record.landingMs).slice(0,10); $('op-time').value = C.isoTime(record.landingMs).slice(11);
-      $('op-note').value = incomingNote(record);
+      editorContextNote = incomingNote(record);
       pendingReport = source;
       status('source-report',`First reported ${C.formatUTC(source.firstReportedAt ?? source.reportedAt)}. Enter attacker TS manually; the defaults are only hypotheses.`);
     } catch (error) { status('app-status',error.message,true); }
@@ -1455,7 +1594,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const rows = scoutWindows(scenario,offset,travelMs,$('scout-reference').value);
     scoutResult = {scenario,rows,offset,travelMs,reference:$('scout-reference').value};
     state.operations.find(op => op.id === scenario.attack.id).scouting = {reference:scoutResult.reference,offset,travel:$('scout-travel').value.trim()};
-    $('scout-results').innerHTML = `<div class="panel"><div class="heading"><h3>Scout ${locationHtml(rows[0].target)}</h3>${copyButton('scouting')}</div><p class="hint">Attack TS ${formatTsLevels(scenario.tsLevels)}; watch ${$('scout-reference').value === 'launch' ? 'sending' : 'landing'} at ${C.formatUTC($('scout-reference').value === 'launch' ? scenario.launchMs : scenario.arrivalMs)}.</p><div class="table-wrap"><table class="responsive"><thead><tr><th>Probe</th><th>Scout lands</th><th>Send scouts</th></tr></thead><tbody>${rows.map(row => `<tr><td data-label="Probe">${row.side} (${offset}s)</td><td data-label="Scout lands">${timeHtml(row.arrivalMs,true)}</td><td data-label="Send scouts">${timeHtml(row.sendAt,true)}</td></tr>`).join('')}</tbody></table></div></div>`;
+    $('scout-results').innerHTML = `<div class="panel"><div class="heading"><h3>Scout ${participantHtml(rows[0].target,scenario.attack.role === 'defending' ? scenario.attack.attackerNote : scenario.attack.defenderNote)}</h3>${copyButton('scouting')}</div><p class="hint">Attack TS ${formatTsLevels(scenario.tsLevels)}; watch ${$('scout-reference').value === 'launch' ? 'sending' : 'landing'} at ${C.formatUTC($('scout-reference').value === 'launch' ? scenario.launchMs : scenario.arrivalMs)}. ${observedTsHtml(scenario.attack.lastTs,scenario.attack.tsLevels)}</p><div class="table-wrap"><table class="responsive"><thead><tr><th>Probe</th><th>Scout lands</th><th>Send scouts</th></tr></thead><tbody>${rows.map(row => `<tr><td data-label="Probe">${row.side} (${offset}s)</td><td data-label="Scout lands">${timeHtml(row.arrivalMs,true)}</td><td data-label="Send scouts">${timeHtml(row.sendAt,true)}</td></tr>`).join('')}</tbody></table></div></div>`;
     status('scout-status',!scenario.consistent ? 'This sending hypothesis is later than the first report; it does not fit that observation.' : '');
     tick();
   },'scout-status');
@@ -1467,7 +1606,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       const attacker = returnHomePicker.get(), defender = returnBattlePicker.get();
       speedOptions($('return-speed'),attacker.tribe,$('return-speed').value);
       const time = C.normalizeClockTime($('return-impact-time').value);
-      scenario = manualReturnScenario({attacker,defender,arrivalMs:C.parseUTC(`${$('return-impact-date').value}T${time}`,'Battle impact')});
+      scenario = manualReturnScenario({attacker,defender,lastTs:latestObservedTs(attacker),
+        arrivalMs:C.parseUTC(`${$('return-impact-date').value}T${time}`,'Battle impact')});
       $('return-impact-time').value = time;
       manualReturnTouched = true;
     } else scenario = selected('return-scenario');
@@ -1476,7 +1616,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const rows = returnScenarios(scenario,options); returnResult = {scenario,rows,options};
     if (returnMode === 'planned') state.operations.find(op => op.id === scenario.attack.id).returning = {currentTs:options.currentTs,speed:options.speed,
       boots:options.boots,artefact:options.artefact,mapBonus:options.mapBonus,offset:options.offset,travel:$('return-travel').value.trim()};
-    $('return-results').innerHTML = `<div class="panel"><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(scenario.attack.attacker.tribe,options.speed))}</span>Home: ${locationHtml(scenario.attack.attacker)}</h3>${copyButton('returns')}</div><p class="hint">Battle at ${locationHtml(scenario.attack.defender)}: ${C.formatUTC(scenario.arrivalMs)}. ${esc(paceText(options))}. ${scenario.tsLevels ? `Outbound TS ${formatTsLevels(scenario.tsLevels)}; ` : ''}highlighted return TS: ${options.currentTs}. Identical timings share a row.</p><div class="table-wrap"><table class="responsive"><thead><tr><th>Return TS</th><th>Army home</th><th>Change vs current TS</th><th>Snipe lands</th><th>Your send time</th></tr></thead><tbody>${compactReturns(rows).map(row => `<tr${row.current ? ' class="selected"' : ''}><td data-label="Return TS">${formatTsLevels(row.tsLevels)}${row.current ? row.tsLevels.length > 1 ? ` (current ${options.currentTs})` : ' (current)' : ''}</td><td data-label="Army home">${timeHtml(row.returnMs,true)}</td><td data-label="Change">${row.deltaMs === 0 ? 'Same' : (row.deltaMs < 0 ? '-' : '+')+duration(row.deltaMs)}</td><td data-label="Snipe lands">${timeHtml(row.hitMs)}</td><td data-label="Your send">${timeHtml(row.sendAt,true)}</td></tr>`).join('')}</tbody></table></div></div>`;
+    $('return-results').innerHTML = `<div class="panel"><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(scenario.attack.attacker.tribe,options.speed))}</span>Home: ${participantHtml(scenario.attack.attacker,scenario.attack.attackerNote)}</h3>${copyButton('returns')}</div><p class="hint">Battle at ${participantHtml(scenario.attack.defender,scenario.attack.defenderNote)}: ${C.formatUTC(scenario.arrivalMs)}. ${esc(paceText(options))}. ${scenario.tsLevels ? `Outbound TS ${formatTsLevels(scenario.tsLevels)}; ` : ''}highlighted return TS: ${options.currentTs}. Identical timings share a row. ${observedTsHtml(scenario.attack.lastTs,scenario.tsLevels)}</p><div class="table-wrap"><table class="responsive"><thead><tr><th>Return TS</th><th>Army home</th><th>Change vs current TS</th><th>Snipe lands</th><th>Your send time</th></tr></thead><tbody>${compactReturns(rows).map(row => `<tr${row.current ? ' class="selected"' : ''}><td data-label="Return TS">${formatTsLevels(row.tsLevels)}${row.current ? row.tsLevels.length > 1 ? ` (current ${options.currentTs})` : ' (current)' : ''}</td><td data-label="Army home">${timeHtml(row.returnMs,true)}</td><td data-label="Change">${row.deltaMs === 0 ? 'Same' : (row.deltaMs < 0 ? '-' : '+')+duration(row.deltaMs)}</td><td data-label="Snipe lands">${timeHtml(row.hitMs)}</td><td data-label="Your send">${timeHtml(row.sendAt,true)}</td></tr>`).join('')}</tbody></table></div></div>`;
     status('return-status',''); tick();
   },'return-status');
   for (const id of [...returnInputIds,'return-impact-date','return-impact-time']) $(id).addEventListener('input',() => {
@@ -1550,8 +1690,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
   action('save-plan',() => {
-    const normalized = normalizePlan({type:'travian-leadership-plan',version:4,server:C.SERVER,...state,preferences:preferences()});
-    download(JSON.stringify({type:'travian-leadership-plan',version:4,server:C.SERVER,...normalized},null,2),'ts12-leadership-plan.json','application/json');
+    const normalized = normalizePlan({type:'travian-leadership-plan',version:5,server:C.SERVER,...state,preferences:preferences()});
+    download(JSON.stringify({type:'travian-leadership-plan',version:5,server:C.SERVER,...normalized},null,2),'ts12-leadership-plan.json','application/json');
     status('app-status','Saved both lists, added attacks, tool settings and report observations. Map data and the defence roster were not exported.'
       +(returnMode === 'manual' && activeTab === 'returns' ? ' Manual return inputs were not exported.' : ''));
   });
@@ -1579,6 +1719,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   function locationDiscord(p) {
     return `${known(p) ? discordText(known(p).player)+' / ' : ''}${villageDiscord(p)}`;
   }
+  const participantDiscord = (p,note) => locationDiscord(p)+(note ? ` [${discordText(note)}]` : '');
+  const observationLines = op => op.lastTs ? [`Attacker: ${observedTsText(op.lastTs)} (recorded ${C.formatUTC(op.lastTs.notedAt)}; historical, not a confirmed current level).`] : [];
   const paceText = options => `${options.speed} fields/h${options.boots ? '; boots +'+options.boots+'%' : ''}${options.artefact !== 1 ? '; artefact x'+options.artefact : ''}${options.mapBonus ? '; '+({30:'Small Map',40:'Map',50:'Large Map'})[options.mapBonus]+' (+'+options.mapBonus+'% return speed)' : ''}`;
   function componentLines(kind,id) {
     if (kind === 'planning') {
@@ -1586,8 +1728,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       if (!source?.length) throw new Error('Calculate this attack first.');
       const rows = compactScenarios(source);
       const op = rows[0].attack;
-      return [`From: ${locationDiscord(op.attacker)}`,`Target: ${locationDiscord(op.defender)}`,
+      return [`From: ${participantDiscord(op.attacker,op.attackerNote)}`,`Target: ${participantDiscord(op.defender,op.defenderNote)}`,
         `${op.basis === 'landing' ? 'Land' : 'Send'}: ${C.formatUTC(op.timeMs)}`,paceText(op),
+        ...observationLines(op),
         ...(op.reportedAt === null ? [] : ['First reported: '+C.formatUTC(op.reportedAt)]),
         ...rows.map(row => `TS ${formatTsLevels(row.tsLevels)}: ${op.basis === 'landing' ? 'send '+C.formatUTC(row.launchMs) : 'land '+C.formatUTC(row.arrivalMs)}; travel ${duration(row.seconds*1000)}${row.consistent ? '' : ' (inconsistent with first report)'}`),
         ...(op.note ? [discordText(op.note)] : [])];
@@ -1605,7 +1748,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (kind === 'scouting') {
       if (!scoutResult) throw new Error('Calculate the scouting windows first.');
       const {scenario,rows,reference} = scoutResult;
-      return [`Scout: ${locationDiscord(rows[0].target)}`,
+      return [`Scout: ${participantDiscord(rows[0].target,scenario.attack.role === 'defending' ? scenario.attack.attackerNote : scenario.attack.defenderNote)}`,
+        ...observationLines(scenario.attack),
         `${reference === 'launch' ? 'Launch' : 'Impact'} estimate: ${C.formatUTC(reference === 'launch' ? scenario.launchMs : scenario.arrivalMs)} (TS ${formatTsLevels(scenario.tsLevels)}; ${paceText(scenario.attack)})`,
         ...(!scenario.consistent ? ['Warning: launch estimate is after the first report.'] : []),
         ...rows.map(row => `${row.side}: land ${C.formatUTC(row.arrivalMs)}${row.sendAt === null ? '' : '; send '+C.formatUTC(row.sendAt)}`)];
@@ -1613,8 +1757,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (kind === 'returns') {
       if (!returnResult) throw new Error('Calculate return scenarios first.');
       const result = returnResult;
-      return [`Home: ${locationDiscord(result.scenario.attack.attacker)}`,
-        `Battle: ${C.formatUTC(result.scenario.arrivalMs)} at ${locationDiscord(result.scenario.attack.defender)}`,
+      return [`Home: ${participantDiscord(result.scenario.attack.attacker,result.scenario.attack.attackerNote)}`,
+        ...observationLines(result.scenario.attack),
+        `Battle: ${C.formatUTC(result.scenario.arrivalMs)} at ${participantDiscord(result.scenario.attack.defender,result.scenario.attack.defenderNote)}`,
         `**Return assumptions:** ${paceText(result.options)}; immediate return using TS/bonuses at return start.`,
         ...compactReturns(result.rows).map(row => `${row.current ? '**' : ''}TS ${formatTsLevels(row.tsLevels)}${row.current ? row.tsLevels.length > 1 ? ` (current ${result.options.currentTs})**` : ' (current)**' : ''}: home ${C.formatUTC(row.returnMs)}; snipe ${C.formatUTC(row.hitMs)}${row.sendAt === null ? '' : '; send '+C.formatUTC(row.sendAt)}`)];
     }
@@ -1713,6 +1858,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     finally { clearTimeout(timeout); }
   }
   resetEditor(false); $('def-date').value = C.isoTime(Date.now()).slice(0,10);
+  $('bulk-defender-date').value = C.isoTime(Date.now()).slice(0,10);
   $('return-impact-date').value = C.isoTime(Date.now()).slice(0,10);
   speedOptions($('return-speed'),returnHomePicker.tribe());
   manualReturnDraft = captureReturnInputs();

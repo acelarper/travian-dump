@@ -108,10 +108,10 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
 
   <section id="panel-incoming" role="tabpanel" aria-labelledby="tab-incoming" hidden>
     <div class="panel controls"><h2>Incoming report history</h2>
-      <label class="spaced">Travco incoming CSV<input id="incoming-file" type="file" accept=".csv,text/csv,text/plain"></label>
+      <label class="spaced">Travco incoming CSV / page JSON<input id="incoming-file" type="file" accept=".csv,.json,text/csv,text/plain,application/json"></label>
       <div class="actions"><label class="check"><input id="incoming-past" type="checkbox">Include landed attacks</label><label class="check"><input id="incoming-observations" type="checkbox">All observations</label><button id="manual-incoming" type="button">Add manually</button></div>
       <label class="spaced">Filter<input id="incoming-filter" placeholder="Player, village coordinates, alliance or tag"></label>
-      <p class="hint">Default: upcoming landings, latest report per origin/target/landing. The CSV has no attack ID or cancellation status; its waves value is shown as reported.</p>
+      <p class="hint">Upcoming reports by default. Page exports keep separate Travco rows; CSV groups by route and landing. Other servers are preview-only. Missing rows do not confirm cancellation.</p>
       <p class="hint">Imported TS, speed and sending time are Travco estimates. They are only used when you choose “Use estimate”.</p>
       <p id="incoming-status" class="status" role="status" hidden></p>
     </div>
@@ -468,6 +468,18 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       return {ts,seconds,returnMs,hitMs,sendAt,current:ts === options.currentTs,deltaMs:returnMs-baseline};
     });
   }
+  const unitsByIcon = new Map(Object.values(C.TRIBES).flatMap(tribe => tribe.units.map(unit =>
+    [unit.name.toLowerCase().replace(/[^a-z0-9]+/g,'_'),unit])));
+  const possibleUnitLabel = icon => unitsByIcon.get(icon)?.name || `Unknown: ${icon}`;
+  function incomingServer(value = C.SERVER) {
+    if (typeof value !== 'string' || !/^https:\/\/ts\d+\.x1\.europe\.travian\.com$/.test(value)) throw new Error('Unsupported incoming report server.');
+    return value;
+  }
+  function incomingSpeeds(record) {
+    if (record.analysis.speed !== null) return [record.analysis.speed];
+    if (!record.possibleUnits.length || record.possibleUnits.some(icon => !unitsByIcon.has(icon))) return [];
+    return [...new Set(record.possibleUnits.map(icon => unitsByIcon.get(icon).speed))].sort((a,b) => a-b);
+  }
   function normalizeIncoming(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid incoming report.');
     const attacker = {...point(value.attacker,'Reported attacker'),name:text(value.attacker.name,200,'attacker name'),alliance:text(value.attacker.alliance ?? '',100,'attacker alliance')};
@@ -481,7 +493,12 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (value.gearChanged != null && typeof value.gearChanged !== 'boolean') throw new Error('Invalid hero gear flag.');
     if (analysis.boots != null && ![0,25,50,75].includes(analysis.boots)) throw new Error('Invalid reported boots.');
     if (analysis.artefact != null && ![1,1.5,2].includes(analysis.artefact)) throw new Error('Invalid reported artefact.');
-    return {id:`i_${attacker.x}_${attacker.y}_${defender.x}_${defender.y}_${landingMs}`,attacker,defender,landingMs,reportedAt,
+    const server = incomingServer(value.server), sourceId = value.sourceId ?? null, possibleUnits = value.possibleUnits ?? [];
+    if (sourceId !== null && (typeof sourceId !== 'string' || !/^[1-9]\d{0,19}:[1-9]\d{0,19}$/.test(sourceId))) throw new Error('Invalid Travco row identity.');
+    if (!Array.isArray(possibleUnits) || possibleUnits.length > 30 || possibleUnits.some(icon => typeof icon !== 'string' || !/^[a-z][a-z0-9_]{0,99}$/.test(icon))) throw new Error('Invalid possible-unit list.');
+    return {id:server+':'+(sourceId ? 'travco_'+sourceId : `i_${attacker.x}_${attacker.y}_${defender.x}_${defender.y}_${landingMs}`),
+      server,sourceId,observedAt:optional(value.observedAt,0,MAX_TIME,'Snapshot time'),possibleUnits:[...new Set(possibleUnits)].sort(),
+      attacker,defender,landingMs,reportedAt,
       waves:optional(value.waves,1,10000,'Waves'),xpChanged:optional(value.xpChanged,-1e12,1e12,'Hero XP change'),gearChanged:value.gearChanged ?? null,
       note:text(value.note ?? '',4000,'leadership note'),tag:text(value.tag ?? '',200,'attack tag'),villageTag:text(value.villageTag ?? '',200,'village tag'),
       analysis:{launchMs:optional(analysis.launchMs,0,MAX_TIME,'Analysis sending time'),ts:optional(analysis.ts,0,20,'Analysis TS'),
@@ -550,11 +567,144 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (records.length > 50000) throw new Error('At most 50,000 incoming observations can be loaded.');
     return {records,warnings,recoveredTargets};
   }
+  function parseTravcoPage(value) {
+    if (!value || value.type !== 'travco-defence-page' || value.version !== 1 || value.scope !== 'current-page') throw new Error('Not a supported Travco page export. Use travco-export.js.');
+    if (typeof value.server !== 'string' || (value.example !== undefined && typeof value.example !== 'boolean')) throw new Error('Invalid page-export metadata.');
+    if (typeof C.travcoCallTimestamp !== 'function') throw new Error('Update travian-planner-core.js to import Travco page exports.');
+    const server = incomingServer(value.server), records = [], warnings = [], groupIds = new Set(), rowIds = new Set();
+    if (!Array.isArray(value.plans) || !value.plans.length || value.plans.length > 1000) throw new Error('Invalid defender groups in page export.');
+    const id = raw => {
+      if (typeof raw !== 'string' || !/^[1-9]\d{0,19}$/.test(raw)) throw new Error('Invalid Travco row ID.');
+      return raw;
+    };
+    const list = (raw,max,name) => {
+      if (!Array.isArray(raw) || raw.length > max) throw new Error(`Invalid ${name}.`);
+      return raw;
+    };
+    const heading = raw => text(raw,200,'column heading').trim().toLowerCase().replace(/\s+/g,' ');
+    const columns = (raw,required) => {
+      const candidates = list(raw,10,'table headers').map(row => list(row,100,'header cells').map(heading))
+        .filter(row => required.every(name => row.includes(name)));
+      if (candidates.length !== 1) throw new Error(`Missing or ambiguous headings: ${required.join(', ')}.`);
+      const names = candidates[0], nonempty = names.filter(Boolean);
+      if (new Set(nonempty).size !== nonempty.length) throw new Error('Duplicate table headings.');
+      return names;
+    };
+    const cells = (row,names) => {
+      if (!row || !Array.isArray(row.cells) || row.cells.length !== names.length) throw new Error('Attack row does not match its table headings.');
+      for (const cell of row.cells) {
+        if (!cell || cell.colspan !== 1) throw new Error('Unsupported merged table cells.');
+        text(cell.text,8000,'cell text');
+        for (const key of ['timestamps','icons','ids','links']) list(cell[key],100,'cell '+key);
+      }
+      return name => row.cells[names.indexOf(name)] || null;
+    };
+    const cellText = (get,name) => get(name)?.text.trim() || '';
+    const number = (raw,min,max,name) => {
+      if (!/^\d+$/.test(raw)) throw new Error(`Invalid ${name}.`);
+      return C.integer(Number(raw),min,max,name);
+    };
+    const displayedTime = (raw,reference) => {
+      const match = /^(\d{1,2}:\d{2}:\d{2}(?:\.\d{1,3})?)\s*,\s*(\d{1,2})\.(\d{1,2})\.(?:(\d{4})\.?)?\s*(?:UTC|Z)?$/i.exec(raw.trim());
+      if (!match) throw new Error('Unreadable Travco date/time.');
+      return C.travcoCallTimestamp(match[2],match[3],match[4],C.normalizeClockTime(match[1]),reference);
+    };
+    const coordinates = cell => {
+      let parsed = null, linked = null;
+      const raw = cell.text.trim();
+      if (raw && /^[\s()+\-\u2212\d/|,]+$/.test(raw)) parsed = C.parseCoordinates(raw.replace(/\//g,'|'));
+      for (const entry of cell.links) {
+        const url = new URL(text(entry.url,2000,'village link'));
+        if (url.origin !== server || url.username || url.password) throw new Error('Village link belongs to a different server.');
+        if (url.pathname !== '/karte.php') continue;
+        let next;
+        if (url.searchParams.has('d')) {
+          const tile = number(url.searchParams.get('d'),1,160801,'village tile ID')-1;
+          next = {x:tile%401-200,y:200-Math.floor(tile/401)};
+        } else {
+          const x = url.searchParams.get('x'), y = url.searchParams.get('y');
+          if (!/^[+-]?\d+$/.test(x || '') || !/^[+-]?\d+$/.test(y || '')) throw new Error('Invalid village map link.');
+          next = point({x:Number(x),y:Number(y)});
+        }
+        if (linked && (next.x !== linked.x || next.y !== linked.y)) throw new Error('Conflicting village links.');
+        linked = next;
+      }
+      if (!parsed && !linked) throw new Error('Village coordinates are missing.');
+      if (parsed && linked && (parsed.x !== linked.x || parsed.y !== linked.y)) throw new Error('Village coordinates disagree with the map link.');
+      return {...(parsed || linked),recovered:!parsed};
+    };
+    let recoveredTargets = 0;
+    for (const plan of value.plans) {
+      try {
+        const groupId = id(plan.id), observedAt = parseReportTime(plan.observedAt);
+        if (groupIds.has(groupId)) throw new Error('Duplicate defender group.');
+        groupIds.add(groupId);
+        const names = columns(plan.headers,['defender','defender village','impact times','nearest impact in']);
+        const summary = cells(plan.summary,names), target = coordinates(summary('defender village'));
+        const epochs = [...new Set(summary('nearest impact in').timestamps)];
+        if (epochs.length !== 1) throw new Error('The absolute summary impact is missing or ambiguous.');
+        const anchor = number(epochs[0],0,Math.floor(MAX_TIME/1000),'summary impact timestamp')*1000;
+        if (displayedTime(cellText(summary,'impact times'),anchor) !== anchor) throw new Error('Displayed times do not match UTC. Export the Travco page with UTC times.');
+        const defender = {...target,name:cellText(summary,'defender'),alliance:cellText(summary,'defender alliance')};
+        const tables = list(plan.tables,100,'attack tables').filter(table => list(table.headers,10,'attack headers')
+          .some(row => list(row,100,'attack headings').some(name => heading(name) === 'attacker')));
+        if (!tables.length) throw new Error('Expanded attacker table is missing.');
+        let imported = 0;
+        for (const table of tables) {
+          const names = columns(table.headers,['attacker','village','wave count','impact','report time']);
+          for (const [index,row] of list(table.rows,50000,'attack rows').entries()) {
+            try {
+              const get = cells(row,names);
+              const highlights = [...new Set(row.cells.flatMap(cell => cell.ids.filter(ref => ref?.key === 'data-highlight').map(ref => id(ref.value))))];
+              if (highlights.length !== 1) throw new Error('A unique Travco attack-row ID is missing.');
+              const sourceId = groupId+':'+highlights[0];
+              if (rowIds.has(sourceId)) throw new Error('Duplicate attack-row ID.');
+              rowIds.add(sourceId);
+              const attacker = {...coordinates(get('village')),name:cellText(get,'attacker'),alliance:cellText(get,'alliance')};
+              const landingMs = displayedTime(cellText(get,'impact'),anchor), reportedAt = displayedTime(cellText(get,'report time'),observedAt);
+              const optional = (name,parse) => {
+                const raw = cellText(get,name);
+                if (!raw || raw === '-') return null;
+                try { return parse(raw); }
+                catch (error) { warnings.push(`Group ${groupId}, row ${index+1}: ignored ${name}: ${error.message}`); return null; }
+              };
+              const possibleUnits = [...new Set((get('possible units incoming')?.icons || []).flatMap(icon => {
+                const classes = list(icon.classes,100,'unit classes').map(name => text(name,200,'unit class'));
+                const sprites = classes.filter(name => /^bg-[a-z][a-z0-9_]{0,99}$/.test(name)).map(name => name.slice(3));
+                const image = text(icon.image ?? '',500,'unit image').match(/^([a-z][a-z0-9_]+)(?:\.[a-f0-9]+)?\.(?:png|svg|webp)$/i);
+                if (image && unitsByIcon.has(image[1].toLowerCase())) sprites.push(image[1].toLowerCase());
+                return sprites;
+              }))].sort();
+              if (possibleUnits.some(icon => !unitsByIcon.has(icon))) warnings.push(`Group ${groupId}, row ${index+1}: unknown unit icons; pace must be checked manually.`);
+              const paces = possibleUnits.length && possibleUnits.every(icon => unitsByIcon.has(icon))
+                ? [...new Set(possibleUnits.map(icon => unitsByIcon.get(icon).speed))] : [];
+              const record = normalizeIncoming({server,sourceId,observedAt,attacker,defender,landingMs,reportedAt,possibleUnits,tag:value.example ? 'EXAMPLE' : '',
+                waves:optional('wave count',raw => number(raw,1,10000,'wave count')),
+                note:[value.example ? 'Synthetic example; not a real incoming attack.' : '',cellText(summary,'note'),cellText(get,'note')].filter(Boolean).join('\n'),
+                analysis:{launchMs:optional('sending time',raw => displayedTime(raw,landingMs)),
+                  ts:optional('ts',raw => number(raw,0,20,'TS level')),speed:paces.length === 1 ? paces[0] : null,
+                  boots:optional('hero boots',raw => {
+                    const value = number(raw.replace(/%$/,''),0,75,'hero boots');
+                    if (![0,25,50,75].includes(value)) throw new Error('Unsupported boots bonus.');
+                    return value;
+                  })}});
+              records.push(record); imported++;
+              if (target.recovered) recoveredTargets++;
+              if (records.length > 50000) throw new Error('At most 50,000 incoming observations can be loaded.');
+            } catch (error) { throw new Error(`Attack row ${index+1}: ${error.message}`); }
+          }
+        }
+        if (!imported) throw new Error('No attacker rows found.');
+      } catch (error) { throw new Error(`Defender group ${plan?.id || '?'}: ${error.message}`); }
+    }
+    return {records,warnings,recoveredTargets,server,scope:value.scope,example:value.example === true};
+  }
   function mergeObservations(oldRecords,newRecords) {
     const seen = new Map();
     for (const raw of [...oldRecords,...newRecords]) {
       const record = normalizeIncoming(raw);
-      seen.set(JSON.stringify(record),record);
+      const {observedAt,...content} = record, key = JSON.stringify(content), previous = seen.get(key);
+      if (!previous || (observedAt ?? record.reportedAt) >= (previous.observedAt ?? previous.reportedAt)) seen.set(key,record);
     }
     if (seen.size > 50000) throw new Error('At most 50,000 incoming observations can be saved.');
     return [...seen.values()].sort((a,b) => a.reportedAt-b.reportedAt);
@@ -565,12 +715,12 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       const previous = latest.get(record.id);
       const firstReportedAt = Math.min(previous?.firstReportedAt ?? record.reportedAt,record.reportedAt);
       const count = (previous?.observations || 0)+1;
-      latest.set(record.id,{...(previous && previous.reportedAt > record.reportedAt ? previous : record),firstReportedAt,observations:count});
+      latest.set(record.id,{...(previous && (previous.observedAt ?? previous.reportedAt) > (record.observedAt ?? record.reportedAt) ? previous : record),firstReportedAt,observations:count});
     }
     return [...latest.values()].sort((a,b) => a.landingMs-b.landingMs || a.id.localeCompare(b.id));
   }
   function normalizePlan(value) {
-    if (!value || value.type !== 'travian-leadership-plan' || ![1,2,3].includes(value.version) || value.server !== C.SERVER) throw new Error('Not a supported TS12 leadership plan.');
+    if (!value || value.type !== 'travian-leadership-plan' || ![1,2,3,4].includes(value.version) || value.server !== C.SERVER) throw new Error('Not a supported TS12 leadership plan.');
     if (value.version >= 2 && !Object.hasOwn(value,'builder')) throw new Error('Saved attacker/defender lists are missing.');
     if (!['defending','attacking'].includes(value.role) || !Array.isArray(value.operations) || !Array.isArray(value.incoming)) throw new Error('Invalid leadership plan.');
     if (value.operations.length > MAX_ATTACKS || value.incoming.length > 50000) throw new Error('Leadership plan is too large.');
@@ -616,12 +766,12 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (chunk) chunks.push(chunk);
     return chunks.length ? chunks : ['No calculated rows to share.'];
   }
-  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,manualReturnScenario,returnScenarios,normalizeIncoming,parseIncomingCsv,mergeObservations,latestIncoming,normalizePlan,defenderGroups,discordText,discordChunks});
+  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,manualReturnScenario,returnScenarios,normalizeIncoming,parseIncomingCsv,parseTravcoPage,incomingSpeeds,mergeObservations,latestIncoming,normalizePlan,defenderGroups,discordText,discordChunks});
   if (typeof document === 'undefined') return;
   const $ = id => document.getElementById(id);
   const esc = value => String(value).replace(/[&<>"']/g,ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const mapUrl = p => `${C.SERVER}/karte.php?x=${p.x}&y=${p.y}`;
-  const link = p => `<a href="${esc(mapUrl(p))}" target="_blank" rel="noopener noreferrer" class="coordinate-link mono">${C.coordText(p)}</a>`;
+  const mapUrl = (p,server = C.SERVER) => `${server}/karte.php?x=${p.x}&y=${p.y}`;
+  const link = (p,server = C.SERVER) => `<a href="${esc(mapUrl(p,server))}" target="_blank" rel="noopener noreferrer" class="coordinate-link mono">${C.coordText(p)}</a>`;
   const linkedCoordinates = value => esc(value).replace(/\(([+-]?\d{1,3})\s*\|\s*([+-]?\d{1,3})\)/g,(label,x,y) =>
     Math.abs(Number(x)) <= 200 && Math.abs(Number(y)) <= 200 ? link({x:Number(x),y:Number(y)}) : label);
   const duration = ms => {
@@ -643,11 +793,11 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   let state = {role:'defending',operations:[],incoming:[],builder:normalizeBuilder(),
     preferences:{scoutOffset:2,scoutTravel:'',returnOffset:1,returnTravel:'',defenceBuffer:60,forecastView:'attacker-player',forecastFilter:''}};
   const tabs = ['planning','incoming','scouting','returns','defenders'];
-  const known = p => byPoint.get(`${p.x}|${p.y}`);
+  const known = (p,server = C.SERVER) => server === C.SERVER ? byPoint.get(`${p.x}|${p.y}`) : undefined;
   const label = p => { const v = known(p); return v ? `${v.player} / ${v.name}` : 'Unlisted village'; };
-  const villageHtml = (p,name = known(p)?.name || 'Unlisted village') => {
-    const village = known(p), url = village ? `${C.SERVER}/karte.php?d=${village.tileId}` : mapUrl(p);
-    return `<a class="village-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(name)}</a>`;
+  const villageHtml = (p,name,server = C.SERVER) => {
+    const village = known(p,server), url = village ? `${server}/karte.php?d=${village.tileId}` : mapUrl(p,server);
+    return `<a class="village-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(name ?? village?.name ?? 'Unlisted village')}</a>`;
   };
   const locationHtml = p => `${known(p) ? esc(known(p).player)+' / ' : ''}${villageHtml(p)} ${link(p)}`;
   const copyButton = (kind,id = null,caption = 'Copy') => `<button type="button" class="small" data-copy-kind="${esc(kind)}"${id === null ? '' : ` data-copy-id="${esc(id)}"`}>${esc(caption)}</button>`;
@@ -1165,24 +1315,27 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     incomingFirstReports = new Map(incomingCache.map(record => [record.id,record.firstReportedAt]));
     selectedIncoming.clear(); incomingPage = 0; renderIncoming();
   }
+  const incomingWorldIssue = record => record.server === C.SERVER ? '' : `${record.server.slice(8)} preview; planning uses TS12.`;
   function estimateIssue(record) {
-    if (record.analysis.ts === null || record.analysis.speed === null) return 'TS or pace is missing; plan this report manually.';
+    if (incomingWorldIssue(record)) return incomingWorldIssue(record);
+    const paces = incomingSpeeds(record);
+    if (record.analysis.ts === null || !paces.length) return 'TS or pace is missing; plan this report manually.';
     const village = known(record.attacker);
     if (!village) return 'Attacker is not in map.sql; plan this report manually.';
     if (!Object.hasOwn(C.TRIBES,village.tribe)) return 'The mapped attacker tribe is not supported.';
-    if (!speeds(village.tribe).includes(record.analysis.speed)) return 'Estimated pace does not match the mapped tribe.';
+    if (paces.some(pace => !speeds(village.tribe).includes(pace))) return 'Estimated pace does not match the mapped tribe.';
     return '';
   }
-  const incomingNote = record => [record.tag,record.note].filter(Boolean).join(' - ').slice(0,1000);
+  const incomingNote = record => [record.tag,record.note,record.possibleUnits.length ? 'Possible units: '+record.possibleUnits.map(possibleUnitLabel).join(', ') : ''].filter(Boolean).join(' - ').slice(0,1000);
   function addEstimatedReports(records) {
     if (!records.length) throw new Error('Select at least one estimate.');
-    const estimates = records.map(record => {
+    const estimates = records.flatMap(record => {
       const issue = estimateIssue(record);
       if (issue) throw new Error(issue);
-      return normalizeOperation({id:uid(),role:'defending',kind:'active',
+      return incomingSpeeds(record).map(speed => normalizeOperation({id:uid(),role:'defending',kind:'active',
         attacker:{x:record.attacker.x,y:record.attacker.y,tribe:known(record.attacker).tribe},defender:record.defender,
-        tsLevels:[record.analysis.ts],speed:record.analysis.speed,boots:record.analysis.boots ?? 0,artefact:record.analysis.artefact ?? 1,
-        basis:'landing',timeMs:record.landingMs,note:incomingNote(record),reportedAt:incomingFirstReports.get(record.id) ?? record.reportedAt});
+        tsLevels:[record.analysis.ts],speed,boots:record.analysis.boots ?? 0,artefact:record.analysis.artefact ?? 1,
+        basis:'landing',timeMs:record.landingMs,note:incomingNote(record),reportedAt:incomingFirstReports.get(record.id) ?? record.reportedAt}));
     });
     const next = [...state.operations], existing = new Map(next.map((op,index) => [operationSignature(op),index]));
     let added = 0, duplicates = 0;
@@ -1216,8 +1369,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   function visibleIncoming() {
     const source = $('incoming-observations').checked ? incomingRows : incomingCache;
     const query = $('incoming-filter').value.trim().toLocaleLowerCase(), now = Date.now(), past = $('incoming-past').checked;
-    return source.filter(r => (past || r.landingMs > now) && (!query || `${r.attacker.name} ${r.attacker.alliance} ${C.coordText(r.attacker)} ${r.defender.name} ${r.defender.alliance} ${C.coordText(r.defender)} ${r.tag}`.toLocaleLowerCase().includes(query)))
-      .sort((a,b) => past ? b.reportedAt-a.reportedAt || b.landingMs-a.landingMs : a.landingMs-b.landingMs);
+    return source.filter(r => (past || r.landingMs > now) && (!query || `${r.attacker.name} ${r.attacker.alliance} ${C.coordText(r.attacker)} ${r.defender.name} ${r.defender.alliance} ${C.coordText(r.defender)} ${r.tag} ${r.server} ${r.possibleUnits.map(possibleUnitLabel).join(' ')}`.toLocaleLowerCase().includes(query)))
+      .sort((a,b) => past ? (b.observedAt ?? b.reportedAt)-(a.observedAt ?? a.reportedAt) || b.landingMs-a.landingMs
+        : a.landingMs-b.landingMs || (b.observedAt ?? b.reportedAt)-(a.observedAt ?? a.reportedAt));
   }
   function renderIncoming() {
     const records = visibleIncoming(), pages = Math.max(1,Math.ceil(records.length/30));
@@ -1228,14 +1382,14 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     $('incoming-count').textContent = `${records.length} ${$('incoming-observations').checked ? 'observations' : 'latest records'}; page ${incomingPage+1}/${pages}`;
     $('incoming-prev').disabled = incomingPage === 0; $('incoming-next').disabled = incomingPage >= pages-1;
     $('incoming-results').innerHTML = pageRecords.length ? `<div class="table-wrap"><table class="responsive"><thead><tr><th>Select</th><th>Defender</th><th>Attacker</th><th>Landing</th><th>Report / waves</th><th>Travco analysis</th><th></th></tr></thead><tbody>${pageRecords.map((r,index) => {
-      const issue = estimateIssue(r);
+      const issue = estimateIssue(r), worldIssue = incomingWorldIssue(r), paces = incomingSpeeds(r);
       return `<tr>
       <td class="wide"><label class="check" title="${esc(issue)}"><input type="checkbox" data-estimate-index="${r.observationIndex}" aria-label="Select estimate from ${esc(r.attacker.name)} ${C.coordText(r.attacker)} landing ${C.formatUTC(r.landingMs)}"${issue ? ' disabled' : ''}>Estimate</label></td>
-      <td data-label="Defender">${esc(r.defender.name)} ${link(r.defender)}<span class="sub">${villageHtml(r.defender)}</span><span class="sub">${esc(r.defender.alliance)} ${esc(r.villageTag)}</span>${r.defender.recovered ? '<span class="sub warn">Removed village; location recovered from tile ID</span>' : ''}</td>
-      <td data-label="Attacker">${esc(r.attacker.name)} ${link(r.attacker)}<span class="sub">${villageHtml(r.attacker)}</span><span class="sub">${esc(r.attacker.alliance)} ${esc(r.tag)}</span></td>
-      <td data-label="Landing">${timeHtml(r.landingMs,true)}</td><td data-label="Report">${C.formatUTC(r.reportedAt)}<span class="sub">Waves: ${r.waves ?? '?'}${r.observations > 1 ? '; '+r.observations+' observations' : ''}</span></td>
-      <td data-label="Analysis"><span class="warn">${r.analysis.reliable ? 'Marked reliable by Travco' : 'Unverified estimate'}</span><span class="sub">${r.analysis.ts === null ? 'TS unknown' : 'TS '+r.analysis.ts}; ${r.analysis.speed === null ? 'pace unknown' : r.analysis.speed+'/h'}</span>${r.analysis.launchMs === null ? '' : `<span class="sub">Sending: ${C.formatUTC(r.analysis.launchMs)}</span>`}${r.xpChanged ? `<span class="sub">Hero XP change: ${r.xpChanged}</span>` : ''}${r.gearChanged ? '<span class="sub">Hero gear changed</span>' : ''}${r.note ? `<span class="sub">${esc(r.note)}</span>` : ''}</td>
-      <td class="wide"><div class="row-actions"><button class="small" data-record="${index}" data-action="plan">Plan manually</button><button class="small" data-record="${index}" data-action="estimate" title="${esc(issue || 'Add this estimate to attack planning')}"${issue ? ' disabled' : ''}>Use estimate</button><button class="small" data-record="${index}" data-action="defend">Defenders</button>${copyButton('incoming',index)}</div></td>
+      <td data-label="Defender">${esc(r.defender.name)} ${link(r.defender,r.server)}<span class="sub">${villageHtml(r.defender,undefined,r.server)}</span><span class="sub">${esc(r.defender.alliance)} ${esc(r.villageTag)}</span>${r.defender.recovered ? `<span class="sub warn">${r.sourceId ? 'Location recovered from map link' : 'Removed village; location recovered from tile ID'}</span>` : ''}</td>
+      <td data-label="Attacker">${esc(r.attacker.name)} ${link(r.attacker,r.server)}<span class="sub">${villageHtml(r.attacker,undefined,r.server)}</span><span class="sub">${esc(r.attacker.alliance)} ${esc(r.tag)}</span></td>
+      <td data-label="Landing">${timeHtml(r.landingMs,true)}</td><td data-label="Report">${C.formatUTC(r.reportedAt)}<span class="sub">Waves: ${r.waves ?? '?'}${r.observations > 1 ? '; '+r.observations+' observations' : ''}</span>${r.observedAt === null ? '' : `<span class="sub">Captured: ${C.formatUTC(r.observedAt)}</span>`}${worldIssue ? `<span class="sub warn">${esc(worldIssue)}</span>` : ''}</td>
+      <td data-label="Analysis"><span class="warn">${r.analysis.reliable ? 'Marked reliable by Travco' : 'Unverified estimate'}</span><span class="sub">${r.analysis.ts === null ? 'TS unknown' : 'TS '+r.analysis.ts}; ${paces.length ? paces.join(' / ')+'/h' : 'pace unknown'}</span><span class="sub">Boots: ${r.analysis.boots === null ? '?' : r.analysis.boots+'%'}; artefact: ${r.analysis.artefact === null ? '?' : 'x'+r.analysis.artefact}</span>${r.possibleUnits.length ? `<span class="sub">Possible: ${esc(r.possibleUnits.map(possibleUnitLabel).join(', '))}</span>` : ''}${r.analysis.launchMs === null ? '' : `<span class="sub">Sending: ${C.formatUTC(r.analysis.launchMs)}</span>`}${r.xpChanged ? `<span class="sub">Hero XP change: ${r.xpChanged}</span>` : ''}${r.gearChanged ? '<span class="sub">Hero gear changed</span>' : ''}${r.note ? `<span class="sub">${esc(r.note)}</span>` : ''}</td>
+      <td class="wide"><div class="row-actions"><button class="small" data-record="${index}" data-action="plan" title="${esc(worldIssue)}"${worldIssue ? ' disabled' : ''}>Plan manually</button><button class="small" data-record="${index}" data-action="estimate" title="${esc(issue || 'Add the possible paces to attack planning')}"${issue ? ' disabled' : ''}>Use estimate</button><button class="small" data-record="${index}" data-action="defend" title="${esc(worldIssue)}"${worldIssue ? ' disabled' : ''}>Defenders</button>${copyButton('incoming',index)}</div></td>
     </tr>`; }).join('')}</tbody></table></div>` : '<p class="empty">No matching upcoming reports. Enable history to see landed attacks.</p>';
     updateIncomingSelection();
     tickDeadlines($('incoming-results'));
@@ -1244,11 +1398,13 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const file = $('incoming-file').files[0]; if (!file) return;
     $('incoming-file').disabled = true;
     try {
-      if (file.size > C.MAP_LIMIT) throw new Error('CSV exceeds 40 MB.');
-      const parsed = parseIncomingCsv(await file.text());
+      if (file.size > C.MAP_LIMIT) throw new Error('Import exceeds 40 MB.');
+      const raw = (await file.text()).replace(/^\uFEFF/,'');
+      const parsed = /\.json$/i.test(file.name) || /^\s*\{/.test(raw) ? parseTravcoPage(JSON.parse(raw)) : parseIncomingCsv(raw);
       const merged = mergeObservations(state.incoming,parsed.records);
       state.incoming = merged; refreshIncoming();
-      status('incoming-status',`Read ${parsed.records.length} rows; ${merged.length} distinct observations, ${incomingCache.length} route/landing records.${parsed.recoveredTargets ? ' '+parsed.recoveredTargets+' removed-village locations recovered from tile IDs.' : ''}${parsed.warnings.length ? ' '+parsed.warnings.length+' optional analysis fields were ignored: '+parsed.warnings.slice(0,3).join(' ') : ''}`);
+      status('incoming-status',`${parsed.example ? 'EXAMPLE DATA - not real attacks. ' : ''}Read ${parsed.records.length} rows; ${merged.length} distinct observations, ${incomingCache.length} attack records.${parsed.scope ? ' Current-page snapshot.' : ''}${parsed.server && parsed.server !== C.SERVER ? ' '+parsed.server.slice(8)+' preview only; planning uses TS12.' : ''}${parsed.recoveredTargets ? ' '+parsed.recoveredTargets+(parsed.scope ? ' locations recovered from map links.' : ' removed-village locations recovered from tile IDs.') : ''}${parsed.warnings.length ? ' Warnings: '+parsed.warnings.slice(0,3).join(' ') : ''}`);
+      $('incoming-status').classList.toggle('warn',!!parsed.example || !!parsed.warnings.length || !!parsed.server && parsed.server !== C.SERVER);
     } catch (error) { status('incoming-status',`Import failed: ${error.message} Previous reports were kept.`,true); }
     finally { $('incoming-file').disabled = false; }
   });
@@ -1275,6 +1431,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const button = event.target.closest('[data-record]'); if (!button) return;
     const record = pageRecords[Number(button.dataset.record)]; if (!record) return;
     try {
+      if (incomingWorldIssue(record)) throw new Error(incomingWorldIssue(record));
       if (button.dataset.action === 'estimate') { addEstimatedReports([record]); return; }
       if (button.dataset.action === 'defend') {
         setRole('defending',false); defenderPicker.set(record.defender);
@@ -1393,8 +1550,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
   action('save-plan',() => {
-    const normalized = normalizePlan({type:'travian-leadership-plan',version:3,server:C.SERVER,...state,preferences:preferences()});
-    download(JSON.stringify({type:'travian-leadership-plan',version:3,server:C.SERVER,...normalized},null,2),'ts12-leadership-plan.json','application/json');
+    const normalized = normalizePlan({type:'travian-leadership-plan',version:4,server:C.SERVER,...state,preferences:preferences()});
+    download(JSON.stringify({type:'travian-leadership-plan',version:4,server:C.SERVER,...normalized},null,2),'ts12-leadership-plan.json','application/json');
     status('app-status','Saved both lists, added attacks, tool settings and report observations. Map data and the defence roster were not exported.'
       +(returnMode === 'manual' && activeTab === 'returns' ? ' Manual return inputs were not exported.' : ''));
   });
@@ -1416,8 +1573,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     } catch (error) { status('app-status',`Import failed: ${error.message} Previous plan was kept.`,true); }
     finally { $('plan-file').disabled = false; $('load-plan').disabled = false; }
   });
-  function villageDiscord(p,name = known(p)?.name || 'Unlisted village') {
-    return `[${discordText(name)} ${discordText(C.coordText(p))}](${mapUrl(p)})`;
+  function villageDiscord(p,name,server = C.SERVER) {
+    return `[${discordText(name ?? known(p,server)?.name ?? 'Unlisted village')} ${discordText(C.coordText(p))}](${mapUrl(p,server)})`;
   }
   function locationDiscord(p) {
     return `${known(p) ? discordText(known(p).player)+' / ' : ''}${villageDiscord(p)}`;
@@ -1438,9 +1595,11 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (kind === 'incoming') {
       const record = pageRecords[Number(id)];
       if (!record) throw new Error('This report is no longer displayed.');
-      return [`From: ${discordText(record.attacker.name)} / ${villageDiscord(record.attacker)}`,
-        `Target: ${discordText(record.defender.name)} / ${villageDiscord(record.defender)}`,
+      return [...(record.tag ? [discordText(record.tag)] : []),
+        `From: ${discordText(record.attacker.name)} / ${villageDiscord(record.attacker,undefined,record.server)}`,
+        `Target: ${discordText(record.defender.name)} / ${villageDiscord(record.defender,undefined,record.server)}`,
         `Land: ${C.formatUTC(record.landingMs)}`,`Reported: ${C.formatUTC(record.reportedAt)}`,
+        ...(record.possibleUnits.length ? ['Possible units: '+record.possibleUnits.map(possibleUnitLabel).map(discordText).join(', ')] : []),
         ...(record.waves === null ? [] : ['Waves as reported: '+record.waves])];
     }
     if (kind === 'scouting') {

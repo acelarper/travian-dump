@@ -31,17 +31,22 @@ td{overflow-wrap:anywhere}.selected{background:#12352c}.operation,.player-group{
 .list-actions{flex:0 0 auto;flex-wrap:nowrap;white-space:nowrap}button.observed-control{font-size:10px;padding:1px 5px;border-radius:5px;margin-left:6px;max-width:100%}
 button.ts-choice{padding:2px 6px;border-color:transparent;background:transparent;color:inherit;text-decoration:underline;text-decoration-color:#344251;text-underline-offset:3px}
 #forecast-results tr.last-observed-row{outline:1px dashed #fff;outline-offset:-4px}
-.data-list{max-height:260px;overflow:auto}.data-list .item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.data-list .item>div:first-child{min-width:0;overflow-wrap:anywhere}
+.data-list,.participant-list{max-height:260px;overflow:auto}.data-list .item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.data-list .item>div:first-child{min-width:0;overflow-wrap:anywhere}
+.participant-table{table-layout:fixed}.participant-table td,.participant-table th{padding:7px 6px}.participant-table th:first-child{width:30px}.participant-table th:last-child{width:120px}.participant-table thead th{position:sticky;top:0;z-index:1;background:var(--panel)}
+.participant-table .participant-tag,.participant-table .observed-control{margin-left:0}.participant-table .observed-control{margin-top:5px}.participant-table .list-actions{gap:4px}
+.sort-heading{border:0;border-radius:0;padding:0;background:transparent;color:inherit;font-size:inherit;text-align:left}.sort-heading span{color:var(--green)}.participant-sort,.mobile-only{display:none}
 .batch-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:14px}.participant-editor{min-width:0;border:1px solid var(--line);border-radius:10px;padding:12px}.participant-editor>h3{margin-bottom:12px}.list-entry{display:flex;align-items:flex-start;gap:8px}.list-entry>div{min-width:0}.list-entry>input{flex-shrink:0;margin-top:5px}.pace-badge{display:inline-block;padding:3px 7px;border:1px solid #496474;border-radius:6px;background:var(--field);color:var(--green);font-size:13px;font-weight:650;margin-right:6px}.forecast-group{margin-top:24px}.forecast-group>.heading{padding-bottom:8px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.forecast-subgroup{margin-top:18px}.forecast-subgroup>.heading{font-size:12px;color:var(--dim);overflow-wrap:anywhere}.forecast-subgroup+.forecast-subgroup{margin-top:28px}
 .player-group+ .player-group{margin-top:24px}.player-score{font:600 17px var(--mono);color:var(--green)}.village-heading{padding:9px 12px;background:#141d27;border-top:1px solid var(--line)}.empty{color:var(--dim);padding:16px 0;font-size:13px}
 dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius:12px;background:var(--panel);color:var(--text);padding:16px}dialog::backdrop{background:#0009}dialog textarea{min-height:300px;resize:vertical;font-family:var(--mono);font-size:12px}
-#bulk-landing-dialog,#observed-ts-dialog{width:min(520px,calc(100% - 30px))}
+#bulk-landing-dialog,#observed-ts-dialog,#bulk-attacker-dialog{width:min(520px,calc(100% - 30px))}
 :focus-visible{outline:2px solid var(--green);outline-offset:3px}[hidden]{display:none!important}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 @media(max-width:780px){.grid,.grid.three,.grid.four{grid-template-columns:1fr 1fr}.grid>.picker{grid-column:1/-1}.top .muted{font-size:11px}.tabs{gap:5px}.tabs button{padding:7px 9px}td .digits{font-size:17px}}
 @media(max-width:900px){.batch-grid{grid-template-columns:1fr}}
 @media(max-width:520px){main{width:calc(100% - 24px);padding-top:14px}.panel{padding:12px}.grid,.grid.three,.grid.four{grid-template-columns:1fr}.picker-fields{grid-template-columns:minmax(0,1fr) 62px 62px}.actions{gap:7px}.bar{align-items:flex-start}.top{gap:8px}.top .actions{margin:0}th,td{padding:8px}.table-wrap{max-width:100%}.data-list .item{align-items:flex-start;flex-wrap:wrap}}
 @media(max-width:380px){.participant-editor .date-time,#bulk-landing-dialog .date-time{grid-template-columns:1fr}}
 @media(max-width:720px){table.responsive,table.responsive tbody{display:block}table.responsive thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}table.responsive tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:10px;border-bottom:1px solid var(--line)}table.responsive td{border:0;padding:3px;min-width:0}table.responsive td::before{content:attr(data-label);display:block;font-size:10px;color:var(--dim);margin-bottom:3px}table.responsive td.wide{grid-column:1/-1}table.responsive td .digits{font-size:17px}}
+@media(max-width:720px){.participant-sort{display:flex;align-items:end;gap:8px}.participant-sort label{flex:1;min-width:0}.participant-sort button{flex-shrink:0}.mobile-only{display:inline}.participant-table thead th{position:static}.participant-table .selection-cell::before,.participant-table .list-actions-cell::before{display:none}}
 @media print{body{background:white;color:black}.controls,button,.tabs{display:none!important}.panel{border:0}.digits,.good,.warn,.bad{color:black}.sub,.muted,th{color:#444}}
 </style>
 </head>
@@ -68,8 +73,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       <div class="batch-grid">
         <section class="participant-editor" aria-labelledby="attackers-heading">
           <h3 id="attackers-heading">Attackers</h3><div id="origin-picker"></div>
-          <label class="spaced">Attacker tag<input id="attacker-note" list="attacker-tags" maxlength="200" placeholder="Hammer, Chiefs, WWK or custom"></label>
-          <datalist id="attacker-tags"><option value="Hammer"><option value="Chiefs"><option value="WWK"></datalist>
+          <label class="spaced">Attacker tag<select id="attacker-note"><option value="">No tag</option><option value="Hammer">Hammer</option><option value="Chiefs">Chiefs</option><option value="WWK">WWK</option><option value="__custom__">Custom...</option></select></label>
+          <label id="attacker-custom-tag" class="spaced" hidden>Custom attacker tag<input id="attacker-note-custom" maxlength="200" placeholder="Enter a tag" autocomplete="off" spellcheck="false"></label>
           <div class="grid">
             <label>Attacker TS assumptions<input id="op-ts" value="16,17,18" placeholder="15 or 16,17,18 or 10-20"></label>
             <label>Last observed TS<input id="attacker-last-ts" type="number" min="0" max="20" step="1" placeholder="Unknown" title="Historical note for this village; it does not change the TS assumptions."></label>
@@ -82,13 +87,15 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
           </div><p class="hint">Standards do not speed attacks against enemies. The selected pace is the slowest travelling unit.</p></details>
           <div class="actions"><button id="add-attacker" type="button">Add attacker</button><button id="add-player-villages" type="button">Add player's villages</button><button id="cancel-attacker-edit" class="small" type="button" hidden>Cancel edit</button></div>
           <p id="attacker-status" class="status" role="status" hidden></p>
-          <div class="heading spaced"><label class="check"><input id="attackers-all" type="checkbox" disabled>All attackers</label><span id="attacker-count" class="muted"></span></div>
-          <div id="attacker-list" class="data-list"></div>
+          <div class="heading spaced"><label class="check"><input id="attackers-all" type="checkbox" disabled>All attackers</label><div class="row-actions"><button id="open-bulk-attacker-ts" class="small" type="button" aria-haspopup="dialog" aria-controls="bulk-attacker-dialog" disabled>Set TS range</button><button id="open-bulk-attacker-observed" class="small" type="button" aria-haspopup="dialog" aria-controls="bulk-attacker-dialog" disabled>Observed TS</button></div><span id="attacker-count" class="muted"></span></div>
+          <div class="participant-sort spaced"><label>Sort attackers<select id="attacker-sort"><option value="">Original order</option><option value="player">Player</option><option value="village">Village</option><option value="tag">Tag</option></select></label><button id="attacker-sort-order" class="small" type="button" disabled>Ascending</button></div>
+          <div id="attacker-list" class="participant-list"></div>
+          <p id="bulk-attacker-status" class="status" role="status" hidden></p>
         </section>
         <section class="participant-editor" aria-labelledby="defenders-heading">
           <h3 id="defenders-heading">Defenders / targets</h3><div id="destination-picker"></div>
-          <label class="spaced">Defender tag<input id="defender-note" list="defender-tags" maxlength="200" placeholder="Anvil, Hammer, Capital, WWK or custom"></label>
-          <datalist id="defender-tags"><option value="Anvil"><option value="Hammer"><option value="Capital"><option value="WWK"></datalist>
+          <label class="spaced">Defender tag<select id="defender-note"><option value="">No tag</option><option value="Anvil">Anvil</option><option value="Hammer">Hammer</option><option value="Capital">Capital</option><option value="WWK">WWK</option><option value="__custom__">Custom...</option></select></label>
+          <label id="defender-custom-tag" class="spaced" hidden>Custom defender tag<input id="defender-note-custom" maxlength="200" placeholder="Enter a tag" autocomplete="off" spellcheck="false"></label>
           <div class="grid">
             <label>Attack state<select id="op-kind"><option value="anticipated">Anticipated</option><option value="active">Already incoming</option></select></label>
             <label>Known time<select id="op-basis"><option value="landing">Landing time</option><option value="launch">Sending time</option></select></label>
@@ -97,7 +104,8 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
           <div class="actions"><button id="add-defender" type="button">Add defender</button><button id="add-defender-villages" type="button">Add player's villages</button><button id="cancel-defender-edit" class="small" type="button" hidden>Cancel edit</button></div>
           <p id="defender-status" class="status" role="status" hidden></p>
           <div class="heading spaced"><label class="check"><input id="defenders-all" type="checkbox" disabled>All defenders</label><button id="open-bulk-landing" class="small" type="button" aria-haspopup="dialog" aria-controls="bulk-landing-dialog" disabled>Set landing</button><span id="defender-count" class="muted"></span></div>
-          <div id="defender-list" class="data-list"></div>
+          <div class="participant-sort spaced"><label>Sort defenders<select id="defender-sort"><option value="">Original order</option><option value="player">Player</option><option value="village">Village</option><option value="tag">Tag</option><option value="time">Landing / sending time</option></select></label><button id="defender-sort-order" class="small" type="button" disabled>Ascending</button></div>
+          <div id="defender-list" class="participant-list"></div>
           <p id="bulk-defender-status" class="status" role="status" hidden></p>
         </section>
       </div>
@@ -209,6 +217,14 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   <p id="bulk-landing-error" class="status" role="alert" hidden></p>
   <div class="actions"><button id="retime-defenders" class="primary" type="button" disabled>Apply landing time</button><button id="cancel-bulk-landing" type="button">Cancel</button></div>
 </dialog>
+<dialog id="bulk-attacker-dialog" aria-labelledby="bulk-attacker-title">
+  <h2 id="bulk-attacker-title">Update selected attackers</h2>
+  <label id="bulk-attacker-range-field" class="spaced">TS assumptions<input id="bulk-attacker-ts" maxlength="150" placeholder="15-18 or 0-20" autocomplete="off"></label>
+  <label id="bulk-attacker-observed-field" class="spaced" hidden>Last observed TS<input id="bulk-attacker-observed" type="number" min="0" max="20" step="1" placeholder="0-20"></label>
+  <p id="bulk-attacker-description" class="hint"></p>
+  <p id="bulk-attacker-error" class="status" role="alert" hidden></p>
+  <div class="actions"><button id="save-bulk-attacker" class="primary" type="button">Update</button><button id="cancel-bulk-attacker" type="button">Cancel</button></div>
+</dialog>
 <dialog id="observed-ts-dialog" aria-labelledby="observed-ts-title">
   <h2 id="observed-ts-title">Attacker Tournament Square</h2>
   <p id="observed-ts-village" class="spaced"></p>
@@ -245,6 +261,18 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     return value;
   };
   const participantNote = (value,name) => text(value ?? '',200,name+' tag').trim();
+  function sortParticipants(entries,kind,key = '',descending = false,lookup = () => null) {
+    if (!Array.isArray(entries) || !['attacker','defender'].includes(kind) || typeof descending !== 'boolean'
+      || !['','player','village','tag',...(kind === 'defender' ? ['time'] : [])].includes(key)) throw new Error('Invalid participant sorting.');
+    if (!key) return [...entries];
+    const compare = (a,b) => a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'});
+    const values = entries.map((entry,index) => {
+      const village = lookup(entry[kind]);
+      return {entry,index,player:village?.player || 'Unlisted player',village:village?.name || C.coordText(entry[kind]),tag:entry.note || '',time:entry.timeMs};
+    });
+    return values.sort((a,b) => (key === 'time' ? a.time-b.time : compare(a[key],b[key]))*(descending ? -1 : 1)
+      || compare(a.player,b.player) || compare(a.village,b.village) || a.index-b.index).map(value => value.entry);
+  }
   function normalizeTagFilter(value) {
     if (value == null) return null;
     if (typeof value !== 'object' || Array.isArray(value) || typeof value.tag !== 'string' || typeof value.exclude !== 'boolean') throw new Error('Invalid tag filter.');
@@ -425,19 +453,53 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     attackScenarios(next);
     return {builder:{...lists,defenders},operations:next,updatedTargets,updatedAttacks};
   }
-  function recordAttackerTs(builder,operations,attacker,lastTs) {
-    const origin = {...point(attacker,'Attacking village'),tribe:C.integer(attacker.tribe,1,3,'Attacker tribe')};
+  function updateSelectedAttackerTs(builder,operations,levels,role = 'defending') {
+    const tsLevels = parseTsLevels(levels), lists = normalizeBuilder(builder);
+    if (!['defending','attacking'].includes(role)) throw new Error('Invalid attack role.');
+    if (!Array.isArray(operations) || operations.length > MAX_ATTACKS) throw new Error(`At most ${MAX_ATTACKS} attacks can be saved.`);
+    const selected = new Set(lists.attackers.filter(entry => entry.enabled).map(attackerSignature));
+    if (!selected.size) throw new Error('Select at least one attacker.');
+    if (lists.attackers.some(entry => !entry.enabled && selected.has(attackerSignature(entry)))) throw new Error('Selected and unselected attackers share the same setup. Remove the duplicate first.');
+    const changed = entry => entry.tsLevels.join(',') !== tsLevels.join(',');
+    let updatedPresets = 0, updatedAttacks = 0;
+    const attackers = lists.attackers.map(entry => {
+      if (!entry.enabled || !changed(entry)) return entry;
+      updatedPresets++; return {...entry,tsLevels};
+    });
+    for (let i=0;i<attackers.length;i++) for (let j=i+1;j<attackers.length;j++) {
+      if (attackerSignature(attackers[i]) === attackerSignature(attackers[j])
+        && attackerSignature(lists.attackers[i]) !== attackerSignature(lists.attackers[j])) {
+        throw new Error(`This range would duplicate an attacker setup at ${C.coordText(attackers[i].attacker)}. Remove one of those entries first; nothing was changed.`);
+      }
+    }
+    const next = operations.map(normalizeOperation).map(op => {
+      if (op.role !== role || !selected.has(attackerSignature(op)) || !changed(op)) return op;
+      updatedAttacks++; return {...op,tsLevels};
+    });
+    attackScenarios(next);
+    return {builder:{...lists,attackers},operations:next,updatedPresets,updatedAttacks};
+  }
+  function recordVillageObservations(lists,operations,keys,lastTs) {
     const observation = normalizeLastTs(lastTs);
     if (!observation) throw new Error('Choose a valid observed TS.');
     if (!Array.isArray(operations) || operations.length > MAX_ATTACKS) throw new Error(`At most ${MAX_ATTACKS} attacks can be saved.`);
-    const lists = normalizeBuilder(builder), normalized = operations.map(normalizeOperation), key = attackerVillageKey(origin);
-    const matches = entry => attackerVillageKey(entry.attacker) === key;
+    const normalized = operations.map(normalizeOperation);
+    const matches = entry => keys.has(attackerVillageKey(entry.attacker));
     const attackerEntries = lists.attackers.filter(matches).length, attacks = normalized.filter(matches).length;
     if (!attackerEntries && !attacks) throw new Error('This attacking village is no longer in the plan.');
     const update = entry => matches(entry) ? {...entry,lastTs:observation} : entry;
     const next = normalized.map(update), attackers = lists.attackers.map(update);
     attackScenarios(next);
-    return {builder:{...lists,attackers},operations:next,attackerEntries,attacks};
+    return {builder:{...lists,attackers},operations:next,attackerEntries,attacks,villages:keys.size};
+  }
+  function recordAttackerTs(builder,operations,attacker,lastTs) {
+    const origin = {...point(attacker,'Attacking village'),tribe:C.integer(attacker.tribe,1,3,'Attacker tribe')};
+    return recordVillageObservations(normalizeBuilder(builder),operations,new Set([attackerVillageKey(origin)]),lastTs);
+  }
+  function recordSelectedAttackerTs(builder,operations,lastTs) {
+    const lists = normalizeBuilder(builder), keys = new Set(lists.attackers.filter(entry => entry.enabled).map(entry => attackerVillageKey(entry.attacker)));
+    if (!keys.size) throw new Error('Select at least one attacker.');
+    return recordVillageObservations(lists,operations,keys,lastTs);
   }
   function attackSeconds(fields,speed,ts,boots = 0,artefact = 1) {
     if (![0,25,50,75].includes(boots) || ![1,1.5,2].includes(artefact)) throw new Error('Invalid speed bonus.');
@@ -868,7 +930,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (chunk) chunks.push(chunk);
     return chunks.length ? chunks : ['No calculated rows to share.'];
   }
-  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,retimeDefenders,recordAttackerTs,normalizeTagFilter,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,manualReturnScenario,returnScenarios,normalizeIncoming,parseIncomingCsv,parseTravcoPage,incomingSpeeds,mergeObservations,latestIncoming,normalizePlan,defenderGroups,discordText,discordChunks});
+  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,retimeDefenders,updateSelectedAttackerTs,recordAttackerTs,recordSelectedAttackerTs,sortParticipants,normalizeTagFilter,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,manualReturnScenario,returnScenarios,normalizeIncoming,parseIncomingCsv,parseTravcoPage,incomingSpeeds,mergeObservations,latestIncoming,normalizePlan,defenderGroups,discordText,discordChunks});
   if (typeof document === 'undefined') return;
   const $ = id => document.getElementById(id);
   const esc = value => String(value).replace(/[&<>"']/g,ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -883,7 +945,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   const timeHtml = (ms,live = false) => ms === null ? '<span class="muted">Enter travel time</span>'
     : `<span class="digits">${C.formatClock(ms)}</span><span class="sub">${C.formatDay(ms)} UTC</span>${live ? `<span class="sub mono" data-deadline="${ms}"></span>` : ''}`;
   let world = [], searchIndex = [], byPoint = new Map(), activeTab = 'planning', editingId = null, pendingReport = null;
-  let editingAttackerId = null, editingDefenderId = null, editorContextNote = '', lastTsEdited = false, observedTsTarget = null;
+  let editingAttackerId = null, editingDefenderId = null, editorContextNote = '', lastTsEdited = false, observedTsTarget = null, bulkAttackerMode = null;
+  const participantSort = {attacker:{key:'',descending:false},defender:{key:'',descending:false}};
+  const CUSTOM_TAG = '__custom__';
   let computed = [], scenarios = [], selectedKey = '', scoutResult = null, returnResult = null, defencePlan = null;
   let returnMode = 'manual', manualReturnTouched = false, manualReturnDraft = null, plannedReturnDraft = null, manualReturnHomeKey = '';
   const returnInputIds = ['return-current-ts','return-speed','return-boots','return-map','return-artefact','return-offset','return-travel'];
@@ -905,6 +969,26 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   const tagHtml = note => note ? `<span class="participant-tag">${esc(note)}</span>` : '';
   const participantHtml = (p,note) => locationHtml(p)+tagHtml(note);
   const participantText = (p,note) => label(p)+(note ? ` [${note}]` : '');
+  function showCustomTag(kind) {
+    $(kind+'-custom-tag').hidden = $(kind+'-note').value !== CUSTOM_TAG;
+  }
+  function setParticipantTag(kind,note) {
+    const select = $(kind+'-note'), preset = [...select.options].some(option => option.value === note && option.value !== CUSTOM_TAG);
+    select.value = preset ? note : CUSTOM_TAG;
+    $(kind+'-note-custom').value = preset ? '' : note;
+    showCustomTag(kind);
+  }
+  function readParticipantTag(kind) {
+    const value = $(kind+'-note').value;
+    if (value !== CUSTOM_TAG) return value;
+    const custom = $(kind+'-note-custom').value.trim();
+    if (!custom) throw new Error(`Enter a custom ${kind} tag, or choose No tag.`);
+    return custom;
+  }
+  for (const kind of ['attacker','defender']) $(kind+'-note').addEventListener('change',() => {
+    showCustomTag(kind);
+    if ($(kind+'-note').value === CUSTOM_TAG) $(kind+'-note-custom').focus();
+  });
   const observedTsText = last => last ? `Last observed TS ${last.level}` : '';
   function observedTsHtml(last,levels,attacker = null) {
     if (!last && !attacker) return '';
@@ -1181,10 +1265,10 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   }
   function resetEditor(keepTarget) {
     editingId = null; editingAttackerId = null; editingDefenderId = null; clearSourceReport(); originPicker.clear();
-    $('attacker-note').value = ''; editorContextNote = '';
+    setParticipantTag('attacker',''); editorContextNote = '';
     if (!keepTarget) {
       targetPicker.clear(); $('op-date').value = C.isoTime(Date.now()).slice(0,10); $('op-time').value = '';
-      $('defender-note').value = '';
+      setParticipantTag('defender','');
       $('op-ts').value = $('op-ts').defaultValue; $('op-boots').value = '0'; $('op-artefact').value = '1';
       $('op-kind').value = 'anticipated'; $('op-basis').value = 'landing';
     }
@@ -1205,7 +1289,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const result = normalizeOperation({id:editingId || uid(),role:state.role,kind:$('op-kind').value,attacker,defender,
       tsLevels:parseTsLevels($('op-ts').value),speed:Number($('op-speed').value),boots:Number($('op-boots').value),artefact:Number($('op-artefact').value),
       basis:$('op-basis').value,timeMs:C.parseUTC($('op-date').value+'T'+time,'Attack time'),note:previous?.note ?? editorContextNote,
-      attackerNote:$('attacker-note').value,defenderNote:$('defender-note').value,
+      attackerNote:readParticipantTag('attacker'),defenderNote:readParticipantTag('defender'),
       lastTs:readObservedTs(attacker),
       reportedAt:$('op-kind').value === 'active' ? pendingReport?.firstReportedAt ?? pendingReport?.reportedAt ?? Date.now() : null,
       scouting:sameRoute ? previous.scouting : null,returning:sameRoute ? previous.returning : null});
@@ -1217,14 +1301,14 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     speedOptions($('op-speed'),attacker.tribe,$('op-speed').value);
     return normalizeAttacker({id:editingAttackerId || uid(),attacker,tsLevels:parseTsLevels($('op-ts').value),
       speed:Number($('op-speed').value),boots:Number($('op-boots').value),artefact:Number($('op-artefact').value),
-      enabled:state.builder.attackers.find(entry => entry.id === editingAttackerId)?.enabled ?? true,note:$('attacker-note').value,lastTs:readObservedTs(attacker)});
+      enabled:state.builder.attackers.find(entry => entry.id === editingAttackerId)?.enabled ?? true,note:readParticipantTag('attacker'),lastTs:readObservedTs(attacker)});
   }
   function readDefenderEntry() {
     const time = C.normalizeClockTime($('op-time').value);
     const entry = normalizeDefender({id:editingDefenderId || uid(),defender:targetPicker.get(),kind:$('op-kind').value,
       basis:$('op-basis').value,timeMs:C.parseUTC($('op-date').value+'T'+time,'Target time'),
       reportedAt:$('op-kind').value === 'active' ? pendingReport?.firstReportedAt ?? pendingReport?.reportedAt ?? Date.now() : null,
-      enabled:state.builder.defenders.find(value => value.id === editingDefenderId)?.enabled ?? true,note:$('defender-note').value});
+      enabled:state.builder.defenders.find(value => value.id === editingDefenderId)?.enabled ?? true,note:readParticipantTag('defender')});
     $('op-time').value = time;
     return entry;
   }
@@ -1238,6 +1322,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     $('generate-pairings').disabled = !pairs || !!editingId || !!editingAttackerId || !!editingDefenderId;
     $('retime-defenders').disabled = !defenders.length || !!editingId || !!editingAttackerId || !!editingDefenderId;
     $('open-bulk-landing').disabled = $('retime-defenders').disabled;
+    for (const id of ['open-bulk-attacker-ts','open-bulk-attacker-observed','save-bulk-attacker']) $(id).disabled = !attackers.length || !!editingId || !!editingAttackerId || !!editingDefenderId;
     $('add-operation').textContent = editingId ? 'Update attack' : 'Add this pair only';
     $('add-operation').disabled = !!editingAttackerId || !!editingDefenderId;
     $('cancel-edit').hidden = !editingId;
@@ -1251,20 +1336,30 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       $(kind+'-count').textContent = `${selected} selected / ${entries.length}`;
       all.disabled = !entries.length; all.checked = entries.length > 0 && selected === entries.length;
       all.indeterminate = selected > 0 && selected < entries.length;
+      $(kind+'-sort').disabled = !entries.length;
+      $(kind+'-sort').value = participantSort[kind].key;
+      $(kind+'-sort-order').disabled = !entries.length || !participantSort[kind].key;
+      $(kind+'-sort-order').textContent = participantSort[kind].descending ? 'Descending' : 'Ascending';
     }
   }
   function renderBuilder() {
     for (const kind of ['attacker','defender']) {
-      const entries = state.builder[kind+'s'];
-      $(kind+'-list').innerHTML = entries.length ? entries.map(entry => {
-        const p = entry[kind];
-        const summary = kind === 'attacker' ? `${paceLabel(p.tribe,entry.speed)}; TS ${formatTsLevels(entry.tsLevels)}${entry.boots ? '; boots +'+entry.boots+'%' : ''}${entry.artefact !== 1 ? '; artefact x'+entry.artefact : ''}`
-          : `${entry.basis === 'landing' ? 'Lands' : 'Sends'} ${C.formatUTC(entry.timeMs)}; ${entry.kind === 'active' ? 'already incoming' : 'anticipated'}`;
+      const order = participantSort[kind], entries = sortParticipants(state.builder[kind+'s'],kind,order.key,order.descending,known);
+      const header = (key,title) => `<th scope="col" aria-sort="${order.key === key ? order.descending ? 'descending' : 'ascending' : 'none'}"><button type="button" class="sort-heading" data-list-sort="${key}" title="${key === 'time' ? 'Sort by landing or known sending time (UTC)' : 'Sort by '+title.toLowerCase()}">${title} <span aria-hidden="true">${order.key === key ? order.descending ? '&darr;' : '&uarr;' : '&varr;'}</span></button></th>`;
+      $(kind+'-list').innerHTML = entries.length ? `<table class="participant-table responsive"><thead><tr><th scope="col"><span class="visually-hidden">Select</span></th>${header('player','Player')}${header('village','Village')}${header('tag','Tag')}${kind === 'defender' ? header('time','Landing') : ''}<th scope="col">Actions</th></tr></thead><tbody>${entries.map(entry => {
+        const p = entry[kind], village = known(p);
+        const player = village?.uid ? `<a href="${C.SERVER}/profile/${village.uid}" target="_blank" rel="noopener noreferrer">${esc(village.player)}</a>` : '<span class="muted">Unlisted player</span>';
+        const army = kind === 'attacker' ? `<span class="sub">${esc(paceLabel(p.tribe,entry.speed))}</span><span class="sub">TS ${formatTsLevels(entry.tsLevels)}${entry.boots ? '; boots +'+entry.boots+'%' : ''}${entry.artefact !== 1 ? '; artefact x'+entry.artefact : ''}</span>` : '';
         const mismatch = kind === 'attacker' && known(p) && known(p).tribe !== p.tribe;
-        return `<div class="item"><div class="list-entry"><input type="checkbox" data-entry-enabled="${entry.id}" aria-label="Include ${esc(label(p))}"${entry.enabled ? ' checked' : ''}>
-          <div><strong>${participantHtml(p,entry.note)}</strong>${kind === 'attacker' ? observedTsHtml(entry.lastTs,entry.tsLevels,p) : ''}<span class="sub">${esc(summary)}</span>${mismatch ? '<span class="sub warn">Map tribe changed; edit this entry.</span>' : ''}</div></div>
-          <div class="row-actions list-actions"><button type="button" class="small" data-entry-edit="${entry.id}">Edit</button><button type="button" class="small" data-entry-remove="${entry.id}">Remove</button></div></div>`;
-      }).join('') : `<p class="empty">No ${kind === 'attacker' ? 'attackers' : 'targets'} listed yet.</p>`;
+        return `<tr class="item participant-row" data-participant-id="${entry.id}">
+          <td class="selection-cell wide"><label class="check"><input type="checkbox" data-entry-enabled="${entry.id}" aria-label="Include ${esc(label(p))}"${entry.enabled ? ' checked' : ''}><span class="mobile-only">Include</span></label></td>
+          <td data-label="Player">${player}${army}</td>
+          <td data-label="Village">${villageHtml(p)}<span class="sub">${link(p)}</span>${kind === 'attacker' ? observedTsHtml(entry.lastTs,entry.tsLevels,p) : ''}${mismatch ? '<span class="sub warn">Map tribe changed; edit this entry.</span>' : ''}</td>
+          <td data-label="Tag">${entry.note ? tagHtml(entry.note) : '<span class="muted">No tag</span>'}</td>
+          ${kind === 'defender' ? `<td data-label="${entry.basis === 'landing' ? 'Landing' : 'Sending'} (UTC)">${entry.basis === 'launch' ? '<span class="sub warn">Sending</span>' : ''}<span class="mono">${C.formatClock(entry.timeMs)}</span><span class="sub">${C.formatDay(entry.timeMs)} UTC</span><span class="sub">${entry.kind === 'active' ? 'Incoming' : 'Anticipated'}</span></td>` : ''}
+          <td class="list-actions-cell wide"><div class="row-actions list-actions"><button type="button" class="small" data-entry-edit="${entry.id}">Edit</button><button type="button" class="small" data-entry-remove="${entry.id}">Remove</button></div></td>
+        </tr>`;
+      }).join('')}</tbody></table>` : `<p class="empty">No ${kind === 'attacker' ? 'attackers' : 'targets'} listed yet.</p>`;
     }
     updateBuilderControls();
   }
@@ -1325,6 +1420,12 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       .map(v => normalizeDefender({...base,id:uid(),defender:{x:v.x,y:v.y},enabled:true})));
   },'defender-status');
   for (const kind of ['attacker','defender']) {
+    $(kind+'-sort').addEventListener('change',() => {
+      participantSort[kind] = {key:$(kind+'-sort').value,descending:false}; renderBuilder(); $(kind+'-list').scrollTop = 0;
+    });
+    action(kind+'-sort-order',() => {
+      participantSort[kind].descending = !participantSort[kind].descending; renderBuilder(); $(kind+'-list').scrollTop = 0;
+    });
     action('cancel-'+kind+'-edit',() => resetEditor(false));
     $(kind+'s-all').addEventListener('change',() => {
       for (const entry of state.builder[kind+'s']) entry.enabled = $(kind+'s-all').checked;
@@ -1337,6 +1438,14 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       if (entry) { entry.enabled = input.checked; updateBuilderControls(); }
     });
     $(kind+'-list').addEventListener('click',event => {
+      const sort = event.target.closest('[data-list-sort]');
+      if (sort) {
+        const key = sort.dataset.listSort, previous = participantSort[kind];
+        participantSort[kind] = {key,descending:previous.key === key ? !previous.descending : false};
+        renderBuilder(); $(kind+'-list').scrollTop = 0;
+        $(kind+'-list').querySelector(`[data-list-sort="${key}"]`)?.focus({preventScroll:true});
+        return;
+      }
       const edit = event.target.closest('[data-entry-edit]'), remove = event.target.closest('[data-entry-remove]');
       if (remove) {
         state.builder[kind+'s'] = state.builder[kind+'s'].filter(entry => entry.id !== remove.dataset.entryRemove);
@@ -1352,19 +1461,63 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
         refreshObservedTsInput();
         $('op-ts').value = entry.tsLevels.join(','); speedOptions($('op-speed'),originPicker.tribe(),entry.speed);
         $('op-boots').value = entry.boots; $('op-artefact').value = entry.artefact;
-        $('attacker-note').value = entry.note;
+        setParticipantTag('attacker',entry.note);
         status('attacker-status',originPicker.tribe() !== entry.attacker.tribe ? 'Map tribe differs. Review the unit pace before updating.' : 'Editing attacker setup.',originPicker.tribe() !== entry.attacker.tribe);
       } else {
         editingDefenderId = entry.id; targetPicker.set(entry.defender,false);
         $('op-kind').value = entry.kind; $('op-basis').value = entry.basis; updateBasis();
         $('op-date').value = C.isoTime(entry.timeMs).slice(0,10); $('op-time').value = C.isoTime(entry.timeMs).slice(11);
-        $('defender-note').value = entry.note;
+        setParticipantTag('defender',entry.note);
         pendingReport = entry.reportedAt === null ? null : {firstReportedAt:entry.reportedAt};
         status('defender-status','Editing target timing.');
       }
       updateBuilderControls();
     });
   }
+  for (const mode of ['ts','observed']) action('open-bulk-attacker-'+mode,() => {
+    const selected = state.builder.attackers.filter(entry => entry.enabled);
+    if (!selected.length) throw new Error('Select at least one attacker.');
+    bulkAttackerMode = mode;
+    $('bulk-attacker-range-field').hidden = mode !== 'ts';
+    $('bulk-attacker-observed-field').hidden = mode !== 'observed';
+    status('bulk-attacker-error','');
+    if (mode === 'ts') {
+      $('bulk-attacker-title').textContent = `Set TS range for ${selected.length} selected ${selected.length === 1 ? 'attacker' : 'attackers'}`;
+      $('bulk-attacker-ts').value = selected.every(entry => entry.tsLevels.join(',') === selected[0].tsLevels.join(',')) ? formatTsLevels(selected[0].tsLevels) : '';
+      $('bulk-attacker-description').textContent = 'Updates selected presets and planned attacks matching their current setup. Last observed TS and return TS stay unchanged.';
+      $('save-bulk-attacker').textContent = 'Update TS range';
+    } else {
+      const levels = selected.map(entry => latestObservedTs(entry.attacker)?.level ?? null);
+      const count = new Set(selected.map(entry => attackerVillageKey(entry.attacker))).size;
+      $('bulk-attacker-title').textContent = `Last observed TS for ${count} selected ${count === 1 ? 'village' : 'villages'}`;
+      $('bulk-attacker-observed').value = levels[0] !== null && levels.every(level => level === levels[0]) ? levels[0] : '';
+      $('bulk-attacker-description').textContent = 'Updates observations everywhere for these villages, including other presets of the same village. TS ranges and calculated timings stay unchanged.';
+      $('save-bulk-attacker').textContent = 'Save observations';
+    }
+    if (!$('bulk-attacker-dialog').open) $('bulk-attacker-dialog').showModal();
+    $(mode === 'ts' ? 'bulk-attacker-ts' : 'bulk-attacker-observed').focus();
+  },'bulk-attacker-status');
+  action('cancel-bulk-attacker',() => $('bulk-attacker-dialog').close());
+  $('bulk-attacker-dialog').addEventListener('close',() => { if (!$('bulk-attacker-dialog').open) bulkAttackerMode = null; });
+  for (const id of ['bulk-attacker-ts','bulk-attacker-observed']) $(id).addEventListener('input',() => status('bulk-attacker-error',''));
+  action('save-bulk-attacker',() => {
+    if (!bulkAttackerMode) throw new Error('Choose a bulk attacker action first.');
+    const selected = state.builder.attackers.filter(entry => entry.enabled);
+    for (const entry of selected) if (known(entry.attacker) && known(entry.attacker).tribe !== entry.attacker.tribe) throw new Error(`Map tribe changed at ${C.coordText(entry.attacker)}. Edit that attacker first.`);
+    const mode = bulkAttackerMode, keys = new Set(selected.map(entry => attackerVillageKey(entry.attacker)));
+    const next = mode === 'ts' ? updateSelectedAttackerTs(state.builder,state.operations,$('bulk-attacker-ts').value,state.role)
+      : recordSelectedAttackerTs(state.builder,state.operations,{level:$('bulk-attacker-observed').valueAsNumber,notedAt:Date.now()});
+    state.builder = next.builder; state.operations = next.operations;
+    if (mode === 'observed') {
+      if (returnResult && keys.has(attackerVillageKey(returnResult.scenario.attack.attacker))) invalidateReturn();
+      if (keys.has(attackerVillageKey({x:$('origin-x').valueAsNumber,y:$('origin-y').valueAsNumber,tribe:originPicker.tribe()}))) refreshObservedTsInput();
+    }
+    invalidateCalculations(); renderBuilder(); renderOperations();
+    if (state.operations.some(op => op.role === state.role)) calculateOperations();
+    status('bulk-attacker-status',mode === 'ts' ? `${next.updatedPresets} attacker ${next.updatedPresets === 1 ? 'preset' : 'presets'} and ${next.updatedAttacks} matching ${next.updatedAttacks === 1 ? 'attack' : 'attacks'} updated. Last observed TS was kept.`
+      : `Observed TS recorded for ${next.villages} ${next.villages === 1 ? 'village' : 'villages'} across ${next.attackerEntries} presets and ${next.attacks} attacks. TS ranges and timings were kept.`);
+    $('bulk-attacker-dialog').close();
+  },'bulk-attacker-error');
   action('open-bulk-landing',() => {
     const selected = state.builder.defenders.filter(entry => entry.enabled);
     if (!selected.length) throw new Error('Select at least one defender.');
@@ -1440,7 +1593,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     $('op-ts').value = op.tsLevels.join(','); $('op-kind').value = op.kind; $('op-basis').value = op.basis;
     $('op-date').value = C.isoTime(op.timeMs).slice(0,10); $('op-time').value = C.isoTime(op.timeMs).slice(11);
     $('op-boots').value = op.boots; $('op-artefact').value = op.artefact;
-    $('attacker-note').value = op.attackerNote; $('defender-note').value = op.defenderNote; editorContextNote = op.note;
+    setParticipantTag('attacker',op.attackerNote); setParticipantTag('defender',op.defenderNote); editorContextNote = op.note;
     pendingReport = op.reportedAt === null ? null : {firstReportedAt:op.reportedAt};
     updateBasis(); updateBuilderControls();
     status('source-report',op.reportedAt === null ? '' : `Reported by ${C.formatUTC(op.reportedAt)}.`);
@@ -1833,6 +1986,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       if (file.size > C.MAP_LIMIT) throw new Error('Plan exceeds 40 MB.');
       const next = normalizePlan(JSON.parse(await file.text()));
       if ($('bulk-landing-dialog').open) $('bulk-landing-dialog').close();
+      if ($('bulk-attacker-dialog').open) $('bulk-attacker-dialog').close();
       if ($('observed-ts-dialog').open) $('observed-ts-dialog').close();
       state = next; setRole(next.role); refreshIncoming();
       $('scout-offset').value = next.preferences.scoutOffset; $('scout-travel').value = next.preferences.scoutTravel;

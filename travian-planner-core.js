@@ -315,6 +315,31 @@
     if (!candidates.length) throw new Error('Invalid call calendar date.');
     return candidates[0];
   }
+  const troopToken = value => /^(?:[+\-\u2212]?\d[\d,. \u00a0\u202f]*(?:\s*\(\s*filled\s*\))?|\(?filled\)?|[-?]|unknown)$/i.test((value || '').trim());
+  function callTroops(needed = '',missing = '') {
+    const number = (raw,negative,name) => {
+      const value = raw.trim().replace(/\u2212/g,'-').replace(/[\u00a0\u202f]/g,' ');
+      if (!value || /^(?:[-?]|unknown)$/i.test(value)) return null;
+      if (value.length > 100 || !/^[+-]?(?:\d+|\d{1,3}(?:,\d{3})+|\d{1,3}(?:\.\d{3})+|\d{1,3}(?: \d{3})+)$/.test(value)) throw new Error(`Invalid ${name}.`);
+      return integer(Number(value.replace(/[ ,.]/g,'')),negative ? -1e12 : 0,1e12,name);
+    };
+    const marked = /^\(?filled\)?$/i.test(missing.trim()) || /\(\s*filled\s*\)\s*$/i.test(missing);
+    const rawMissing = missing.replace(/\(\s*filled\s*\)\s*$/i,'').replace(/^filled$/i,'').trim();
+    const troopsNeeded = number(needed,false,'troops needed'), troopsMissing = number(rawMissing,true,'troops missing');
+    if (marked && troopsMissing !== null && troopsMissing > 0) throw new Error('Filled status conflicts with a positive missing-troop count.');
+    return {troopsNeeded,troopsMissing,filled:marked || troopsMissing !== null && troopsMissing <= 0};
+  }
+  class DefenceCallConflict extends Error {}
+  function addDefenceCall(calls,call) {
+    const previous = calls.get(call.key);
+    if (!previous) { calls.set(call.key,call); return; }
+    const conflict = ['troopsNeeded','troopsMissing'].some(key => previous[key] !== null && call[key] !== null && previous[key] !== call[key]);
+    const troopsNeeded = previous.troopsNeeded ?? call.troopsNeeded, troopsMissing = previous.troopsMissing ?? call.troopsMissing;
+    const filled = previous.filled || call.filled;
+    if (conflict || filled && troopsMissing !== null && troopsMissing > 0) throw new DefenceCallConflict(`Conflicting troop requirements for duplicate call ${coordText(call)}. Paste one current snapshot.`);
+    calls.set(call.key,{...previous,troopsNeeded,troopsMissing,filled});
+  }
+  const compareDefenceCalls = (a,b) => Number(a.filled)-Number(b.filled) || a.deadlineMs-b.deadlineMs || a.key.localeCompare(b.key);
   function parseDiscordDefenceCalls(text,referenceMs) {
     integer(referenceMs,0,253402300799999,'Current UTC time');
     const clean = text.replace(/\*\*|__|`/g,'').replace(/\u2212/g,'-').replace(/[^\S\n]+/g,' ')
@@ -366,14 +391,24 @@
         const villageName = body.slice(end,nameEnd).split('\n')[0].split(/\bImpact\s+time\b/i)[0]
           .replace(/^[ :\-\u2013\u2014]+/,'').trim().replace(/^\*(.*)\*$/,'$1').replace(/^_(.*)_$/,'$1');
         if (villageName.length > 200) throw new Error('Village name is too long.');
+        const requirementBlock = block.split(/^Note\b/im)[0];
+        const requirement = name => {
+          const field = new RegExp('^Troops '+name+'[ :]*(?:\\n([^\\n]*)|([^\\n]+))$','im').exec(requirementBlock);
+          const value = (field?.[1] || field?.[2] || '').trim();
+          return troopToken(value) ? value : '';
+        };
+        const troops = callTroops(requirement('needed'),requirement('missing'));
         const key = `impact:${point.x}|${point.y}@${deadlineMs}`;
         // The Discord footer can name the caller, not the village owner.
-        if (!calls.has(key)) calls.set(key,{key,player:'',alliance:'',villageName,...point,deadlineMs,isImpact:true});
+        addDefenceCall(calls,{key,player:'',alliance:'',villageName,...point,deadlineMs,isImpact:true,...troops});
         rows++;
-      } catch (error) { warnings.push(`Call ${index+1}: ${error.message}`); }
+      } catch (error) {
+        if (error instanceof DefenceCallConflict) throw error;
+        warnings.push(`Call ${index+1}: ${error.message}`);
+      }
     }
     if (!calls.size) throw new Error(warnings[0] || 'Include village coordinates and an impact date/time.');
-    return {calls:[...calls.values()].sort((a,b) => a.deadlineMs-b.deadlineMs || a.key.localeCompare(b.key)),
+    return {calls:[...calls.values()].sort(compareDefenceCalls),
       rows,duplicates:rows-calls.size,reportedCount:null,sourceMs:null,warnings};
   }
   function parseTravcoDefenceCalls(input,referenceMs = Date.now()) {
@@ -422,13 +457,13 @@
     const dateOnly = /^\d{1,2}\.\d{1,2}\.(?:\d{4}\.?)?\s*(?:UTC|Z)?$/i;
     const calls = new Map();
     let rows = 0;
-    const add = (name,alliance,coords,time,row) => {
+    const add = (name,alliance,coords,time,row,needed = '',missing = '') => {
       try {
         const player = name.replace(/^tribe icon\s*/i,'').trim();
         if (!player || player.length > 200 || alliance.length > 200) throw new Error('Invalid defender name or alliance.');
         const point = parseCoordinates(coords.replace(/\//g,'|')), deadlineMs = deadline(time);
         const key = `${point.x}|${point.y}@${deadlineMs}`;
-        if (!calls.has(key)) calls.set(key,{key,player,alliance,...point,deadlineMs});
+        addDefenceCall(calls,{key,player,alliance,...point,deadlineMs,...callTroops(needed,missing)});
         rows++;
         if (rows > 1000) throw new Error('At most 1,000 calls can be pasted at once.');
       } catch (error) { throw new Error(`Call row ${row}: ${error.message}`); }
@@ -438,6 +473,7 @@
     const columns = headerLine < 0 ? [] : lines[headerLine].split('\t').map(cell => cell.trim().toLowerCase().replace(/\s+/g,' '));
     const playerColumn = columns.indexOf('defender'), allianceColumn = columns.indexOf('defender alliance');
     const coordinateColumn = columns.indexOf('defender village'), timeColumn = columns.findIndex(cell => /^send defen[sc]e before$/.test(cell));
+    const neededColumn = columns.indexOf('troops needed'), missingColumn = columns.indexOf('troops missing');
     if ([playerColumn,allianceColumn,coordinateColumn,timeColumn].every(index => index >= 0)) {
       for (let i=headerLine+1;i<lines.length;i++) {
         const cells = lines[i].split('\t').map(cell => cell.trim());
@@ -445,24 +481,39 @@
         let time = cells[timeColumn] || '';
         if (name.toLowerCase() === 'tribe icon') continue;
         if (!coordinate.test(coords) && !startsTime.test(time) && !/^tribe icon\s+\S/i.test(name)) continue;
-        const row = i+1, next = (lines[i+1] || '').split('\t')[0].trim();
-        if (/,\s*$/.test(time) && dateOnly.test(next)) { time += ' '+next; i++; }
-        add(name,cells[allianceColumn] || '',coords,time,row);
+        const row = i+1, next = (lines[i+1] || '').split('\t').map(cell => cell.trim());
+        if (/,\s*$/.test(time) && dateOnly.test(next[0])) {
+          time += ' '+next[0]; i++;
+          if (!cells.slice(timeColumn+1).some(Boolean)) cells.splice(timeColumn+1,cells.length,...next.slice(1));
+        }
+        add(name,cells[allianceColumn] || '',coords,time,row,cells[neededColumn] || '',cells[missingColumn] || '');
       }
     } else {
       const tokens = body.slice(header.index+header[0].length).split(/[\t\n]+/).map(value => value.trim())
         .filter(value => value && value.toLowerCase() !== 'tribe icon');
-      for (let i=2;i<tokens.length-1;i++) {
-        if (!coordinate.test(tokens[i])) continue;
+      const anchors = [];
+      for (let i=2;i<tokens.length;i++) if (coordinate.test(tokens[i]) && (startsTime.test(tokens[i+1] || '') || /^tribe icon\s+\S/i.test(tokens[i-2]))) anchors.push(i);
+      const extraHeaders = tokens.slice(0,Math.max(0,(anchors[0] ?? 2)-2)).join(' ').toLowerCase().replace(/\s+/g,' ');
+      const troopColumns = [...extraHeaders.matchAll(/\btroops (needed|missing)\b/g)].map(match => match[1]);
+      if (troopColumns.length > 2 || new Set(troopColumns).size !== troopColumns.length
+        || troopColumns.length && !extraHeaders.startsWith(troopColumns.map(name => 'troops '+name).join(' '))) throw new Error('Keep the troop columns beside the deadline when pasting flattened calls.');
+      for (const [row,i] of anchors.entries()) {
         let time = tokens[i+1], consumed = 1;
-        if (!startsTime.test(time) && !/^tribe icon\s+\S/i.test(tokens[i-2])) continue;
+        time = time || '';
         if (/,\s*$/.test(time) && dateOnly.test(tokens[i+2] || '')) { time += ' '+tokens[i+2]; consumed++; }
-        add(tokens[i-2],tokens[i-1],tokens[i],time,rows+1);
-        i += consumed;
+        const values = tokens.slice(i+consumed+1,anchors[row+1] === undefined ? tokens.length : anchors[row+1]-2);
+        const counts = {needed:'',missing:''};
+        // Flattened copies lose empty cells; do not mistake a lone total for missing troops.
+        if (troopColumns.length && troopColumns.every((name,index) => troopToken(values[index]))) {
+          troopColumns.forEach((name,index) => { counts[name] = values[index]; });
+        } else if (troopColumns.includes('missing') && troopToken(values[0]) && /^(?:[-\u2212]\d|\(?filled)|\(\s*filled\s*\)$/i.test(values[0] || '')) {
+          counts.missing = values[0];
+        }
+        add(tokens[i-2],tokens[i-1],tokens[i],time,row+1,counts.needed,counts.missing);
       }
     }
     if (!rows && reportedCount !== 0) throw new Error('No readable defence calls found. Include the complete table rows.');
-    return {calls:[...calls.values()].sort((a,b) => a.deadlineMs-b.deadlineMs || a.player.localeCompare(b.player)),
+    return {calls:[...calls.values()].sort(compareDefenceCalls),
       rows,duplicates:rows-calls.size,reportedCount,sourceMs};
   }
   function distance(a,b) {

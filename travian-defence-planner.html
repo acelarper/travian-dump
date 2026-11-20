@@ -35,6 +35,7 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .target-toolbar{margin-bottom:16px}.target-tabs{display:flex;gap:6px;flex-wrap:wrap}.target-tabs button[aria-selected=true]{color:var(--green);border-color:#437e70;background:#0e2823}
 #travco-paste{display:block;min-height:145px;margin-top:8px;resize:vertical;font-size:12px}
 .call-list{margin-top:14px;border:1px solid var(--line);border-radius:9px;overflow:hidden}.call-list:empty{display:none}.call-list>.muted{padding:12px}.defence-call{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:18px;align-items:center;padding:11px 12px;border-bottom:1px solid var(--line);min-width:0}.defence-call:last-child{border-bottom:0}.call-heading{min-width:0;overflow-wrap:anywhere}.call-location{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-top:4px;font-size:12px}.call-actions{justify-self:end}.call-actions button{min-height:36px}.call-time .digits{font-size:23px;color:var(--green)}.call-selected{font-size:11px;color:var(--green)}
+.call-demand{display:flex;gap:6px 12px;flex-wrap:wrap;margin-top:6px;font-size:12px}.defence-call.call-filled{border-left:3px solid var(--gold);background:#201c15}.call-filled .call-time .digits{color:var(--dim)}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
 .check{display:flex;align-items:center;gap:6px;font-weight:400}.checks{display:flex;gap:6px;flex-wrap:wrap}
 .chip{display:flex;align-items:center;gap:5px;font-weight:400;font-size:11px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--field)}
@@ -289,15 +290,19 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
         const village = villages.find(v => v.x === call.x && v.y === call.y);
         const player = call.player || village?.player || 'Defence call', alliance = call.alliance || village?.alliance || '';
         const name = call.villageName || village?.name, url = village ? `${SERVER}/karte.php?d=${village.tileId}` : mapUrl(call);
-        return `<article class="defence-call" role="listitem"><div class="call-heading"><strong>${escape(player)}</strong>${alliance ? ` <span class="muted">[${escape(alliance)}]</span>` : ''}${selectedCall?.key === call.key ? ' <span class="call-selected">Selected</span>' : ''}<div class="call-location">${name ? `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(name)}</a>` : ''}${coordinateLink(call)}</div></div>
-          <div class="call-time">${call.isImpact ? '<span class="sub">Impact</span>' : ''}<span class="digits">${formatClock(call.deadlineMs)}</span><span class="sub">${formatDay(call.deadlineMs)} UTC</span></div><div class="call-actions"><button type="button" class="small" data-call-key="${escape(call.key)}"${mapBusy || !selectedId ? ' disabled' : ''}>Calculate</button></div></article>`;
+        const remaining = call.filled ? 'Filled - no more troops needed' : call.troopsMissing === null ? 'Remaining troops unknown' : `${call.troopsMissing.toLocaleString('en-GB')} troops still needed`;
+        return `<article class="defence-call${call.filled ? ' call-filled' : ''}" role="listitem" data-filled="${call.filled}"><div class="call-heading"><strong>${escape(player)}</strong>${alliance ? ` <span class="muted">[${escape(alliance)}]</span>` : ''}${selectedCall?.key === call.key ? ' <span class="call-selected">Selected</span>' : ''}<div class="call-location">${name ? `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(name)}</a>` : ''}${coordinateLink(call)}</div>
+          <div class="call-demand"><strong class="${call.filled || call.troopsMissing === null ? 'warn' : 'good'}">${remaining}</strong>${call.troopsNeeded === null ? '' : `<span class="muted">Target: ${call.troopsNeeded.toLocaleString('en-GB')}</span>`}</div></div>
+          <div class="call-time">${call.isImpact ? '<span class="sub">Impact</span>' : ''}<span class="digits">${formatClock(call.deadlineMs)}</span><span class="sub">${formatDay(call.deadlineMs)} UTC</span></div><div class="call-actions"><button type="button" class="small" data-call-key="${escape(call.key)}"${call.filled ? ' title="This call is already filled"' : ''}${mapBusy || !selectedId || call.filled ? ' disabled' : ''}>Calculate</button></div></article>`;
       }).join('');
       if (callsSnapshot && !active.length) $('defence-call-list').innerHTML = '<p class="muted">No active calls.</p>';
       const past = callsSnapshot ? callsSnapshot.calls.length-active.length : 0;
       const partial = callsSnapshot && callsSnapshot.reportedCount !== null && callsSnapshot.rows < callsSnapshot.reportedCount;
       const warnings = callsSnapshot?.warnings || [];
+      const filled = active.filter(call => call.filled).length;
       const message = callsError ? `Import failed: ${callsError}${callsSnapshot ? ' Previous calls kept.' : ''}`
         : [active.length ? `${active.length} ${active.length === 1 ? 'call' : 'calls'}` : '',
+          filled ? `${filled} filled` : '',
           partial ? `Partial import: ${callsSnapshot.rows}/${callsSnapshot.reportedCount}` : '',
           warnings.length ? `${warnings.length} ${warnings.length === 1 ? 'call' : 'calls'} skipped. ${warnings[0]}` : ''].filter(Boolean).join('; ');
       status('calls-status',message,!!callsError);
@@ -312,10 +317,10 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
       const village = villages.find(v => v.x === selectedCall.x && v.y === selectedCall.y);
       const mismatch = village && !!selectedCall.player && village.player.normalize('NFC').toLocaleLowerCase() !== selectedCall.player.normalize('NFC').toLocaleLowerCase();
       const missing = callsSnapshot && !callsSnapshot.calls.some(call => call.key === selectedCall.key);
-      const warnings = [expired ? selectedCall.isImpact ? 'Impact passed.' : 'Deadline passed.' : '',missing ? 'Missing from latest paste.' : '',mismatch ? 'Map owner differs; verify target.' : ''].filter(Boolean);
+      const warnings = [selectedCall.filled ? 'Filled - no more troops needed.' : '',expired ? selectedCall.isImpact ? 'Impact passed.' : 'Deadline passed.' : '',missing ? 'Missing from latest paste.' : '',mismatch ? 'Map owner differs; verify target.' : ''].filter(Boolean);
       const message = warnings.length ? `${coordText(selectedCall)} ${warnings.join(' ')}` : '';
       if ($('selected-call-status').textContent !== message) status('selected-call-status',message);
-      $('selected-call-status').classList.toggle('warn',expired || !!mismatch || !!missing);
+      $('selected-call-status').classList.toggle('warn',!!selectedCall.filled || expired || !!mismatch || !!missing);
     }
     return active.length;
   }
@@ -327,7 +332,17 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
       try {
         if (typeof parseTravcoDefenceCalls !== 'function') throw new Error('Update travian-planner-core.js beside this page to read Travco calls.');
         const next = parseTravcoDefenceCalls(text);
+        if (next.calls.some(call => typeof call.filled !== 'boolean' || !Object.hasOwn(call,'troopsMissing') || !Object.hasOwn(call,'troopsNeeded'))) throw new Error('Update travian-planner-core.js to read troop requirements and filled calls.');
         callsSnapshot = next; callsError = '';
+        const refreshed = selectedCall && next.calls.find(call => call.key === selectedCall.key);
+        if (refreshed) {
+          if (selectedCall.filled && !refreshed.filled) status('plan-error','');
+          selectedCall = refreshed;
+          if (refreshed.filled && lastPlan?.callKey === refreshed.key) {
+            invalidate(); status('plan-status',''); status('copy-status','');
+            $('copy-text').value = ''; $('copy-text').hidden = true;
+          }
+        }
       } catch (error) { callsError = error.message; }
     }
     renderCalls(true); syncDisplayTimer();
@@ -340,6 +355,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     const button = event.target.closest('button[data-call-key]');
     if (!button || button.disabled) return;
     const call = callsSnapshot?.calls.find(value => value.key === button.dataset.callKey);
+    if (call?.filled) { status('calls-status','This call is already filled; no more troops are needed.',true); return; }
     if (!call || call.deadlineMs <= Date.now()) {
       updateDisplay(); status('calls-status',!call ? 'Call no longer available. Choose another call.'
         : `This ${call.isImpact ? 'impact time' : 'call deadline'} has passed. Choose another call.`,true); return;
@@ -358,7 +374,10 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     $('save-setup').disabled = !selectedId || mapBusy;
     $('setup-file').disabled = mapBusy;
     $('setup-import').disabled = mapBusy;
-    for (const button of $('defence-call-list').querySelectorAll('[data-call-key]')) button.disabled = mapBusy || !selectedId;
+    for (const button of $('defence-call-list').querySelectorAll('[data-call-key]')) {
+      const call = callsSnapshot?.calls.find(value => value.key === button.dataset.callKey);
+      button.disabled = mapBusy || !selectedId || !call || call.filled;
+    }
   }
   function renderPlayers() {
     $('player-select').innerHTML = '<option value="">Select your account</option>' + players.map(p =>
@@ -802,8 +821,11 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
       const settings = {target,attackMs:parseUTC(`${$('attack-date').value}T${time}`,'Attack landing'),
         referenceMs:calculatedAt,
         buffer:preferences.buffer,calculatedAt};
+      const activeCall = selectedCall && selectedCall.x === target.x && selectedCall.y === target.y && selectedCall.deadlineMs === settings.attackMs ? selectedCall : null;
+      if (activeCall?.filled) throw new Error('This call is already filled; no more troops are needed.');
       const plan = buildPlan(villages,currentProfile(),settings);
-      plan.isCallDeadline = !!selectedCall && !selectedCall.isImpact && selectedCall.x === target.x && selectedCall.y === target.y && selectedCall.deadlineMs === settings.attackMs;
+      plan.callKey = activeCall?.key ?? null;
+      plan.isCallDeadline = !!activeCall && !activeCall.isImpact;
       const now = Date.now();
       plan.groups = availablePlanGroups(plan,now);
       lastPlan = plan;
@@ -835,7 +857,8 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     }
     const button = event.target.closest('button[data-copy-group]');
     if (!button || !lastPlan) return;
-    const group = lastPlan.groups[Number(button.dataset.copyGroup)];
+    const copiedPlan = lastPlan;
+    const group = copiedPlan.groups[Number(button.dataset.copyGroup)];
     const choice = group && visibleOptions(group).find(value => value.index === Number(button.dataset.copyOption));
     if (!choice) { status('copy-status','Option unavailable. Choose another option.',true); return; }
     const {option} = choice;
@@ -859,9 +882,11 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable in this browser.');
       await navigator.clipboard.writeText(text);
+      if (lastPlan !== copiedPlan) return;
       $('copy-text').hidden = true; $('copy-text').value = '';
       status('copy-status','Copied.');
     } catch (error) {
+      if (lastPlan !== copiedPlan) return;
       $('copy-text').value = text; $('copy-text').hidden = false;
       $('copy-text').focus(); $('copy-text').select();
       status('copy-status',`${error.message} Copy the selected text below manually.`,true);

@@ -55,7 +55,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   <header class="top"><h1>TRAVIAN <span>/ Legends leadership</span></h1><div class="actions"><a href="travian-defence-planner.html">Player defence</a><a href="travian-clock.html" target="_blank" rel="noopener noreferrer">Precision clock</a><span id="utc-now" class="muted mono"></span></div></header>
   <div class="bar controls">
     <div class="row-actions" role="group" aria-label="Legends role" hidden><button id="role-defending" type="button" aria-pressed="true">Legends defending</button><button id="role-attacking" type="button" aria-pressed="false" hidden>Legends attacking</button></div>
-    <div class="row-actions"><button id="save-plan" type="button">Save plan</button><button id="load-plan" type="button">Load plan</button><input id="plan-file" type="file" accept=".json,application/json" hidden></div>
+    <div class="row-actions"><button id="save-plan" type="button" title="Save reusable lists, settings and reports; not calculated attacks">Save plan</button><button id="load-plan" type="button" title="Load reusable lists, settings and reports with an empty attack list">Load plan</button><input id="plan-file" type="file" accept=".json,application/json" hidden></div>
   </div>
   <p id="map-status" class="status" role="status">Loading map.sql...</p>
   <p id="app-status" class="status" role="status" hidden></p>
@@ -115,7 +115,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       <p class="hint">Checked attackers are paired with every checked target. A target can appear at several times. Existing attacks are kept.</p>
       <p id="editor-status" class="status" role="status" hidden></p>
     </div>
-    <div class="panel"><div class="heading"><h2>Attacks in this plan</h2><div class="row-actions"><button id="remove-all-attacks" type="button" disabled>Remove all attacks</button><button id="calculate-operations" class="primary" type="button">Calculate times</button></div></div><div id="operation-list" class="data-list"></div><p class="hint">Each TS value is a hypothesis, not a confirmed launch time. Inputs are saved; calculations refresh on click.</p></div>
+    <div class="panel"><div class="heading"><h2>Attacks in this plan</h2><div class="row-actions"><button id="remove-all-attacks" type="button" disabled>Remove all attacks</button><button id="calculate-operations" class="primary" type="button">Calculate times</button></div></div><div id="operation-list" class="data-list"></div><p class="hint">Each TS value is a hypothesis, not a confirmed launch time. Attacks are session-only and excluded from plan files.</p></div>
     <div id="forecast-view" class="panel controls" hidden>
       <div class="grid">
         <label>View by<select id="forecast-group"><option value="attacker-player">Attacker player / village</option><option value="attacker-village">Attacking village</option><option value="defender-player">Defender player / village</option><option value="defender-village">Defending village</option><option value="arrival">Landing time</option><option value="launch">Sending time</option><option value="none">Individual attacks</option></select></label>
@@ -125,7 +125,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
         <label>Attacker tag<select id="forecast-attacker-tag"><option value="">All attacker tags</option></select></label>
         <label>Defender tag<select id="forecast-defender-tag"><option value="">All defender tags</option></select></label>
       </div>
-      <p class="hint">Tag filters change the displayed results, not the saved routes.</p>
+      <p class="hint">Tag filters change the displayed results, not the attack list.</p>
       <div class="heading spaced"><span id="forecast-count" class="muted" role="status"></span><div class="row-actions"><button id="forecast-prev" type="button">Previous</button><button id="forecast-next" type="button">Next</button></div></div>
     </div>
     <div id="forecast-results"></div>
@@ -153,7 +153,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
         <label>Seconds before and after<input id="scout-offset" type="number" min="1" max="300" step="1" value="2"></label>
         <label>Your scout travel time (optional)<input id="scout-travel" maxlength="100" placeholder="00:00:00 or pasted travel time"></label>
       </div>
-      <p class="hint">Defending: scout the enemy origin. Attacking: scout the enemy target. Enter your actual scout travel time to also get departure times. Calculated settings are kept with this attack in Save plan.</p>
+      <p class="hint">Defending: scout the enemy origin. Attacking: scout the enemy target. Enter your actual scout travel time to also get departure times. Per-attack settings last for this session only.</p>
       <div class="actions"><button id="calculate-scouts" class="primary" type="button">Plan scouting</button></div>
       <p id="scout-status" class="status" role="status" hidden></p>
     </div><div id="scout-results"></div>
@@ -185,7 +185,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
         <label>Your snipe travel time (optional)<input id="return-travel" maxlength="100" placeholder="00:00:00 or pasted travel time"></label>
       </div>
       <p class="hint">Assumes an immediate return after the battle, the chosen slowest survivor, and TS/bonuses when the return starts. Hero death, troop losses or other bonuses can change it. This is a scenario table, not a known return time.</p>
-      <p id="return-save-hint" class="hint" hidden>Calculated return assumptions are kept with this attack in Save plan.</p>
+      <p id="return-save-hint" class="hint" hidden>Return assumptions stay with this attack for this session only.</p>
       <div class="actions"><button id="calculate-returns" class="primary" type="button">Show TS 0-20</button></div>
       <p id="return-status" class="status" role="status" hidden></p>
     </div><div id="return-results"></div>
@@ -883,12 +883,15 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     return [...latest.values()].sort((a,b) => a.landingMs-b.landingMs || a.id.localeCompare(b.id));
   }
   function normalizePlan(value) {
-    if (!value || value.type !== 'travian-leadership-plan' || ![1,2,3,4,5,6].includes(value.version) || value.server !== C.SERVER) throw new Error('Not a supported TS12 leadership plan.');
+    if (!value || value.type !== 'travian-leadership-plan' || ![1,2,3,4,5,6,7].includes(value.version) || value.server !== C.SERVER) throw new Error('Not a supported TS12 leadership plan.');
     if (value.version >= 2 && !Object.hasOwn(value,'builder')) throw new Error('Saved attacker/defender lists are missing.');
-    if (!['defending','attacking'].includes(value.role) || !Array.isArray(value.operations) || !Array.isArray(value.incoming)) throw new Error('Invalid leadership plan.');
-    if (value.operations.length > MAX_ATTACKS || value.incoming.length > 50000) throw new Error('Leadership plan is too large.');
-    const operations = value.operations.map(normalizeOperation);
-    attackScenarios(operations);
+    if (!['defending','attacking'].includes(value.role) || !Array.isArray(value.incoming)) throw new Error('Invalid leadership plan.');
+    if (value.incoming.length > 50000) throw new Error('Leadership plan is too large.');
+    if (value.version < 7) {
+      if (!Array.isArray(value.operations)) throw new Error('Invalid leadership plan.');
+      if (value.operations.length > MAX_ATTACKS) throw new Error('Leadership plan is too large.');
+      attackScenarios(value.operations.map(normalizeOperation));
+    }
     const p = value.preferences || {};
     const preferences = {scoutOffset:C.integer(p.scoutOffset,1,300,'Scouting offset'),scoutTravel:text(p.scoutTravel,100,'scout travel time'),
       returnOffset:C.integer(p.returnOffset,0,60,'Snipe offset'),returnTravel:text(p.returnTravel,100,'snipe travel time'),
@@ -897,7 +900,12 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
       attackerTagFilter:normalizeTagFilter(p.attackerTagFilter),defenderTagFilter:normalizeTagFilter(p.defenderTagFilter)};
     if (!FORECAST_VIEWS.includes(preferences.forecastView)) throw new Error('Invalid forecast grouping.');
     parseDuration(preferences.scoutTravel); parseDuration(preferences.returnTravel);
-    return {role:value.role,operations,incoming:mergeObservations([],value.incoming),preferences,builder:normalizeBuilder(value.builder)};
+    return {role:value.role,operations:[],incoming:mergeObservations([],value.incoming),preferences,builder:normalizeBuilder(value.builder)};
+  }
+  function createPlanFile(value) {
+    const format = {type:'travian-leadership-plan',version:7,server:C.SERVER};
+    const {role,builder,incoming,preferences} = normalizePlan({...value,...format});
+    return {...format,role,builder,incoming,preferences};
   }
   function defenderGroups(plan,now,launchMs = null,filter = 'all') {
     if (!['all','after','before'].includes(filter)) throw new Error('Invalid defence timing filter.');
@@ -930,7 +938,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     if (chunk) chunks.push(chunk);
     return chunks.length ? chunks : ['No calculated rows to share.'];
   }
-  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,retimeDefenders,updateSelectedAttackerTs,recordAttackerTs,recordSelectedAttackerTs,sortParticipants,normalizeTagFilter,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,manualReturnScenario,returnScenarios,normalizeIncoming,parseIncomingCsv,parseTravcoPage,incomingSpeeds,mergeObservations,latestIncoming,normalizePlan,defenderGroups,discordText,discordChunks});
+  globalThis.TravianLeadership = Object.freeze({MAX_ATTACKS,parseTsLevels,parseDuration,parseReportTime,speeds,normalizeOperation,normalizeAttacker,normalizeDefender,normalizeBuilder,combineOperations,retimeDefenders,updateSelectedAttackerTs,recordAttackerTs,recordSelectedAttackerTs,sortParticipants,normalizeTagFilter,attackSeconds,attackScenarios,formatTsLevels,compactScenarios,compactReturns,paceLabel,forecastCards,scoutWindows,manualReturnScenario,returnScenarios,normalizeIncoming,parseIncomingCsv,parseTravcoPage,incomingSpeeds,mergeObservations,latestIncoming,normalizePlan,createPlanFile,defenderGroups,discordText,discordChunks});
   if (typeof document === 'undefined') return;
   const $ = id => document.getElementById(id);
   const esc = value => String(value).replace(/[&<>"']/g,ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -1576,13 +1584,30 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     status('editor-status','Attack saved in this plan.');
   },'editor-status');
   action('cancel-edit',() => resetEditor(false));
+  function removeOperation(id) {
+    if (!state.operations.some(op => op.id === id)) throw new Error('This attack is no longer in the list.');
+    const removedReference = scenarioByKey(defencePlan?.referenceKey)?.attack.id === id;
+    state.operations = state.operations.filter(op => op.id !== id);
+    if (editingId === id) resetEditor(false);
+    computed = computed.filter(row => row.attack.id !== id);
+    scenarios = compactScenarios(computed);
+    if (scoutResult?.scenario.attack.id === id) { scoutResult = null; $('scout-results').replaceChildren(); status('scout-status',''); }
+    if (returnMode === 'planned' && returnResult?.scenario.attack.id === id) invalidateReturn();
+    if (removedReference) { defencePlan = null; $('def-results').replaceChildren(); status('def-status','Attack reference removed. Choose another reference before recalculating.'); }
+    if (!scenarioByKey(selectedKey)) selectScenario(scenarios[0]?.key || '');
+    else renderScenarioSelects();
+    renderOperations(); renderForecasts();
+    if (!computed.length) $('forecast-results').replaceChildren();
+    status('app-status','Attack removed with all its TS hypotheses. Attacker/defender lists were kept.');
+  }
+  for (const id of ['operation-list','forecast-results']) $(id).addEventListener('click',event => {
+    const button = event.target.closest('button[data-remove]');
+    if (!button) return;
+    try { removeOperation(button.dataset.remove); }
+    catch (error) { status('app-status',error.message,true); }
+  });
   $('operation-list').addEventListener('click',event => {
-    const edit = event.target.closest('[data-edit]'), remove = event.target.closest('[data-remove]');
-    if (remove) {
-      state.operations = state.operations.filter(op => op.id !== remove.dataset.remove);
-      if (editingId === remove.dataset.remove) resetEditor(false);
-      invalidateCalculations(); renderOperations(); return;
-    }
+    const edit = event.target.closest('[data-edit]');
     if (!edit) return;
     const op = state.operations.find(value => value.id === edit.dataset.edit);
     if (!op) return;
@@ -1654,7 +1679,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
   }
   function forecastCard(card) {
     const rows = compactScenarios(card.rows), op = rows[0].attack;
-    return `<article class="operation"><header><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(op.attacker.tribe,op.speed))}</span>${participantHtml(op.attacker,op.attackerNote)} &rarr; ${participantHtml(op.defender,op.defenderNote)}</h3>${copyButton('planning',card.key)}</div>
+    return `<article class="operation"><header><div class="heading"><h3><span class="pace-badge">${esc(paceLabel(op.attacker.tribe,op.speed))}</span>${participantHtml(op.attacker,op.attackerNote)} &rarr; ${participantHtml(op.defender,op.defenderNote)}</h3><div class="row-actions list-actions"><button type="button" class="small" data-remove="${esc(op.id)}" title="Remove this attack and all its TS hypotheses; keep both participant lists">Remove</button>${copyButton('planning',card.key)}</div></div>
       <p class="hint"><strong>TS ${formatTsLevels(card.rows.map(row => row.ts))}</strong> &middot; ${rows[0].fields.toFixed(2)} fields${op.boots ? ' &middot; boots +'+op.boots+'%' : ''}${op.artefact !== 1 ? ' &middot; artefact x'+op.artefact : ''}${op.reportedAt !== null ? ' &middot; first reported '+C.formatUTC(op.reportedAt) : ''} ${observedTsHtml(op.lastTs,op.tsLevels)}</p>
       ${op.note ? `<p class="hint">${esc(op.note)}</p>` : ''}${rows[0].fields <= 20 ? '<p class="hint">Within 20 fields: TS and boots do not change travel time.</p>' : ''}
       </header><div class="table-wrap"><table class="responsive"><thead><tr><th>TS</th><th>Travel</th><th>Sending (UTC)</th><th>Landing (UTC)</th><th></th></tr></thead><tbody>${rows.map(row => `<tr${op.lastTs && row.tsLevels.includes(op.lastTs.level) ? ' class="last-observed-row"' : ''}>
@@ -1972,11 +1997,22 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
   action('save-plan',() => {
-    const normalized = normalizePlan({type:'travian-leadership-plan',version:6,server:C.SERVER,...state,preferences:preferences()});
-    download(JSON.stringify({type:'travian-leadership-plan',version:6,server:C.SERVER,...normalized},null,2),'ts12-leadership-plan.json','application/json');
-    status('app-status','Saved both lists, added attacks, tool settings and report observations. Map data and the defence roster were not exported.'
+    const saved = createPlanFile({...state,preferences:preferences()});
+    download(JSON.stringify(saved,null,2),'ts12-leadership-plan.json','application/json');
+    status('app-status','Saved attacker/defender lists, tags, observed TS, tool settings and report observations. Calculated attacks, per-attack settings, map data and the defence roster were not exported.'
       +(returnMode === 'manual' && activeTab === 'returns' ? ' Manual return inputs were not exported.' : ''));
   });
+  function restorePlan(next) {
+    if ($('bulk-landing-dialog').open) $('bulk-landing-dialog').close();
+    if ($('bulk-attacker-dialog').open) $('bulk-attacker-dialog').close();
+    if ($('observed-ts-dialog').open) $('observed-ts-dialog').close();
+    state = next; setRole(next.role); refreshIncoming();
+    $('scout-offset').value = next.preferences.scoutOffset; $('scout-travel').value = next.preferences.scoutTravel;
+    plannedReturnDraft = {...plannedReturnDraft,'return-offset':next.preferences.returnOffset,'return-travel':next.preferences.returnTravel};
+    $('def-buffer').value = next.preferences.defenceBuffer;
+    $('forecast-group').value = next.preferences.forecastView; $('forecast-filter').value = next.preferences.forecastFilter;
+    renderTagFilters({attacker:next.preferences.attackerTagFilter,defender:next.preferences.defenderTagFilter});
+  }
   action('load-plan',() => { $('plan-file').value = ''; $('plan-file').click(); });
   $('plan-file').addEventListener('change',async () => {
     const file = $('plan-file').files[0]; if (!file) return;
@@ -1984,18 +2020,10 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     status('app-status',`Reading ${file.name}...`);
     try {
       if (file.size > C.MAP_LIMIT) throw new Error('Plan exceeds 40 MB.');
-      const next = normalizePlan(JSON.parse(await file.text()));
-      if ($('bulk-landing-dialog').open) $('bulk-landing-dialog').close();
-      if ($('bulk-attacker-dialog').open) $('bulk-attacker-dialog').close();
-      if ($('observed-ts-dialog').open) $('observed-ts-dialog').close();
-      state = next; setRole(next.role); refreshIncoming();
-      $('scout-offset').value = next.preferences.scoutOffset; $('scout-travel').value = next.preferences.scoutTravel;
-      plannedReturnDraft = {...plannedReturnDraft,'return-offset':next.preferences.returnOffset,'return-travel':next.preferences.returnTravel};
-      $('def-buffer').value = next.preferences.defenceBuffer;
-      $('forecast-group').value = next.preferences.forecastView; $('forecast-filter').value = next.preferences.forecastFilter;
-      renderTagFilters({attacker:next.preferences.attackerTagFilter,defender:next.preferences.defenderTagFilter});
-      const hiddenAttacks = $('role-attacking').hidden ? next.operations.filter(op => op.role === 'attacking').length : 0;
-      status('app-status',`Loaded ${next.operations.length} attacks, ${next.builder.attackers.length} listed attackers, ${next.builder.defenders.length} targets and ${next.incoming.length} report observations.${hiddenAttacks ? ` ${hiddenAttacks} attacking-side ${hiddenAttacks === 1 ? 'entry is' : 'entries are'} retained but hidden.` : ''} Calculate to refresh the timing tables.`);
+      const saved = JSON.parse(await file.text()), next = normalizePlan(saved);
+      restorePlan(next);
+      const skipped = saved.version < 7 ? saved.operations.length : 0;
+      status('app-status',`Loaded ${next.builder.attackers.length} listed attackers, ${next.builder.defenders.length} targets and ${next.incoming.length} report observations. Attack list starts empty.${skipped ? ` ${skipped} previously saved ${skipped === 1 ? 'attack was' : 'attacks were'} skipped.` : ''}`);
     } catch (error) { status('app-status',`Import failed: ${error.message} Previous plan was kept.`,true); }
     finally { $('plan-file').disabled = false; $('load-plan').disabled = false; }
   });
@@ -2084,6 +2112,7 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
     const button = event.target.closest('button[data-copy-kind]');
     if (!button || button.disabled) return;
     const kind = button.dataset.copyKind;
+    const copiedAttack = kind === 'planning' ? forecastCopies.get(button.dataset.copyId)?.[0].attack : null;
     const statusId = {planning:'app-status',incoming:'incoming-status',scouting:'scout-status',returns:'return-status',defenders:'def-status'}[kind] || 'app-status';
     const caption = button.dataset.copyCaption || button.textContent;
     button.dataset.copyCaption = caption; button.textContent = caption;
@@ -2095,7 +2124,9 @@ dialog{width:min(900px,calc(100% - 30px));border:1px solid #437e70;border-radius
         if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable.');
         await navigator.clipboard.writeText(chunks[0]);
         button.textContent = 'Copied';
-      } catch (error) { openShare(chunks,`${error.message} Copy the selected text manually.`,true); }
+      } catch (error) {
+        if (button.isConnected || (copiedAttack && computed.some(row => row.attack === copiedAttack))) openShare(chunks,`${error.message} Copy the selected text manually.`,true);
+      }
       finally { button.disabled = false; }
     } catch (error) { status(statusId,error.message,true); }
   });

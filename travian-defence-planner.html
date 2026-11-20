@@ -293,7 +293,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
         const remaining = call.filled ? 'Filled - no more troops needed' : call.troopsMissing === null ? 'Remaining troops unknown' : `${call.troopsMissing.toLocaleString('en-GB')} troops still needed`;
         return `<article class="defence-call${call.filled ? ' call-filled' : ''}" role="listitem" data-filled="${call.filled}"><div class="call-heading"><strong>${escape(player)}</strong>${alliance ? ` <span class="muted">[${escape(alliance)}]</span>` : ''}${selectedCall?.key === call.key ? ' <span class="call-selected">Selected</span>' : ''}<div class="call-location">${name ? `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(name)}</a>` : ''}${coordinateLink(call)}</div>
           <div class="call-demand"><strong class="${call.filled || call.troopsMissing === null ? 'warn' : 'good'}">${remaining}</strong>${call.troopsNeeded === null ? '' : `<span class="muted">Target: ${call.troopsNeeded.toLocaleString('en-GB')}</span>`}</div></div>
-          <div class="call-time">${call.isImpact ? '<span class="sub">Impact</span>' : ''}<span class="digits">${formatClock(call.deadlineMs)}</span><span class="sub">${formatDay(call.deadlineMs)} UTC</span></div><div class="call-actions"><button type="button" class="small" data-call-key="${escape(call.key)}"${call.filled ? ' title="This call is already filled"' : ''}${mapBusy || !selectedId || call.filled ? ' disabled' : ''}>Calculate</button></div></article>`;
+          <div class="call-time">${call.isImpact ? '<span class="sub">Impact</span>' : ''}<span class="digits">${formatClock(call.deadlineMs)}</span><span class="sub">${formatDay(call.deadlineMs)} UTC</span></div><div class="call-actions"><button type="button" class="small" data-call-key="${escape(call.key)}"${call.filled ? ' title="This call is already filled"' : ''}${mapBusy || !selectedId ? ' disabled' : ''}>Calculate</button></div></article>`;
       }).join('');
       if (callsSnapshot && !active.length) $('defence-call-list').innerHTML = '<p class="muted">No active calls.</p>';
       const past = callsSnapshot ? callsSnapshot.calls.length-active.length : 0;
@@ -335,14 +335,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
         if (next.calls.some(call => typeof call.filled !== 'boolean' || !Object.hasOwn(call,'troopsMissing') || !Object.hasOwn(call,'troopsNeeded'))) throw new Error('Update travian-planner-core.js to read troop requirements and filled calls.');
         callsSnapshot = next; callsError = '';
         const refreshed = selectedCall && next.calls.find(call => call.key === selectedCall.key);
-        if (refreshed) {
-          if (selectedCall.filled && !refreshed.filled) status('plan-error','');
-          selectedCall = refreshed;
-          if (refreshed.filled && lastPlan?.callKey === refreshed.key) {
-            invalidate(); status('plan-status',''); status('copy-status','');
-            $('copy-text').value = ''; $('copy-text').hidden = true;
-          }
-        }
+        if (refreshed) selectedCall = refreshed;
       } catch (error) { callsError = error.message; }
     }
     renderCalls(true); syncDisplayTimer();
@@ -355,7 +348,6 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     const button = event.target.closest('button[data-call-key]');
     if (!button || button.disabled) return;
     const call = callsSnapshot?.calls.find(value => value.key === button.dataset.callKey);
-    if (call?.filled) { status('calls-status','This call is already filled; no more troops are needed.',true); return; }
     if (!call || call.deadlineMs <= Date.now()) {
       updateDisplay(); status('calls-status',!call ? 'Call no longer available. Choose another call.'
         : `This ${call.isImpact ? 'impact time' : 'call deadline'} has passed. Choose another call.`,true); return;
@@ -376,7 +368,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     $('setup-import').disabled = mapBusy;
     for (const button of $('defence-call-list').querySelectorAll('[data-call-key]')) {
       const call = callsSnapshot?.calls.find(value => value.key === button.dataset.callKey);
-      button.disabled = mapBusy || !selectedId || !call || call.filled;
+      button.disabled = mapBusy || !selectedId || !call;
     }
   }
   function renderPlayers() {
@@ -822,7 +814,6 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
         referenceMs:calculatedAt,
         buffer:preferences.buffer,calculatedAt};
       const activeCall = selectedCall && selectedCall.x === target.x && selectedCall.y === target.y && selectedCall.deadlineMs === settings.attackMs ? selectedCall : null;
-      if (activeCall?.filled) throw new Error('This call is already filled; no more troops are needed.');
       const plan = buildPlan(villages,currentProfile(),settings);
       plan.callKey = activeCall?.key ?? null;
       plan.isCallDeadline = !!activeCall && !activeCall.isImpact;

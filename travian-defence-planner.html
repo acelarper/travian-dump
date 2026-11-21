@@ -58,7 +58,7 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .send-order{margin-top:14px}.send-order td:first-child{min-width:145px}.send-order td{overflow-wrap:anywhere}.send-order .route{min-width:150px}.send-order .troops{min-width:210px}
 .send-order tr.with-hero{background:#172722}.hero-flag{color:var(--gold);font-size:11px}.call-choice{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px}
 .call-destination{margin-bottom:5px;font-size:11px}.result-hero-choice{display:flex;gap:6px;align-items:center;font-size:11px}.village-filter{flex-wrap:wrap}
-dialog{width:min(700px,calc(100% - 28px));background:var(--panel);color:var(--text);border:1px solid #437e70;border-radius:12px;padding:16px}dialog::backdrop{background:#0009}#troop-overview-paste{min-height:220px;resize:vertical;font-size:12px}
+#travco-setup-panel{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}#troop-overview-paste{display:block;min-height:145px;resize:vertical;font-size:12px}#import-travco[aria-expanded=true]{color:var(--green);border-color:#437e70;background:#0e2823}
 .attack-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:14px}
 .arrival-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .arrival-inputs input{height:44px;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums}
@@ -127,9 +127,15 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
   <section id="setup-panel" class="panel setup" aria-label="Your setup">
     <div class="section-heading">
       <div><h2>Your setup</h2><p id="setup-summary" class="muted" hidden></p></div>
-      <div class="checks"><button id="setup-import" type="button">Import setup</button><button id="paste-troops" type="button">Paste troops</button><button id="save-setup" type="button" disabled>Export</button><button id="setup-collapse" type="button" aria-expanded="true" aria-controls="manual-panel" disabled>Minimize setup</button></div>
+      <div class="checks"><button id="setup-import" type="button">Import setup</button><button id="import-travco" type="button" aria-expanded="false" aria-controls="travco-setup-panel">Import from Travco</button><button id="save-setup" type="button" disabled>Export</button><button id="setup-collapse" type="button" aria-expanded="true" aria-controls="manual-panel" disabled>Minimize setup</button></div>
     </div>
-    <input id="setup-file" type="file" accept=".json,.txt,application/json,text/plain" aria-label="Import setup JSON or Travco troop overview" hidden>
+    <input id="setup-file" type="file" accept=".json,application/json" aria-label="Import setup JSON" hidden>
+    <div id="travco-setup-panel" hidden>
+      <div class="section-heading"><h3>Travco village overview</h3><button id="clear-troop-overview" type="button" class="small">Clear paste</button></div>
+      <label class="spaced">Import troops<textarea id="troop-overview-paste" placeholder="Paste the complete Travco Village overview" spellcheck="false"></textarea></label>
+      <p class="muted spaced">Prefills TS, anvils, defenders and escorts. Keeps hero equipment.</p>
+    </div>
+    <p id="setup-status" class="status" role="status" hidden></p>
     <div id="manual-panel">
       <div class="account-row">
         <label for="player-select">Playing as<select id="player-select" disabled><option value="">Loading accounts...</option></select></label>
@@ -143,7 +149,6 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
         <div class="actions"><button id="setup-collapse-bottom" type="button" class="small" aria-expanded="true" aria-controls="manual-panel">Minimize setup</button></div>
       </div>
     </div>
-    <p id="setup-status" class="status" role="status" hidden></p>
   </section>
 
   <section id="defence-panel" class="panel setup" aria-label="Defence planning">
@@ -215,13 +220,6 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
   </section>
 
 </main>
-<dialog id="troop-overview-dialog" aria-labelledby="troop-overview-title">
-  <h2 id="troop-overview-title">Import Travco troops</h2>
-  <label class="spaced">Village overview<textarea id="troop-overview-paste" placeholder="Paste the complete Travco Village overview" spellcheck="false"></textarea></label>
-  <p class="muted spaced">Updates listed villages, TS and units. Keeps hero equipment. Anvils use the leadership thresholds: 1,000 qualifying infantry or 500 defensive cavalry.</p>
-  <p id="troop-overview-error" class="status" role="alert" hidden></p>
-  <div class="actions"><button id="apply-troop-overview" type="button" class="primary">Import troops</button><button id="cancel-troop-overview" type="button">Cancel</button></div>
-</dialog>
 <script src="travian-planner-core.js"></script>
 <script>
 'use strict';
@@ -417,8 +415,9 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     $('save-setup').disabled = !selectedId || mapBusy;
     $('setup-file').disabled = mapBusy;
     $('setup-import').disabled = mapBusy;
-    $('paste-troops').disabled = mapBusy;
-    $('apply-troop-overview').disabled = mapBusy;
+    $('import-travco').disabled = mapBusy;
+    $('troop-overview-paste').disabled = mapBusy;
+    $('clear-troop-overview').disabled = mapBusy;
     $('setup-collapse').disabled = !selectedId;
     for (const button of $('defence-call-list').querySelectorAll('[data-call-key]')) {
       const call = callsSnapshot?.calls.find(value => value.key === button.dataset.callKey);
@@ -739,13 +738,22 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     status('setup-status',`Imported ${saved.imported}/${saved.rowCount} villages for ${saved.playerName}; ${saved.anvils} anvils. Hero equipment kept.${saved.warnings.length ? ' '+saved.warnings.join(' ') : ''}`);
     $('setup-status').classList.toggle('warn',saved.warnings.length > 0);
   }
-  $('paste-troops').addEventListener('click',() => {
-    status('troop-overview-error',''); $('troop-overview-dialog').showModal(); $('troop-overview-paste').focus();
+  $('import-travco').addEventListener('click',() => {
+    const panel = $('travco-setup-panel');
+    panel.hidden = !panel.hidden;
+    $('import-travco').setAttribute('aria-expanded',String(!panel.hidden));
+    if (!panel.hidden) $('troop-overview-paste').focus();
   });
-  $('cancel-troop-overview').addEventListener('click',() => $('troop-overview-dialog').close());
-  $('apply-troop-overview').addEventListener('click',() => {
-    try { applyTroopOverview($('troop-overview-paste').value); $('troop-overview-dialog').close(); }
-    catch (error) { status('troop-overview-error',`Import failed: ${error.message} Previous setup kept.`,true); }
+  $('troop-overview-paste').addEventListener('input',() => {
+    if (mapBusy) return;
+    const text = $('troop-overview-paste').value;
+    if (!text.trim()) { status('setup-status',''); return; }
+    try { applyTroopOverview(text); }
+    catch (error) { status('setup-status',`Import failed: ${error.message} Previous setup kept.`,true); }
+  });
+  $('clear-troop-overview').addEventListener('click',() => {
+    $('troop-overview-paste').value = ''; status('setup-status','');
+    $('troop-overview-paste').focus();
   });
   $('setup-file').addEventListener('change',async () => {
     if (mapBusy) return;
@@ -755,9 +763,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     status('setup-status',`Importing ${file.name}...`);
     try {
       if (file.size > MAP_LIMIT) throw new Error('Setup file exceeds 40 MB.');
-      const text = await file.text();
-      if (!/\.json$/i.test(file.name) && !/^\s*[\[{]/.test(text)) { applyTroopOverview(text); return; }
-      const saved = restoreSetup(JSON.parse(text),villages);
+      const saved = restoreSetup(JSON.parse(await file.text()),villages);
       profiles.set(saved.profile.playerId,saved.profile); selectedId = saved.profile.playerId;
       $('buffer-seconds').value = saved.settings.buffer;
       invalidate(); renderPlayers(); renderVillages(); enableControls();

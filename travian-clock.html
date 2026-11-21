@@ -43,6 +43,7 @@
     .live-clock { display: block; font-size: clamp(2rem, 10.1vw, 6.25rem); font-weight: 600; line-height: 1.12; }
     .fraction { color: var(--accent); }
     .clock-date { margin-top: 6px; color: var(--muted); font-size: .8rem; }
+    .clock-date[data-error="true"] { color: var(--warning); }
     .inputs-panel { padding: 16px 18px 10px; background: #111923; border: 1px solid var(--line); border-radius: 14px; }
     .input-grid { display: grid; grid-template-columns: 1fr 1.65fr; gap: 18px; }
     .travel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -70,6 +71,7 @@
     .send-meta { min-height: 19px; color: var(--muted); font-size: .8rem; }
     .target-state { margin-left: 9px; font-size: .72rem; color: var(--accent); }
     .target-state[data-passed="true"] { color: var(--danger); }
+    .target-state[data-unavailable="true"] { color: var(--warning); }
     .countdown-panel { padding: 12px 16px; border: 1px solid #315c55; border-radius: 14px; background: #0e201f; text-align: center; }
     .route-caption { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 8px; font-size: .9rem; font-weight: 600; }
     .route-caption a { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
@@ -83,6 +85,8 @@
     .countdown-panel[data-phase="now"] .cue { font-size: 1.35rem; }
     .countdown-panel[data-phase="missed"] { border-color: #74434e; background: #24151c; }
     .countdown-panel[data-phase="missed"] .cue { color: var(--danger); }
+    .countdown-panel[data-phase="unavailable"] { border-color: var(--warning); background: #262114; }
+    .countdown-panel[data-phase="unavailable"] .cue { color: var(--warning); }
     .sound-row { flex-wrap: wrap; margin: 12px 0; gap: 10px 16px; }
     .sound-button { min-width: 120px; font-size: .8rem; }
     .sound-button[aria-pressed="true"] { color: var(--accent); border-color: #437e70; }
@@ -271,21 +275,21 @@
 
     <section class="sync-panel" id="sync-panel" data-synced="false" aria-label="Clock synchronization">
       <div class="sync-heading">
-        <div class="sync-status"><span class="status-dot" aria-hidden="true"></span><span id="sync-status" role="status">UNSYNCHRONIZED - computer clock</span></div>
+        <div class="sync-status"><span class="status-dot" aria-hidden="true"></span><span id="sync-status" role="status">Waiting for verified API time</span></div>
         <button class="sync-button" id="sync-button" type="button">Sync now</button>
       </div>
       <div class="sync-metrics">
-        <span title="Estimated difference from this computer's system clock">Offset <strong id="sync-offset">unknown</strong></span>
+        <span title="Change from the previous API calibration; never compared with device time">API correction <strong id="sync-offset">--</strong></span>
         <span title="Network estimate plus assumed holdover drift, not a guaranteed UTC error bound">Uncertainty <strong id="sync-uncertainty">unknown</strong></span>
         <span>Best round trip <strong id="sync-rtt">--</strong></span>
       </div>
-      <div class="sync-detail" id="sync-detail">No successful measurements yet. Source clock error is unknown.</div>
+      <div class="sync-detail" id="sync-detail">Live timing requires the time API. Device time is never used.</div>
     </section>
 
     <footer>
       <p class="footer-warning">Travian resolves arrivals to whole seconds. Browser, network, and game delays mean precise arrival cannot be guaranteed. Nothing is sent to the game.</p>
       <!-- Update this fixed timestamp when revising the file. -->
-      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-11-16T11:56:54Z">2026-11-16 11:56:54 UTC</time></p>
+      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-11-21T05:37:23Z">2026-11-21 05:37:23 UTC</time></p>
     </footer>
   </main>
 
@@ -532,7 +536,8 @@
     };
 
     const defaultTitle = document.title;
-    let reference = { epoch: Date.now(), mono: performance.now() };
+    const requestNonce = crypto.getRandomValues(new Uint32Array(2)).join("-");
+    let reference = null;
     let calibration = null;
     let target = null;
     let defenceRoute = null;
@@ -545,10 +550,9 @@
     let syncController = null;
     let syncProgress = 0;
     let nextSyncAt = 0;
-    let syncFailure = "No successful measurements yet.";
+    let syncFailure = "";
     let requestSequence = 0;
-    let watch = { wall: Date.now(), mono: performance.now() };
-    let hiddenAt = null;
+    let lastClockCheck = performance.now();
     let audioContext = null;
     let masterGain = null;
     let soundEnabled = false;
@@ -561,7 +565,7 @@
     }
 
     function clockNow(mono = performance.now()) {
-      return reference.epoch + mono - reference.mono;
+      return reference === null ? null : reference.epoch + mono - reference.mono;
     }
 
     function cancelAudioCues() {
@@ -601,6 +605,7 @@
       cancelAudioCues();
       if (!soundEnabled || !audioContext || audioContext.state !== "running" || target === null) return;
       const now = clockNow();
+      if (now === null) return;
       const leads = [...new Set([...selectedReminderLeads(), 3000, 2000, 1000, 0])].sort((a, b) => b - a);
       for (const lead of leads) {
         const key = `${target}:${lead}`;
@@ -638,10 +643,11 @@
       const running = soundEnabled && audioContext && audioContext.state === "running";
       const reminders = selectedReminderLeads().map(lead => `${lead / 60000}m`).join(", ");
       ui.sound.setAttribute("aria-pressed", String(Boolean(running)));
-      setText(ui.sound, running ? "Sound on" : soundEnabled ? "Resume sound" : "Enable sound");
-      ui.audioNote.dataset.error = String(Boolean(error) || (soundEnabled && !running));
+      setText(ui.sound, running ? reference === null ? "Sound paused" : "Sound on" : soundEnabled ? "Resume sound" : "Enable sound");
+      ui.audioNote.dataset.error = String(Boolean(error) || (soundEnabled && (!running || reference === null)));
       setText(ui.audioNote, error || (running
-        ? `${reminders ? reminders + " + " : ""}3s, 2s, 1s + send tone. Browser/audio delays still apply.`
+        ? reference === null ? "Sound is paused until verified API time is available."
+          : `${reminders ? reminders + " + " : ""}3s, 2s, 1s + send tone. Browser/audio delays still apply.`
         : soundEnabled ? "Audio was paused by the browser. Click Resume sound to reactivate it."
           : "Sound is off. Select reminders, then enable sound."));
     }
@@ -709,7 +715,9 @@
 
     function prefillArrivalDate() {
       if (!arrivalDatePristine) return false;
-      const today = dateText(wallParts(clockNow(), zone));
+      const now = clockNow();
+      if (now === null) return false;
+      const today = dateText(wallParts(now, zone));
       if (ui.arrivalDate.value === today) return false;
       ui.arrivalDate.value = today;
       return true;
@@ -793,9 +801,12 @@
       let timeParts;
       let duration;
       if (!arrivalDate) {
-        ui.arrivalDate.setAttribute("aria-invalid", "true");
-        ui.message.dataset.error = "true";
-        setText(ui.message, `Choose a valid ${arrivalName.toLowerCase()} date.`);
+        const awaitingApiDate = arrivalDatePristine && clockNow() === null;
+        ui.arrivalDate.setAttribute("aria-invalid", String(!awaitingApiDate));
+        ui.message.dataset.error = String(!awaitingApiDate);
+        setText(ui.message, awaitingApiDate
+          ? "Waiting for API time to set today's date. You can choose a date manually."
+          : `Choose a valid ${arrivalName.toLowerCase()} date.`);
         setTarget(null);
         return;
       }
@@ -883,20 +894,31 @@
     }
 
     function renderClock(now) {
+      setText(ui.clockZone, zone === "UTC" ? "LIVE UTC" : "LIVE EUROPE/LONDON");
+      ui.clockDate.dataset.error = String(now === null && Boolean(syncFailure));
+      if (now === null) {
+        clockSecond = null;
+        setText(ui.clockSeconds, "--:--:--");
+        setText(ui.clockMillis, ".---");
+        setText(ui.clockDate, syncFailure
+          ? "Time API unavailable right now. Live timing is paused."
+          : "Waiting for verified time from TimeAPI.io...");
+        ui.clock.removeAttribute("datetime");
+        return;
+      }
       const second = Math.floor(now / 1000);
       if (second !== clockSecond) {
         clockSecond = second;
         const parts = wallParts(now, zone);
         setText(ui.clockSeconds, timeText(parts));
         setText(ui.clockDate, `${dateText(parts)} / ${zoneText(now, zone)}`);
-        setText(ui.clockZone, zone === "UTC" ? "LIVE UTC" : "LIVE EUROPE/LONDON");
         ui.clock.dateTime = new Date(Math.floor(now)).toISOString();
       }
       setText(ui.clockMillis, `.${pad(((Math.floor(now) % 1000) + 1000) % 1000, 3)}`);
     }
 
     function renderTabTitle(now) {
-      const remaining = target === null ? 0 : target - now;
+      const remaining = target === null || now === null ? 0 : target - now;
       const route = defenceRoute ? `${defenceRoute.from.label || "Origin"} -> ${defenceRoute.to.label || "Target"}` : "";
       const title = remaining > 0
         ? `${durationText(Math.ceil(remaining / 1000) * 1000).slice(0, -4)} ${route ? "/ " + route : "till attack"}`
@@ -910,7 +932,14 @@
       let cue = "Set a send time";
       let note = "A timing aid only. You send manually in Travian.";
       let digits = "--:--:--.---";
-      if (target !== null) {
+      ui.targetState.dataset.unavailable = String(now === null);
+      ui.targetState.dataset.passed = "false";
+      if (now === null) {
+        phase = "unavailable";
+        cue = syncFailure ? "TIME API UNAVAILABLE" : "WAITING FOR TIME API";
+        note = "Countdown and sound are paused. Device time is never used.";
+        setText(ui.targetState, target === null ? "" : "Time unavailable");
+      } else if (target !== null) {
         const remaining = target - now;
         digits = durationText(remaining > 0 ? Math.ceil(remaining) : -remaining);
         if (remaining > 3000) {
@@ -950,7 +979,7 @@
       const timeout = setTimeout(abort, REQUEST_TIMEOUT);
       try {
         const url = new URL(TIME_URL);
-        url.searchParams.set("_clock", `${Date.now()}-${++requestSequence}`);
+        url.searchParams.set("_clock", `${requestNonce}-${++requestSequence}`);
         const start = performance.now();
         const response = await fetch(url, {
           mode: "cors", cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer",
@@ -974,12 +1003,15 @@
       }
     }
 
-    function useComputerClock(reason) {
-      reference = { epoch: Date.now(), mono: performance.now() };
+    function invalidateTime(reason) {
+      reference = null;
       calibration = null;
       syncFailure = reason;
       clockSecond = null;
-      scheduleAudioCues();
+      cancelAudioCues();
+      updateAudioStatus();
+      renderClock(null);
+      renderCountdown(null);
     }
 
     function interruptSync(reason) {
@@ -988,14 +1020,14 @@
       syncController = null;
       syncing = false;
       nextSyncAt = performance.now();
-      useComputerClock(reason);
+      invalidateTime(reason);
       renderSync();
     }
 
     async function synchronize() {
       if (syncing || document.hidden) return;
       if (navigator.onLine === false) {
-        useComputerClock("This browser is offline.");
+        invalidateTime("TimeAPI.io cannot be reached while this browser is offline.");
         nextSyncAt = performance.now() + RETRY_INTERVAL;
         renderSync();
         return;
@@ -1015,6 +1047,7 @@
           } catch (error) {
             if (controller.signal.aborted) throw error;
             lastFailure = error.message;
+            invalidateTime(lastFailure);
           }
           if (generation !== syncGeneration) return;
           syncProgress = index + 1;
@@ -1026,16 +1059,20 @@
         }
         const estimate = estimateCalibration(samples);
         const mono = performance.now();
+        const previousTime = clockNow(mono);
         reference = { epoch: estimate.base + mono, mono };
-        calibration = { ...estimate, mono };
+        calibration = { ...estimate, mono, correction: previousTime === null ? null : reference.epoch - previousTime };
         syncFailure = "";
         clockSecond = null;
         nextSyncAt = mono + SYNC_INTERVAL;
         if (prefillArrivalDate()) recalculate();
         scheduleAudioCues();
+        updateAudioStatus();
+        renderClock(clockNow());
+        renderCountdown(clockNow());
       } catch (error) {
         if (generation !== syncGeneration) return;
-        useComputerClock(`${error.message}${lastFailure && lastFailure !== error.message ? ` ${lastFailure}` : ""}`);
+        invalidateTime(`${error.message}${lastFailure && lastFailure !== error.message ? ` ${lastFailure}` : ""}`);
         nextSyncAt = performance.now() + RETRY_INTERVAL;
       } finally {
         if (generation === syncGeneration) {
@@ -1051,33 +1088,34 @@
       ui.syncPanel.dataset.synced = String(Boolean(calibration));
       ui.syncButton.disabled = syncing;
       setText(ui.syncButton, syncing ? "Measuring..." : "Sync now");
-      setText(ui.syncStatus, syncing
-        ? `Measuring ${syncProgress}/${SAMPLE_COUNT} / ${calibration ? "previous calibration active" : "UNSYNCHRONIZED"}`
-        : calibration ? "Synchronized / TimeAPI.io" : "UNSYNCHRONIZED / computer clock");
+      setText(ui.syncStatus, calibration
+        ? syncing ? `Measuring ${syncProgress}/${SAMPLE_COUNT} / API calibration active` : "Synchronized / TimeAPI.io"
+        : syncFailure ? "TIME API UNAVAILABLE / timing paused" : `Waiting for API time / ${syncProgress}/${SAMPLE_COUNT}`);
       if (calibration) {
-        const offset = Math.round(clockNow(mono) - Date.now());
+        const correction = calibration.correction === null ? null : Math.round(calibration.correction);
         const age = Math.max(0, mono - calibration.mono);
         const uncertainty = Math.ceil(calibration.uncertainty + age * ASSUMED_DRIFT);
-        setText(ui.syncOffset, `${offset >= 0 ? "+" : ""}${offset} ms`);
+        setText(ui.syncOffset, correction === null ? "--" : `${correction >= 0 ? "+" : ""}${correction} ms`);
         setText(ui.syncUncertainty, `est. +/-${uncertainty} ms`);
         setText(ui.syncRtt, `${Math.round(calibration.rtt)} ms`);
         setText(ui.syncDetail, `${calibration.samples}/${SAMPLE_COUNT} samples / updated ${Math.floor(age / 1000)}s ago / network estimate; source clock error unknown.`);
       } else {
-        setText(ui.syncOffset, "unknown");
+        setText(ui.syncOffset, "--");
         setText(ui.syncUncertainty, "unknown");
         setText(ui.syncRtt, "--");
-        setText(ui.syncDetail, `${syncFailure} Source clock error is unknown.`);
+        const retry = syncing
+          ? `Requesting API time (${syncProgress}/${SAMPLE_COUNT}).`
+          : `Retry in ${Math.max(0, Math.ceil((nextSyncAt - mono) / 1000))}s or press Sync now.`;
+        setText(ui.syncDetail, `${syncFailure || "No verified API time yet."} ${retry} Device time is never used.`);
       }
     }
 
     function maintainClock() {
       const mono = performance.now();
-      const wall = Date.now();
-      const gap = mono - watch.mono;
-      if (Math.abs((wall - watch.wall) - gap) > 250 || gap > 15000) {
-        interruptSync("Sleep, a long pause, or a computer clock change was detected.");
+      if (mono - lastClockCheck > 15000) {
+        interruptSync("A browser pause was detected. Fresh API synchronization is required.");
       }
-      watch = { mono, wall };
+      lastClockCheck = mono;
       if (calibration && mono - calibration.mono > MAX_CALIBRATION_AGE) {
         interruptSync("Calibration expired.");
       }
@@ -1095,7 +1133,7 @@
 
     for (const input of [ui.arrivalDate, ui.arrivalTime]) {
       input.addEventListener("input", () => {
-        arrivalDatePristine = false;
+        if (input === ui.arrivalDate || ui.arrivalDate.value) arrivalDatePristine = false;
         recalculate();
       });
     }
@@ -1107,7 +1145,7 @@
         if (!text) return;
         event.preventDefault();
         input.setRangeText(text.replace(/\s+/g, " "), input.selectionStart, input.selectionEnd, "end");
-        if (input === ui.arrivalTime) arrivalDatePristine = false;
+        if (input === ui.arrivalTime && ui.arrivalDate.value) arrivalDatePristine = false;
         normalizeTimeInput(input);
       });
       input.addEventListener("blur", () => normalizeTimeInput(input));
@@ -1143,28 +1181,18 @@
     });
     ui.syncButton.addEventListener("click", synchronize);
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) {
-        hiddenAt = performance.now();
-        return;
-      }
-      const mono = performance.now();
-      const wall = Date.now();
-      const clockDiscontinuity = Math.abs((wall - watch.wall) - (mono - watch.mono)) > 250;
-      if ((hiddenAt !== null && mono - hiddenAt > 15000) || clockDiscontinuity) {
-        interruptSync("The page was in the background; refreshing calibration.");
-      }
-      hiddenAt = null;
-      watch = { mono, wall };
-      nextSyncAt = mono;
+      if (document.hidden) return;
+      // Some browsers pause performance.now() during sleep; require fresh time on return.
+      interruptSync("The page returned from the background; refreshing API time.");
+      lastClockCheck = performance.now();
       maintainClock();
-      scheduleAudioCues();
     });
     window.addEventListener("online", () => {
       nextSyncAt = performance.now();
       maintainClock();
     });
     window.addEventListener("offline", () => {
-      interruptSync("This browser is offline.");
+      interruptSync("TimeAPI.io cannot be reached while this browser is offline.");
       nextSyncAt = performance.now() + RETRY_INTERVAL;
     });
     window.addEventListener("pageshow", event => {

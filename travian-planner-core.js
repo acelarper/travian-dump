@@ -192,6 +192,18 @@
     });
   }
   const accountKey = name => name.normalize('NFC').toLocaleLowerCase();
+  function qualifyingDefenders(counts,tribe) {
+    const troops = [], slots = DEFENCE_SLOTS[tribe];
+    if (!slots) return troops;
+    for (const [category,minimum] of [['infantry',1000],['cavalry',500]]) {
+      const total = slots[category].reduce((sum,id) => sum+counts[id],0);
+      if (total < minimum) continue;
+      for (const id of slots[category]) {
+        if (counts[id]) troops.push({...TRIBES[tribe].units[id-1],count:counts[id]});
+      }
+    }
+    return troops;
+  }
   function makeLeaderRoster(rows,villages) {
     const byCoordinates = new Map(villages.map(v => [`${v.x}|${v.y}`,v]));
     const accounts = new Map();
@@ -211,19 +223,103 @@
       if (!sameOwner) warnings.push(`${description}: owner differs from map.sql; verify the CSV/map match.${!account ? ' Player link unavailable; tribe taken from the coordinates.' : ''}`);
       const slots = DEFENCE_SLOTS[tribe];
       if (!slots) { warnings.push(`${description}: unsupported tribe ${tribe}; skipped.`); continue; }
-      const troops = [];
-      for (const [category,minimum] of [['infantry',1000],['cavalry',500]]) {
-        const total = slots[category].reduce((sum,id) => sum+row.counts[id],0);
-        if (total < minimum) continue;
-        for (const id of slots[category]) {
-          if (row.counts[id]) troops.push({...TRIBES[tribe].units[id-1],count:row.counts[id]});
-        }
-      }
+      const troops = qualifyingDefenders(row.counts,tribe);
       if (troops.length) candidates.push({origin:{...origin,tribe,uid:account ? account.uid : null,aid:account ? account.aid : 0,name:row.name,player:row.player,mapOwnerMismatch:!sameOwner},ts:row.ts,
         tsPercentage:row.tsPercentage,troops,total:troops.reduce((sum,troop) => sum+troop.count,0)});
     }
     candidates.sort((a,b) => b.total-a.total || a.origin.player.localeCompare(b.origin.player) || a.origin.did-b.origin.did);
     return {candidates,warnings,rowCount:rows.length};
+  }
+  function parseTravcoVillageOverview(input) {
+    if (typeof input !== 'string' || input.length > 1024*1024) throw new Error('Village overview must be text smaller than 1 MB.');
+    const lines = input.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').replace(/\u2212/g,'-').split('\n');
+    const start = lines.findIndex(line => /^\s*Village overview\s+\d+\s*$/i.test(line));
+    if (start < 0) throw new Error('Paste the Village overview heading, village rows and Total troops row.');
+    const reportedCount = integer(Number(lines[start].match(/\d+\s*$/)[0]),1,1000,'Overview village count');
+    const totalAt = lines.findIndex((line,index) => index > start && /^\s*Total troops(?:\t|$)/i.test(line));
+    if (totalAt < 0) throw new Error('The Total troops row is missing. Copy the complete Village overview.');
+    const rowPattern = /^\s*(.+?)\s*\[\s*([+-]?\d+)\s*\/\s*([+-]?\d+)\s*\](.*)$/;
+    const anchors = [];
+    for (let index=start+1;index<totalAt;index++) {
+      const match = rowPattern.exec(lines[index]);
+      if (match) anchors.push({index,match});
+    }
+    if (!anchors.length || anchors.length > reportedCount) throw new Error('Village rows do not match the overview heading.');
+    const number = (raw,name) => {
+      const value = callTroops(raw).troopsNeeded;
+      if (value === null) throw new Error(`${name} is missing.`);
+      return integer(value,0,1e12,name);
+    };
+    const cells = value => value.split(/[\t\n]/).map(cell => cell.trim()).filter(Boolean);
+    const seen = new Set(), rows = anchors.map(({index,match},position) => {
+      const name = match[1].trim(), x = integer(Number(match[2]),-200,200,'Village X'), y = integer(Number(match[3]),-200,200,'Village Y');
+      if (!name || name.length > 200) throw new Error('Invalid overview village name.');
+      const key = `${x}|${y}`;
+      if (seen.has(key)) throw new Error(`Duplicate overview village ${coordText({x,y})}.`);
+      seen.add(key);
+      const values = cells([match[4],...lines.slice(index+1,anchors[position+1]?.index ?? totalAt)].join('\n'));
+      if (values.length !== 13) throw new Error(`${name}: expected 9 unit counts, 3 totals and TS. Copy the complete table without changing its columns.`);
+      const numbers = values.map((value,column) => number(value,`${name}, column ${column+1}`));
+      return {row:position+1,name,x,y,ts:integer(numbers[12],0,20,`${name} TS`),
+        counts:Object.fromEntries(numbers.slice(0,9).map((count,slot) => [slot+1,count])),totals:numbers.slice(9,12)};
+    });
+    const totals = cells([lines[totalAt].replace(/^\s*Total troops/i,''),...lines.slice(totalAt+1)].join('\n'));
+    if (totals.length < 12) throw new Error('The Total troops row is incomplete.');
+    const expected = totals.slice(0,12).map((value,index) => number(value,`Total troops, column ${index+1}`));
+    for (let column=0;column<12;column++) {
+      const actual = rows.reduce((sum,row) => sum+(column < 9 ? row.counts[column+1] : row.totals[column-9]),0);
+      if (actual > expected[column] || rows.length === reportedCount && actual !== expected[column]) {
+        throw new Error('Village counts disagree with Total troops. Copy one complete, current overview.');
+      }
+    }
+    const userAt = lines.findIndex((line,index) => index < start && line.trim() === 'user_img');
+    const accountHint = userAt < 0 ? '' : lines.slice(userAt+1,start).find(line => line.trim())?.trim() || '';
+    return {rows,reportedCount,accountHint};
+  }
+  function restoreVillageOverview(input,villages,previousProfiles = []) {
+    if (!villages.length) throw new Error('Load the current map.sql before importing troops.');
+    const overview = parseTravcoVillageOverview(input), byPoint = new Map(villages.map(village => [`${village.x}|${village.y}`,village])), warnings = [];
+    const located = overview.rows.flatMap(row => {
+      const village = byPoint.get(`${row.x}|${row.y}`);
+      if (!village) { warnings.push(`${row.name} ${coordText(row)} is missing from map.sql; skipped. Update the map to include it.`); return []; }
+      return [{row,village}];
+    });
+    if (!located.length) throw new Error('None of these villages are in map.sql. Update the map before importing.');
+    const players = playersFromMap(villages), hinted = players.filter(player => accountKey(player.name) === accountKey(overview.accountHint));
+    if (hinted.length > 1) throw new Error('The overview account name is ambiguous in map.sql.');
+    const owners = new Set(located.map(({village}) => village.uid));
+    const playerId = hinted[0]?.id ?? (owners.size === 1 ? located[0].village.uid : null);
+    if (playerId === null) throw new Error('These villages have different owners in map.sql and the overview account could not be identified.');
+    const player = players.find(value => value.id === playerId);
+    if (!player) throw new Error('The overview account is not in L!, L# or L* in this map.');
+    const matched = located.filter(({row,village}) => {
+      if (village.uid === playerId) return true;
+      warnings.push(`${row.name} ${coordText(row)} belongs to ${village.player} in map.sql; skipped. Verify the map is current.`);
+      return false;
+    });
+    if (!matched.length) throw new Error('None of the listed villages belong to the overview account in map.sql. Verify the account and map.');
+    for (const {row,village} of matched) if (!Object.hasOwn(TRIBES,village.tribe)) throw new Error(`${row.name}: tribe ${village.tribe} is not supported.`);
+    const previous = previousProfiles.find(profile => profile.playerId === playerId), profile = makeProfile(player);
+    if (previous) {
+      profile.villages = profile.villages.map(config => {
+        const saved = previous.villages.find(value => value.did === config.did);
+        return saved ? {...saved,defenders:[...saved.defenders],escorts:[...saved.escorts]} : config;
+      });
+      profile.hero = {...previous.hero,standards:[...previous.hero.standards],boots:[...previous.hero.boots]};
+    }
+    for (const {row,village} of matched) {
+      const config = profile.villages.find(value => value.did === village.did);
+      const troops = qualifyingDefenders(row.counts,village.tribe);
+      Object.assign(config,{enabled:troops.length > 0,ts:row.ts,defenders:troops.map(troop => troop.id),
+        escorts:TRIBES[village.tribe].units.filter(unit => row.counts[unit.id] > 0).map(unit => unit.id)});
+      if (accountKey(row.name) !== accountKey(village.name)) warnings.push(`${coordText(row)}: overview name differs; using ${village.name} from map.sql.`);
+    }
+    if (overview.accountHint && accountKey(overview.accountHint) !== accountKey(player.name)) warnings.push('Travco profile name differs from the game account; account identified by village ownership.');
+    const unlisted = profile.villages.length-matched.length;
+    if (overview.rows.length < overview.reportedCount) warnings.push(`Partial overview: ${overview.rows.length}/${overview.reportedCount} villages.`);
+    if (unlisted) warnings.push(`${unlisted} villages were not listed; their setup was kept.`);
+    return {profile:validateProfile(profile,villages),playerName:player.name,rowCount:overview.rows.length,imported:matched.length,
+      anvils:matched.filter(({village}) => profile.villages.find(config => config.did === village.did).enabled).length,warnings};
   }
   function parseCoordinates(value) {
     const normalized = value.trim().replace(/\u2212/g,'-');
@@ -675,6 +771,16 @@
     groups.sort((a,b) => compareOptions(a.options[0],b.options[0]) || a.origin.name.localeCompare(b.origin.name));
     return {kind:'players',settings,cutoff,target,groups,notices,playerId:profile.playerId};
   }
+  function buildCallPlans(villages,profile,calls,settings) {
+    if (!Array.isArray(calls) || !calls.length || calls.length > 50) throw new Error('Select between 1 and 50 defence calls.');
+    const seen = new Set();
+    return calls.map(call => {
+      if (!call || typeof call.key !== 'string' || !call.key || seen.has(call.key)) throw new Error('Missing or duplicate defence call.');
+      seen.add(call.key);
+      const plan = buildPlan(villages,profile,{...settings,target:{x:call.x,y:call.y},attackMs:call.deadlineMs});
+      return {...plan,callKey:call.key,call,isCallDeadline:!call.isImpact};
+    });
+  }
   function buildLeaderPlan(villages,roster,settings) {
     const {cutoff,target} = planContext(villages,settings);
     if (!roster.candidates.length) throw new Error('No CSV villages meet the troop thresholds.');
@@ -754,5 +860,5 @@
     profile.hero = {solo:savedProfile.hero.solo,standards:[...savedProfile.hero.standards],boots:[...savedProfile.hero.boots]};
     return {profile,settings:validateSettings(value.version >= 7 ? value.settings : value.draft)};
   }
-  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,HERO_ITEMS,parseMapSql,playersFromMap,parseCsvTable,parseTravcoCsv,makeLeaderRoster,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,travcoCallTimestamp,parseTravcoDefenceCalls,distance,travelSeconds,returnSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildLeaderPlan,leaderChoices,leaderTotal,leaderScore,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings});
+  globalThis.TravianDefence = Object.freeze({SERVER,ALLIANCES,TRIBES,HERO_ITEMS,parseMapSql,playersFromMap,parseCsvTable,parseTravcoCsv,makeLeaderRoster,parseTravcoVillageOverview,restoreVillageOverview,parseCoordinates,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,travcoCallTimestamp,parseTravcoDefenceCalls,distance,travelSeconds,returnSeconds,makeProfile,validateProfile,relationship,heroVariants,makeLoads,buildPlan,buildCallPlans,buildLeaderPlan,leaderChoices,leaderTotal,leaderScore,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings});
 })();

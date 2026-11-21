@@ -54,6 +54,11 @@ legend{margin-bottom:5px}summary{cursor:pointer}
 .ts{display:flex;align-items:center;gap:10px;margin-bottom:10px}.ts input{margin-top:0!important;padding:4px 8px;max-width:65px}
 .hero{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 .hero-equipment{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.result-views{display:flex;gap:6px;flex-wrap:wrap}.result-views button[aria-pressed=true]{color:var(--green);border-color:#437e70;background:#0e2823}
+.send-order{margin-top:14px}.send-order td:first-child{min-width:145px}.send-order td{overflow-wrap:anywhere}.send-order .route{min-width:150px}.send-order .troops{min-width:210px}
+.send-order tr.with-hero{background:#172722}.hero-flag{color:var(--gold);font-size:11px}.call-choice{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px}
+.call-destination{margin-bottom:5px;font-size:11px}.result-hero-choice{display:flex;gap:6px;align-items:center;font-size:11px}.village-filter{flex-wrap:wrap}
+dialog{width:min(700px,calc(100% - 28px));background:var(--panel);color:var(--text);border:1px solid #437e70;border-radius:12px;padding:16px}dialog::backdrop{background:#0009}#troop-overview-paste{min-height:220px;resize:vertical;font-size:12px}
 .attack-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:14px}
 .arrival-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .arrival-inputs input{height:44px;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums}
@@ -102,6 +107,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
   .result-village td:last-child{grid-column:2;grid-row:3;align-self:center;justify-self:end}
 }
 @media(max-width:560px){main{width:calc(100% - 28px);padding-top:16px}#village-list,.hero-equipment{grid-template-columns:1fr}.panel{padding:14px 12px}.account-row label{flex-basis:100%}.arrival-inputs input{padding:9px;font-size:14px}.target-tabs button{padding:7px 9px}.defence-call{grid-template-columns:minmax(0,1fr) auto;gap:8px 10px}.call-heading{grid-column:1/-1}}
+@media(max-width:720px){.send-order tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px;border-bottom:1px solid var(--line)}.send-order td,.send-order td:first-child,.send-order td.time,.send-order .route,.send-order .troops{padding:0;border:0;min-width:0;max-width:none}.send-order td::before{content:attr(data-label);display:block;font-size:10px;color:var(--dim);margin-bottom:3px}.send-order .troops{grid-column:1/-1}.send-order .send-time{font-size:20px}.send-order td:last-child{align-self:end;justify-self:end}}
 @media print{body{background:white;color:black}.setup,td:last-child,th:last-child{display:none}.panel{border:0}.result-village{break-inside:avoid}.sub,.muted,th{color:#444}.good,.warn,.bad,.send-time{color:black}}
 </style>
 </head>
@@ -120,10 +126,10 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
 
   <section id="setup-panel" class="panel setup" aria-label="Your setup">
     <div class="section-heading">
-      <button id="setup-import" type="button">Import setup</button>
-      <button id="save-setup" type="button" disabled>Export</button>
+      <div><h2>Your setup</h2><p id="setup-summary" class="muted" hidden></p></div>
+      <div class="checks"><button id="setup-import" type="button">Import setup</button><button id="paste-troops" type="button">Paste troops</button><button id="save-setup" type="button" disabled>Export</button><button id="setup-collapse" type="button" aria-expanded="true" aria-controls="manual-panel" disabled>Minimize setup</button></div>
     </div>
-    <input id="setup-file" type="file" accept=".json,application/json" aria-label="Import setup file" hidden>
+    <input id="setup-file" type="file" accept=".json,.txt,application/json,text/plain" aria-label="Import setup JSON or Travco troop overview" hidden>
     <div id="manual-panel">
       <div class="account-row">
         <label for="player-select">Playing as<select id="player-select" disabled><option value="">Loading accounts...</option></select></label>
@@ -134,6 +140,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
         <div class="section-heading"><h3>Hero</h3></div>
         <div id="hero-equipment" class="hero-equipment"></div>
         <label class="check spaced"><input id="hero-only" type="checkbox">Include hero-only options</label>
+        <div class="actions"><button id="setup-collapse-bottom" type="button" class="small" aria-expanded="true" aria-controls="manual-panel">Minimize setup</button></div>
       </div>
     </div>
     <p id="setup-status" class="status" role="status" hidden></p>
@@ -152,6 +159,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     <div class="section-heading"><h2>Travco defence calls</h2><button id="clear-calls" type="button" class="small">Clear</button></div>
     <label class="spaced" for="travco-paste">Import calls<textarea id="travco-paste" placeholder="Paste Travco page or Discord calls" spellcheck="false"></textarea></label>
     <p id="calls-status" class="status" role="status" hidden></p>
+    <div id="calls-selection" class="section-heading spaced" hidden><label class="check"><input id="calls-all" type="checkbox">All calls</label><span id="calls-selection-count" class="muted"></span><button id="calculate-calls" type="button" class="primary" disabled>Calculate selected calls</button></div>
     <div id="defence-call-list" class="call-list" role="list"></div>
   </div>
 
@@ -192,6 +200,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
   <section id="results" class="panel" aria-labelledby="results-heading" hidden>
     <div class="section-heading">
       <h2 id="results-heading">Send times</h2>
+      <div class="result-views" role="group" aria-label="Result view"><button id="view-villages" type="button" class="small" aria-pressed="true">By village</button><button id="view-send-order" type="button" class="small" aria-pressed="false">Send order</button></div>
       <span id="calculated-at" class="muted"></span>
     </div>
     <div id="result-meta"></div>
@@ -199,12 +208,20 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
       <div class="section-heading"><h3>Villages</h3><div class="checks"><button id="result-villages-all" type="button" class="small" aria-label="Select all result villages">Select all</button><button id="result-villages-none" type="button" class="small" aria-label="Deselect all result villages">Deselect all</button></div></div>
       <div id="result-village-chips" class="checks spaced" role="group" aria-label="Visible villages"></div>
     </div>
+    <div id="send-order-paging" class="section-heading spaced" hidden><span id="send-order-count" class="muted" role="status"></span><div class="checks"><button id="send-order-prev" type="button" class="small">Previous</button><button id="send-order-next" type="button" class="small">Next</button></div></div>
     <div id="result-list"></div>
     <p id="copy-status" class="status" role="status" hidden></p>
     <textarea id="copy-text" aria-label="Plan text to copy manually" readonly hidden></textarea>
   </section>
 
 </main>
+<dialog id="troop-overview-dialog" aria-labelledby="troop-overview-title">
+  <h2 id="troop-overview-title">Import Travco troops</h2>
+  <label class="spaced">Village overview<textarea id="troop-overview-paste" placeholder="Paste the complete Travco Village overview" spellcheck="false"></textarea></label>
+  <p class="muted spaced">Updates listed villages, TS and units. Keeps hero equipment. Anvils use the leadership thresholds: 1,000 qualifying infantry or 500 defensive cavalry.</p>
+  <p id="troop-overview-error" class="status" role="alert" hidden></p>
+  <div class="actions"><button id="apply-troop-overview" type="button" class="primary">Import troops</button><button id="cancel-troop-overview" type="button">Cancel</button></div>
+</dialog>
 <script src="travian-planner-core.js"></script>
 <script>
 'use strict';
@@ -216,10 +233,10 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     message.hidden = false; message.classList.add('error');
     return;
   }
-  const {SERVER,TRIBES,HERO_ITEMS,parseMapSql,playersFromMap,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,parseTravcoDefenceCalls,makeProfile,validateProfile,buildPlan,availablePlanGroups,restoreSetup,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings} = globalThis.TravianDefence;
-  if (!HERO_ITEMS) {
+  const {SERVER,TRIBES,HERO_ITEMS,parseMapSql,playersFromMap,createTargetIndex,searchTargets,resolveTarget,targetLabel,normalizeClockTime,parseUTC,formatUTC,formatClock,parseTravcoDefenceCalls,makeProfile,validateProfile,buildPlan,buildCallPlans,availablePlanGroups,restoreSetup,restoreVillageOverview,MAP_LIMIT,integer,isoTime,formatDay,coordText,validateSettings} = globalThis.TravianDefence;
+  if (!HERO_ITEMS || !buildCallPlans || !restoreVillageOverview) {
     const message = document.getElementById('map-status');
-    message.textContent = 'Update travian-planner-core.js beside this page to use hero equipment.';
+    message.textContent = 'Update travian-planner-core.js beside this page to use the latest defence planner.';
     message.hidden = false; message.classList.add('error');
     return;
   }
@@ -240,6 +257,8 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
   let mapBusy = false, fetchController = null, sendTimer = null;
   const heroItemVillages = new Set();
   const resultVillageSelections = new Map();
+  const selectedCalls = new Set();
+  let resultView = 'villages', sendOrderPage = 0, setupCollapsed = false;
   let callsSnapshot = null, callsError = '', callsViewKey = '', selectedCall = null;
   let targetIndex = [], targetPoint = null, suggestions = [], activeSuggestion = -1;
   const currentProfile = () => profiles.get(selectedId);
@@ -254,6 +273,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     lastPlan = null;
     $('results').hidden = true;
     $('result-list').replaceChildren();
+    $('copy-text').value = ''; $('copy-text').hidden = true; status('copy-status','');
     $('plan-error').hidden = true;
     syncDisplayTimer();
   }
@@ -281,9 +301,21 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     selectedCall = null; $('deadline-kind').textContent = 'Attack lands';
     status('selected-call-status','');
   }
+  function updateCallControls(active) {
+    const checked = active.filter(call => selectedCalls.has(call.key)).length;
+    $('calls-selection').hidden = !active.length;
+    $('calls-all').checked = active.length > 0 && checked === active.length;
+    $('calls-all').indeterminate = checked > 0 && checked < active.length;
+    $('calls-all').disabled = mapBusy || !active.length;
+    $('calls-selection-count').textContent = `${checked} selected`;
+    $('calculate-calls').disabled = mapBusy || !selectedId || !checked;
+  }
   function renderCalls(force = false) {
     const now = Date.now(), active = callsSnapshot ? callsSnapshot.calls.filter(call => call.deadlineMs > now) : [];
-    const key = active.map(call => call.key).join(',')+';'+(selectedCall?.key || '')+';'+callsError;
+    const activeKeys = new Set(active.map(call => call.key));
+    for (const key of selectedCalls) if (!activeKeys.has(key)) selectedCalls.delete(key);
+    updateCallControls(active);
+    const key = active.map(call => call.key).join(',')+';'+(selectedCall?.key || '')+';'+[...selectedCalls].join(',')+';'+callsError;
     if (force || key !== callsViewKey) {
       callsViewKey = key;
       $('defence-call-list').innerHTML = active.map(call => {
@@ -291,7 +323,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
         const player = call.player || village?.player || 'Defence call', alliance = call.alliance || village?.alliance || '';
         const name = call.villageName || village?.name, url = village ? `${SERVER}/karte.php?d=${village.tileId}` : mapUrl(call);
         const remaining = call.filled ? 'Filled - no more troops needed' : call.troopsMissing === null ? 'Remaining troops unknown' : `${call.troopsMissing.toLocaleString('en-GB')} troops still needed`;
-        return `<article class="defence-call${call.filled ? ' call-filled' : ''}" role="listitem" data-filled="${call.filled}"><div class="call-heading"><strong>${escape(player)}</strong>${alliance ? ` <span class="muted">[${escape(alliance)}]</span>` : ''}${selectedCall?.key === call.key ? ' <span class="call-selected">Selected</span>' : ''}<div class="call-location">${name ? `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(name)}</a>` : ''}${coordinateLink(call)}</div>
+        return `<article class="defence-call${call.filled ? ' call-filled' : ''}" role="listitem" data-filled="${call.filled}"><div class="call-heading"><label class="call-choice"><input type="checkbox" data-call-select="${escape(call.key)}"${selectedCalls.has(call.key) ? ' checked' : ''}${mapBusy ? ' disabled' : ''} aria-label="Select call for ${escape(player)} ${coordText(call)} at ${formatUTC(call.deadlineMs)}"><strong>${escape(player)}</strong>${alliance ? ` <span class="muted">[${escape(alliance)}]</span>` : ''}${selectedCall?.key === call.key ? ' <span class="call-selected">Selected</span>' : ''}</label><div class="call-location">${name ? `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(name)}</a>` : ''}${coordinateLink(call)}</div>
           <div class="call-demand"><strong class="${call.filled || call.troopsMissing === null ? 'warn' : 'good'}">${remaining}</strong>${call.troopsNeeded === null ? '' : `<span class="muted">Target: ${call.troopsNeeded.toLocaleString('en-GB')}</span>`}</div></div>
           <div class="call-time">${call.isImpact ? '<span class="sub">Impact</span>' : ''}<span class="digits">${formatClock(call.deadlineMs)}</span><span class="sub">${formatDay(call.deadlineMs)} UTC</span></div><div class="call-actions"><button type="button" class="small" data-call-key="${escape(call.key)}"${call.filled ? ' title="This call is already filled"' : ''}${mapBusy || !selectedId ? ' disabled' : ''}>Calculate</button></div></article>`;
       }).join('');
@@ -327,6 +359,8 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
   $('travco-paste').addEventListener('input',() => {
     const text = $('travco-paste').value;
     if (!text.trim()) {
+      if (lastPlan?.source === 'calls') invalidate();
+      selectedCalls.clear();
       callsSnapshot = null; callsError = ''; clearCallSelection();
     } else {
       try {
@@ -334,15 +368,32 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
         const next = parseTravcoDefenceCalls(text);
         if (next.calls.some(call => typeof call.filled !== 'boolean' || !Object.hasOwn(call,'troopsMissing') || !Object.hasOwn(call,'troopsNeeded'))) throw new Error('Update travian-planner-core.js to read troop requirements and filled calls.');
         callsSnapshot = next; callsError = '';
+        if (lastPlan?.source === 'calls' && lastPlan.plans.some(plan => !next.calls.some(call => call.key === plan.callKey))) invalidate();
         const refreshed = selectedCall && next.calls.find(call => call.key === selectedCall.key);
         if (refreshed) selectedCall = refreshed;
+        if (lastPlan) renderPlan(false);
       } catch (error) { callsError = error.message; }
     }
     renderCalls(true); syncDisplayTimer();
   });
   $('clear-calls').addEventListener('click',() => {
+    if (lastPlan?.source === 'calls') invalidate();
+    selectedCalls.clear();
     $('travco-paste').value = ''; callsSnapshot = null; callsError = '';
     clearCallSelection(); renderCalls(true); syncDisplayTimer();
+  });
+  $('calls-all').addEventListener('change',() => {
+    selectedCalls.clear();
+    if ($('calls-all').checked) for (const call of callsSnapshot?.calls || []) if (call.deadlineMs > Date.now()) selectedCalls.add(call.key);
+    if (lastPlan?.source === 'calls') invalidate();
+    renderCalls(true);
+  });
+  $('defence-call-list').addEventListener('change',event => {
+    const input = event.target.closest('input[data-call-select]');
+    if (!input) return;
+    if (input.checked) selectedCalls.add(input.dataset.callSelect); else selectedCalls.delete(input.dataset.callSelect);
+    if (lastPlan?.source === 'calls') invalidate();
+    renderCalls(true);
   });
   $('defence-call-list').addEventListener('click',event => {
     const button = event.target.closest('button[data-call-key]');
@@ -366,11 +417,30 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     $('save-setup').disabled = !selectedId || mapBusy;
     $('setup-file').disabled = mapBusy;
     $('setup-import').disabled = mapBusy;
+    $('paste-troops').disabled = mapBusy;
+    $('apply-troop-overview').disabled = mapBusy;
+    $('setup-collapse').disabled = !selectedId;
     for (const button of $('defence-call-list').querySelectorAll('[data-call-key]')) {
       const call = callsSnapshot?.calls.find(value => value.key === button.dataset.callKey);
       button.disabled = mapBusy || !selectedId || !call;
     }
+    for (const input of $('defence-call-list').querySelectorAll('[data-call-select]')) input.disabled = mapBusy;
+    updateCallControls(callsSnapshot?.calls.filter(call => call.deadlineMs > Date.now()) || []);
   }
+  function renderSetupSummary() {
+    const profile = currentProfile(), player = currentPlayer();
+    $('setup-summary').textContent = player ? `${player.name} - ${profile.villages.filter(v => v.enabled).length} anvils / ${player.villages.length} villages` : '';
+    $('setup-summary').hidden = !player || !setupCollapsed;
+    $('manual-panel').hidden = setupCollapsed && !!player;
+    for (const id of ['setup-collapse','setup-collapse-bottom']) {
+      $(id).setAttribute('aria-expanded',String(!$('manual-panel').hidden));
+      $(id).textContent = $('manual-panel').hidden ? 'Expand setup' : 'Minimize setup';
+    }
+  }
+  for (const id of ['setup-collapse','setup-collapse-bottom']) $(id).addEventListener('click',() => {
+    setupCollapsed = !setupCollapsed; renderSetupSummary();
+    if (setupCollapsed) $('setup-collapse').focus({preventScroll:true});
+  });
   function renderPlayers() {
     $('player-select').innerHTML = '<option value="">Select your account</option>' + players.map(p =>
       `<option value="${p.id}">${escape(p.name)} [${escape([...p.alliances].join(', '))}]</option>`).join('');
@@ -381,6 +451,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
   }
   function renderVillages() {
     const player = currentPlayer();
+    renderSetupSummary();
     $('anvil-heading').hidden = !player;
     if (!player) {
       $('village-list').replaceChildren();
@@ -491,6 +562,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
       config[kind] = input.checked ? [...new Set([...config[kind],id])] : config[kind].filter(value => value !== id);
     }
     invalidate();
+    renderSetupSummary();
   });
   $('village-list').addEventListener('click',event => {
     const button = event.target.closest('button[data-escorts]');
@@ -660,6 +732,21 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
       status('setup-status','Setup exported.');
     } catch (error) { status('setup-status',`Cannot export: ${error.message}`,true); }
   });
+  function applyTroopOverview(text) {
+    const saved = restoreVillageOverview(text,villages,[...profiles.values()]);
+    profiles.set(saved.profile.playerId,saved.profile); selectedId = saved.profile.playerId;
+    invalidate(); renderPlayers(); renderVillages(); enableControls();
+    status('setup-status',`Imported ${saved.imported}/${saved.rowCount} villages for ${saved.playerName}; ${saved.anvils} anvils. Hero equipment kept.${saved.warnings.length ? ' '+saved.warnings.join(' ') : ''}`);
+    $('setup-status').classList.toggle('warn',saved.warnings.length > 0);
+  }
+  $('paste-troops').addEventListener('click',() => {
+    status('troop-overview-error',''); $('troop-overview-dialog').showModal(); $('troop-overview-paste').focus();
+  });
+  $('cancel-troop-overview').addEventListener('click',() => $('troop-overview-dialog').close());
+  $('apply-troop-overview').addEventListener('click',() => {
+    try { applyTroopOverview($('troop-overview-paste').value); $('troop-overview-dialog').close(); }
+    catch (error) { status('troop-overview-error',`Import failed: ${error.message} Previous setup kept.`,true); }
+  });
   $('setup-file').addEventListener('change',async () => {
     if (mapBusy) return;
     const file = $('setup-file').files[0];
@@ -668,11 +755,14 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     status('setup-status',`Importing ${file.name}...`);
     try {
       if (file.size > MAP_LIMIT) throw new Error('Setup file exceeds 40 MB.');
-      const saved = restoreSetup(JSON.parse(await file.text()),villages);
+      const text = await file.text();
+      if (!/\.json$/i.test(file.name) && !/^\s*[\[{]/.test(text)) { applyTroopOverview(text); return; }
+      const saved = restoreSetup(JSON.parse(text),villages);
       profiles.set(saved.profile.playerId,saved.profile); selectedId = saved.profile.playerId;
       $('buffer-seconds').value = saved.settings.buffer;
       invalidate(); renderPlayers(); renderVillages(); enableControls();
       status('setup-status',`Imported ${file.name}.`);
+      $('setup-status').classList.remove('warn');
     } catch (error) { status('setup-status',`Import failed: ${error.message}`,true); }
     finally { setMapBusy(false); }
   });
@@ -700,69 +790,140 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
       return equipment.length ? [{option:{...option,equipment},index}] : [];
     });
   }
-  function clockUrl(option) {
+  const callForPlan = plan => callsSnapshot?.calls.find(call => call.key === plan.callKey) || plan.call;
+  const targetName = plan => plan.target ? `${plan.target.name} - ${plan.target.player}` : plan.call?.villageName || 'Unknown village';
+  function clockUrl(option,plan) {
     const label = village => [village?.player,village?.name].filter(Boolean).join(' / ');
-    const payload = {version:1,arrivalMs:lastPlan.cutoff,travelMs:option.seconds*1000,
+    const payload = {version:1,arrivalMs:plan.cutoff,travelMs:option.seconds*1000,
       from:{x:option.origin.x,y:option.origin.y,label:label(option.origin)},
-      to:{...lastPlan.settings.target,label:label(lastPlan.target) || selectedCall?.villageName || 'Unknown village'}};
+      to:{...plan.settings.target,label:label(plan.target) || plan.call?.villageName || 'Unknown village'}};
     return 'travian-clock.html#defence='+encodeURIComponent(JSON.stringify(payload));
   }
-  function optionTable(options,groupIndex,now) {
-    return `<div class="table-wrap"><table><thead><tr><th>Troops / hero</th><th>Travel</th><th>Send (UTC)</th><th></th></tr></thead><tbody>${options.map(({option,index}) => {
-      const equipment = option.equipment, detail = armyDetail(option);
-      const waitSeconds = Math.ceil((option.sendAt-now)/1000);
-      const equipmentHTML = equipment.length === 1 ? `<span class="sub">${option.withHero ? 'Hero: ' : ''}${escape(equipment[0].label)}</span>`
-        : `<details class="equipment" data-details-key="gear-${option.origin.did}-${option.load.key}-${option.withHero}-${option.seconds}"><summary>Hero: ${equipment.length} equipment options</summary>${equipment.map(e => `<div>${escape(e.label)}</div>`).join('')}</details>`;
-      return `<tr><td><span class="army">${escape(option.load.label)}</span>${detail ? `<span class="sub">${escape(detail)}</span>` : ''}${equipmentHTML}</td>
+  const compareEntries = (a,b) => a.option.sendAt-b.option.sendAt || Number(a.option.withHero)-Number(b.option.withHero)
+    || a.option.load.escortIds.length-b.option.load.escortIds.length || a.option.origin.name.localeCompare(b.option.origin.name,undefined,{numeric:true})
+    || a.option.load.key.localeCompare(b.option.load.key) || a.planIndex-b.planIndex || a.index-b.index;
+  function resultGroups() {
+    const grouped = new Map();
+    for (const [planIndex,plan] of lastPlan.plans.entries()) for (const [groupIndex,source] of plan.groups.entries()) {
+      if (!grouped.has(source.origin.did)) grouped.set(source.origin.did,{origin:source.origin,ts:source.ts,fields:source.fields,calls:0,entries:[]});
+      const group = grouped.get(source.origin.did);
+      group.calls++;
+      group.entries.push(...visibleOptions(source).map(choice => ({...choice,plan,planIndex,groupIndex})));
+    }
+    for (const group of grouped.values()) group.entries.sort(compareEntries);
+    return [...grouped.values()];
+  }
+  function equipmentHtml({option,planIndex}) {
+    const equipment = option.equipment;
+    return equipment.length === 1 ? `<span class="sub">${option.withHero ? 'Hero: ' : ''}${escape(equipment[0].label)}</span>`
+      : `<details class="equipment" data-details-key="gear-${option.origin.did}-${option.load.key}-${option.withHero}-${option.seconds}-${planIndex}"><summary>Hero: ${equipment.length} equipment options</summary>${equipment.map(e => `<div>${escape(e.label)}</div>`).join('')}</details>`;
+  }
+  function sendHtml({option,plan,planIndex,groupIndex,index},now) {
+    return `<span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><a class="sub mono send-wait" href="${escape(clockUrl(option,plan))}" target="_blank" rel="noopener noreferrer" data-send-at="${option.sendAt}" data-clock-plan="${planIndex}" data-clock-group="${groupIndex}" data-clock-option="${index}" title="Open this send countdown in Precision Clock">Send in ${duration(Math.ceil((option.sendAt-now)/1000))}</a>`;
+  }
+  const copyHtml = entry => `<button class="small" type="button" data-copy-plan="${entry.planIndex}" data-copy-group="${entry.groupIndex}" data-copy-option="${entry.index}">Copy</button>`;
+  function destinationHtml(plan) {
+    return `<strong>${escape(targetName(plan))}</strong> ${coordinateLink(plan.settings.target)}
+      <span class="sub">Defence lands ${formatClock(plan.cutoff)} &middot; ${formatDay(plan.cutoff)} UTC</span>
+      <span class="sub">${plan.isCallDeadline ? 'Deadline' : 'Impact'} ${formatClock(plan.settings.attackMs)}</span>${callForPlan(plan)?.filled ? '<span class="hero-flag">Filled - no more troops needed</span>' : ''}`;
+  }
+  function optionTable(entries,now) {
+    return `<div class="table-wrap"><table><thead><tr><th>Troops / hero</th><th>Travel</th><th>Send (UTC)</th><th></th></tr></thead><tbody>${entries.map(entry => {
+      const {option,plan} = entry, detail = armyDetail(option);
+      return `<tr><td>${lastPlan.plans.length > 1 ? `<div class="call-destination">${destinationHtml(plan)}</div>` : ''}<span class="army">${escape(option.load.label)}</span>${detail ? `<span class="sub">${escape(detail)}</span>` : ''}${equipmentHtml(entry)}</td>
         <td class="mono">${duration(option.seconds)}<span class="sub">${option.speed} fields/h base</span></td>
-        <td class="time"><span class="digits send-time">${formatClock(option.sendAt)}</span><span class="sub">${formatDay(option.sendAt)}</span><a class="sub mono send-wait" href="${escape(clockUrl(option))}" target="_blank" rel="noopener noreferrer" data-send-at="${option.sendAt}" data-clock-group="${groupIndex}" data-clock-option="${index}" title="Open this send countdown in Precision Clock">Send in ${duration(waitSeconds)}</a></td>
-        <td><button class="small" type="button" data-copy-group="${groupIndex}" data-copy-option="${index}">Copy</button></td></tr>`;
+        <td class="time">${sendHtml(entry,now)}</td><td>${copyHtml(entry)}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  }
+  function sendOrderTable(entries,now) {
+    return `<div class="table-wrap send-order"><table><thead><tr><th>Send (UTC)</th><th>From</th><th>To / landing</th><th>Troops / hero</th><th>Travel</th><th></th></tr></thead><tbody>${entries.map(entry => {
+      const {option,plan} = entry, detail = armyDetail(option);
+      return `<tr${option.withHero ? ' class="with-hero"' : ''} data-send-option="${entry.planIndex}-${entry.groupIndex}-${entry.index}">
+        <td class="time" data-label="Send (UTC)">${sendHtml(entry,now)}</td>
+        <td class="route" data-label="From"><strong>${escape(option.origin.name)}</strong> ${coordinateLink(option.origin)}</td>
+        <td class="route" data-label="To / landing">${destinationHtml(plan)}</td>
+        <td class="troops" data-label="Troops / hero"><span class="army">${escape(option.load.label)}</span>${detail ? `<span class="sub">${escape(detail)}</span>` : ''}${equipmentHtml(entry)}</td>
+        <td class="mono" data-label="Travel">${duration(option.seconds)}<span class="sub">${option.speed} fields/h base</span></td><td>${copyHtml(entry)}</td></tr>`;
     }).join('')}</tbody></table></div>`;
   }
   function renderPlan(resetCopy = true,now = Date.now()) {
     if (!lastPlan) return;
-    const plan = lastPlan;
+    const plans = lastPlan.plans, plan = plans[0], multiple = plans.length > 1, groups = resultGroups();
     $('results').hidden = false;
     $('results-heading').textContent = 'Send times';
-    $('calculated-at').textContent = `Calculated ${formatClock(plan.settings.calculatedAt)} UTC`;
-    const choices = plan.groups.map(visibleOptions);
-    const total = choices.reduce((n,options) => n+options.length,0);
-    const targetText = plan.target ? `${plan.target.name} - ${plan.target.player}` : 'Unknown village';
-    $('result-meta').innerHTML = `<p><strong>${escape(targetText)} ${coordinateLink(plan.settings.target)}</strong></p>
+    $('calculated-at').textContent = `Calculated ${formatClock(lastPlan.calculatedAt)} UTC`;
+    $('view-villages').setAttribute('aria-pressed',String(resultView === 'villages'));
+    $('view-send-order').setAttribute('aria-pressed',String(resultView === 'send-order'));
+    const total = groups.reduce((n,group) => n+group.entries.length,0);
+    const notices = [...new Set(plans.flatMap(value => [
+      callForPlan(value)?.filled ? `${coordText(value.settings.target)} Filled - no more troops needed.` : '',
+      !value.groups.length && !value.notices.length ? `${multiple ? coordText(value.settings.target)+' '+formatUTC(value.settings.attackMs)+': ' : ''}No available options for this landing time.` : '',
+      !value.target ? `${multiple ? coordText(value.settings.target)+' ' : ''}Target not found in map.sql. Verify coordinates.` : '',
+      value.callKey && callsSnapshot && !callsSnapshot.calls.some(call => call.key === value.callKey) ? `${coordText(value.settings.target)} Missing from latest paste.` : '',
+      ...value.notices
+    ].filter(Boolean)))];
+    const filled = plans.filter(value => callForPlan(value)?.filled).length;
+    const noticeHtml = multiple && notices.length > 1
+      ? `<details class="notice" data-details-key="call-notices"><summary>${notices.length} notices${filled ? `; ${filled} filled ${filled === 1 ? 'call' : 'calls'}` : ''}</summary>${notices.map(message => `<p class="spaced">${linkedCoordinates(message)}</p>`).join('')}</details>`
+      : notices.map(message => `<p class="notice">${linkedCoordinates(message)}</p>`).join('');
+    const metadata = multiple ? `<details data-details-key="result-targets"><summary>${plans.length} defence calls</summary>${plans.map(value => `<div class="call-destination spaced">${destinationHtml(value)}</div>`).join('')}</details>`
+      : `<p><strong>${escape(targetName(plan))} ${coordinateLink(plan.settings.target)}</strong></p>
       <div class="timing-summary">
         <div><span class="eyebrow">${plan.isCallDeadline ? 'Call deadline' : 'Attack lands'}</span><span class="digits">${formatClock(plan.settings.attackMs)}</span><span class="sub">${formatDay(plan.settings.attackMs)} UTC</span></div>
         <div><span class="eyebrow">Defence lands</span><span class="digits good">${formatClock(plan.cutoff)}</span><span class="sub">${formatDay(plan.cutoff)} UTC</span></div>
-      </div>
+      </div>`;
+    $('result-meta').innerHTML = `${metadata}
       ${total ? `<p class="muted"><strong class="good">${total} available ${total === 1 ? 'option' : 'options'}</strong></p>` : ''}
-      ${!plan.groups.length && !plan.notices.length ? '<p class="notice">No available options for this landing time.</p>' : ''}
-      ${!plan.target ? '<p class="notice">Target not found in map.sql. Verify coordinates.</p>' : ''}
-      ${plan.notices.map(n => `<p class="notice">${linkedCoordinates(n)}</p>`).join('')}`;
-    $('result-village-filters').hidden = !plan.groups.length;
-    $('result-village-chips').innerHTML = plan.groups.map(group => `<div class="chip village-filter"><label class="check"><input type="checkbox" data-result-filter="${group.origin.did}"${resultVillageSelected(group) ? ' checked' : ''}><span>${escape(group.origin.name)}</span></label>${coordinateLink(group.origin)}</div>`).join('');
-    $('result-list').innerHTML = plan.groups.map((group,index) => {
-      if (!resultVillageSelected(group)) return '';
-      const options = choices[index], head = options.slice(0,3), rest = options.slice(3);
-      return `<article class="result-village" data-result-village="${group.origin.did}"><div class="result-heading"><div class="section-heading"><h3>${escape(group.origin.name)} ${coordinateLink(group.origin)}</h3><label class="check" title="Use the hero equipment selected in Setup"><input type="checkbox" data-hero-items="${group.origin.did}"${heroItemVillages.has(heroItemsKey(group)) ? ' checked' : ''}>Include hero items</label></div><span class="muted">${group.fields.toFixed(2)} fields &middot; TS ${group.ts} &middot; ${options.length} options</span></div>
-        ${options.length ? optionTable(head,index,now) : '<div class="result-empty muted">Hero items required</div>'}
-        ${rest.length ? `<details data-details-key="alternatives-${group.origin.did}"><summary class="alternative-summary">${rest.length} more options</summary>${optionTable(rest,index,now)}</details>` : ''}</article>`;
-    }).join('') || (plan.groups.length ? '<p class="muted spaced">No villages selected.</p>' : '');
+      ${multiple ? '<p class="notice">Rows are alternatives. Troops and the single hero are not reserved between calls.</p>' : ''}
+      ${noticeHtml}`;
+    $('result-village-filters').hidden = !groups.length;
+    $('result-village-chips').innerHTML = groups.map(group => `<div class="chip village-filter"><label class="check"><input type="checkbox" data-result-filter="${group.origin.did}"${resultVillageSelected(group) ? ' checked' : ''}><span>${escape(group.origin.name)}</span></label>${coordinateLink(group.origin)}
+      ${resultView === 'send-order' ? `<label class="result-hero-choice" title="Use the hero equipment selected in Setup"><input type="checkbox" data-hero-items="${group.origin.did}"${heroItemVillages.has(heroItemsKey(group)) ? ' checked' : ''}>Hero items</label>` : ''}</div>`).join('');
+    if (resultView === 'send-order') {
+      const entries = groups.flatMap(group => group.entries).sort(compareEntries), pageSize = 100;
+      sendOrderPage = Math.max(0,Math.min(sendOrderPage,Math.ceil(entries.length/pageSize)-1));
+      const shown = entries.slice(sendOrderPage*pageSize,(sendOrderPage+1)*pageSize);
+      $('result-list').innerHTML = shown.length ? sendOrderTable(shown,now) : groups.length ? '<p class="muted spaced">No options for the selected villages and hero settings.</p>' : '';
+      $('send-order-paging').hidden = !entries.length;
+      $('send-order-count').textContent = `${sendOrderPage*pageSize+1}-${sendOrderPage*pageSize+shown.length} of ${entries.length} options - soonest send first`;
+      $('send-order-prev').disabled = sendOrderPage === 0;
+      $('send-order-next').disabled = (sendOrderPage+1)*pageSize >= entries.length;
+    } else {
+      $('send-order-paging').hidden = true;
+      $('result-list').innerHTML = groups.map(group => {
+        if (!resultVillageSelected(group)) return '';
+        const options = group.entries, head = options.slice(0,3), rest = options.slice(3);
+        return `<article class="result-village" data-result-village="${group.origin.did}"><div class="result-heading"><div class="section-heading"><h3>${escape(group.origin.name)} ${coordinateLink(group.origin)}</h3><label class="check" title="Use the hero equipment selected in Setup"><input type="checkbox" data-hero-items="${group.origin.did}"${heroItemVillages.has(heroItemsKey(group)) ? ' checked' : ''}>Include hero items</label></div><span class="muted">${multiple ? group.calls+' calls' : group.fields.toFixed(2)+' fields'} &middot; TS ${group.ts} &middot; ${options.length} options</span></div>
+          ${options.length ? optionTable(head,now) : '<div class="result-empty muted">Hero items required</div>'}
+          ${rest.length ? `<details data-details-key="alternatives-${group.origin.did}"><summary class="alternative-summary">${rest.length} more options</summary>${optionTable(rest,now)}</details>` : ''}</article>`;
+      }).join('') || (groups.length ? '<p class="muted spaced">No villages selected.</p>' : '');
+    }
     if (resetCopy) { status('copy-status',''); $('copy-text').hidden = true; $('copy-text').value = ''; }
   }
   function rerenderPlan(now,resetCopy = false) {
-    const expanded = new Set([...$('result-list').querySelectorAll('details[data-details-key][open]')].map(e => e.dataset.detailsKey));
+    const expanded = new Set([...$('results').querySelectorAll('details[data-details-key][open]')].map(e => e.dataset.detailsKey));
     renderPlan(resetCopy,now);
-    for (const details of $('result-list').querySelectorAll('details[data-details-key]')) details.open = expanded.has(details.dataset.detailsKey);
+    for (const details of $('results').querySelectorAll('details[data-details-key]')) details.open = expanded.has(details.dataset.detailsKey);
   }
+  const prunePlans = now => { for (const plan of lastPlan.plans) plan.groups = availablePlanGroups(plan,now); };
   function refreshPlanChoices() {
     const now = Date.now();
-    lastPlan.groups = availablePlanGroups(lastPlan,now);
+    prunePlans(now); sendOrderPage = 0;
     rerenderPlan(now,true); updateDisplay();
   }
+  for (const view of ['villages','send-order']) $('view-'+view).addEventListener('click',() => {
+    resultView = view; sendOrderPage = 0;
+    if (lastPlan) { prunePlans(Date.now()); rerenderPlan(Date.now(),true); }
+  });
+  for (const [name,delta] of [['prev',-1],['next',1]]) $('send-order-'+name).addEventListener('click',() => {
+    if (!lastPlan) return;
+    prunePlans(Date.now()); sendOrderPage += delta; rerenderPlan(Date.now(),true);
+  });
   $('result-village-chips').addEventListener('change',event => {
     const input = event.target.closest('input[data-result-filter]');
     if (!input || !lastPlan) return;
     const village = Number(input.dataset.resultFilter);
-    const selected = resultVillageSelections.get(lastPlan.playerId) || new Set(lastPlan.groups.map(group => group.origin.did));
+    const selected = resultVillageSelections.get(lastPlan.playerId) || new Set(resultGroups().map(group => group.origin.did));
     if (input.checked) selected.add(village); else selected.delete(village);
     resultVillageSelections.set(lastPlan.playerId,selected);
     refreshPlanChoices();
@@ -774,24 +935,24 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     else resultVillageSelections.set(lastPlan.playerId,new Set());
     refreshPlanChoices();
   });
-  $('result-list').addEventListener('change',event => {
+  $('results').addEventListener('change',event => {
     const input = event.target.closest('input[data-hero-items]');
     if (!input || !lastPlan) return;
     const village = Number(input.dataset.heroItems), key = `${lastPlan.playerId}:${village}`;
     if (input.checked) heroItemVillages.add(key); else heroItemVillages.delete(key);
     refreshPlanChoices();
-    $('result-list').querySelector(`input[data-hero-items="${village}"]`)?.focus({preventScroll:true});
+    $('results').querySelector(`input[data-hero-items="${village}"]`)?.focus({preventScroll:true});
   });
   function syncDisplayTimer() {
-    const needed = !!lastPlan?.groups.length || !!callsSnapshot?.calls.some(call => call.deadlineMs > Date.now());
+    const needed = !!lastPlan?.plans.some(plan => plan.groups.length) || !!callsSnapshot?.calls.some(call => call.deadlineMs > Date.now());
     if (needed && sendTimer === null) sendTimer = setInterval(updateDisplay,1000);
     else if (!needed && sendTimer !== null) { clearInterval(sendTimer); sendTimer = null; }
   }
   function updateSendCountdown() {
     if (!lastPlan) return;
     const now = Date.now();
-    if (lastPlan.groups.some(group => group.options.some(option => option.sendAt < now))) {
-      lastPlan.groups = availablePlanGroups(lastPlan,now);
+    if (lastPlan.plans.some(plan => plan.groups.some(group => group.options.some(option => option.sendAt < now)))) {
+      prunePlans(now);
       rerenderPlan(now);
     }
     for (const label of $('result-list').querySelectorAll('.send-wait')) {
@@ -816,10 +977,11 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
       const activeCall = selectedCall && selectedCall.x === target.x && selectedCall.y === target.y && selectedCall.deadlineMs === settings.attackMs ? selectedCall : null;
       const plan = buildPlan(villages,currentProfile(),settings);
       plan.callKey = activeCall?.key ?? null;
+      plan.call = activeCall;
       plan.isCallDeadline = !!activeCall && !activeCall.isImpact;
       const now = Date.now();
       plan.groups = availablePlanGroups(plan,now);
-      lastPlan = plan;
+      lastPlan = {plans:[plan],playerId:plan.playerId,calculatedAt,source:'single'}; sendOrderPage = 0;
       presentTarget(settings.target);
       $('attack-time').value = time;
       $('attack-time').setAttribute('aria-invalid','false');
@@ -835,10 +997,22 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     }
   }
   $('calculate').addEventListener('click',calculateDefence);
+  $('calculate-calls').addEventListener('click',() => {
+    invalidate();
+    try {
+      if (!currentProfile()) throw new Error('Select your account in Setup first.');
+      const calculatedAt = Date.now(), calls = callsSnapshot?.calls.filter(call => selectedCalls.has(call.key)) || [];
+      const plans = buildCallPlans(villages,currentProfile(),calls,{referenceMs:calculatedAt,calculatedAt,buffer:defenceSettings().buffer});
+      lastPlan = {plans,playerId:currentProfile().playerId,calculatedAt,source:'calls'};
+      clearCallSelection(); resultView = 'send-order'; sendOrderPage = 0;
+      prunePlans(Date.now()); renderPlan(); updateDisplay(); status('plan-status','');
+      $('results').scrollIntoView({block:'start'});
+    } catch (error) { status('plan-error',error.message,true); $('plan-error').scrollIntoView({block:'nearest'}); }
+  });
   $('result-list').addEventListener('click',async event => {
     const clock = event.target.closest('a[data-clock-group]');
     if (clock) {
-      const group = lastPlan?.groups[Number(clock.dataset.clockGroup)];
+      const plan = lastPlan?.plans[Number(clock.dataset.clockPlan)], group = plan?.groups[Number(clock.dataset.clockGroup)];
       const choice = group && visibleOptions(group).find(value => value.index === Number(clock.dataset.clockOption));
       if (!choice || choice.option.sendAt < Date.now()) {
         event.preventDefault(); updateDisplay();
@@ -849,7 +1023,7 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     const button = event.target.closest('button[data-copy-group]');
     if (!button || !lastPlan) return;
     const copiedPlan = lastPlan;
-    const group = copiedPlan.groups[Number(button.dataset.copyGroup)];
+    const plan = copiedPlan.plans[Number(button.dataset.copyPlan)], group = plan?.groups[Number(button.dataset.copyGroup)];
     const choice = group && visibleOptions(group).find(value => value.index === Number(button.dataset.copyOption));
     if (!choice) { status('copy-status','Option unavailable. Choose another option.',true); return; }
     const {option} = choice;
@@ -862,13 +1036,14 @@ a.send-wait{color:var(--green);text-underline-offset:3px}
     const detail = armyDetail(option);
     const text = [
       `TS12 defence - ${option.origin.player}`,
-      `From: ${option.origin.name} ${coordText(option.origin)} -> ${coordText(lastPlan.settings.target)}`,
+      `From: ${option.origin.name} ${coordText(option.origin)} -> ${coordText(plan.settings.target)}`,
       `Troops: ${option.load.label}${detail ? '. '+detail : ''}`,
       `Equipment: ${option.equipment.map(e => e.label).join(' OR ')}`,
       `Send: ${formatUTC(option.sendAt)}`,
-      `Arrival: ${formatUTC(lastPlan.cutoff)}; ${lastPlan.isCallDeadline ? 'call deadline' : 'attack'}: ${formatUTC(lastPlan.settings.attackMs)}`,
+      `Arrival: ${formatUTC(plan.cutoff)}; ${plan.isCallDeadline ? 'call deadline' : 'attack'}: ${formatUTC(plan.settings.attackMs)}`,
       `Travel: ${duration(option.seconds)}`,
-      !lastPlan.target ? 'Target not found in the map; check coordinates.' : ''
+      callForPlan(plan)?.filled ? 'Filled call - no more troops needed.' : '',
+      !plan.target ? 'Target not found in the map; check coordinates.' : ''
     ].filter(Boolean).join('\n');
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable in this browser.');

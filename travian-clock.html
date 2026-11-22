@@ -108,6 +108,8 @@
     .sync-status { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .status-dot { flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--warning); }
     .sync-panel[data-synced="true"] .status-dot { background: var(--accent); }
+    .sync-panel[data-warning="true"] .status-dot { background: var(--warning); }
+    .sync-panel[data-warning="true"] #sync-status { color: var(--warning); }
     .sync-button { flex-shrink: 0; padding: 6px 10px; font-size: .72rem; }
     .sync-metrics { display: flex; flex-wrap: wrap; gap: 5px 18px; margin-top: 7px; color: var(--muted); }
     .sync-metrics strong { color: #e0e8f2; font-weight: 500; font-family: var(--mono); }
@@ -289,7 +291,7 @@
     <footer>
       <p class="footer-warning">Travian resolves arrivals to whole seconds. Browser, network, and game delays mean precise arrival cannot be guaranteed. Nothing is sent to the game.</p>
       <!-- Update this fixed timestamp when revising the file. -->
-      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-11-21T05:37:23Z">2026-11-21 05:37:23 UTC</time></p>
+      <p class="build-info" title="File version timestamp, not the current time or last clock synchronization">Last updated: <time id="last-updated" datetime="2026-11-22T14:33:15Z">2026-11-22 14:33:15 UTC</time></p>
     </footer>
   </main>
 
@@ -302,7 +304,7 @@
     const REQUEST_TIMEOUT = 3500;
     const SYNC_INTERVAL = 5 * 60 * 1000;
     const RETRY_INTERVAL = 60 * 1000;
-    const MAX_CALIBRATION_AGE = 10 * 60 * 1000;
+    const STALE_SYNC_AGE = 2 * SYNC_INTERVAL;
     const ASSUMED_DRIFT = 100 / 1000000;
     const SEND_NOW_WINDOW = 250;
     const formatters = new Map();
@@ -539,6 +541,7 @@
     const requestNonce = crypto.getRandomValues(new Uint32Array(2)).join("-");
     let reference = null;
     let calibration = null;
+    let clockContinuityUncertain = false;
     let target = null;
     let defenceRoute = null;
     let zone = "UTC";
@@ -1003,10 +1006,9 @@
       }
     }
 
-    function invalidateTime(reason) {
-      reference = null;
-      calibration = null;
+    function recordSyncIssue(reason) {
       syncFailure = reason;
+      if (calibration) return;
       clockSecond = null;
       cancelAudioCues();
       updateAudioStatus();
@@ -1020,14 +1022,14 @@
       syncController = null;
       syncing = false;
       nextSyncAt = performance.now();
-      invalidateTime(reason);
+      recordSyncIssue(reason);
       renderSync();
     }
 
     async function synchronize() {
       if (syncing || document.hidden) return;
       if (navigator.onLine === false) {
-        invalidateTime("TimeAPI.io cannot be reached while this browser is offline.");
+        recordSyncIssue("TimeAPI.io cannot be reached while this browser is offline.");
         nextSyncAt = performance.now() + RETRY_INTERVAL;
         renderSync();
         return;
@@ -1047,7 +1049,7 @@
           } catch (error) {
             if (controller.signal.aborted) throw error;
             lastFailure = error.message;
-            invalidateTime(lastFailure);
+            recordSyncIssue(lastFailure);
           }
           if (generation !== syncGeneration) return;
           syncProgress = index + 1;
@@ -1062,6 +1064,7 @@
         const previousTime = clockNow(mono);
         reference = { epoch: estimate.base + mono, mono };
         calibration = { ...estimate, mono, correction: previousTime === null ? null : reference.epoch - previousTime };
+        clockContinuityUncertain = false;
         syncFailure = "";
         clockSecond = null;
         nextSyncAt = mono + SYNC_INTERVAL;
@@ -1072,7 +1075,7 @@
         renderCountdown(clockNow());
       } catch (error) {
         if (generation !== syncGeneration) return;
-        invalidateTime(`${error.message}${lastFailure && lastFailure !== error.message ? ` ${lastFailure}` : ""}`);
+        recordSyncIssue(`${error.message}${lastFailure && lastFailure !== error.message ? ` ${lastFailure}` : ""}`);
         nextSyncAt = performance.now() + RETRY_INTERVAL;
       } finally {
         if (generation === syncGeneration) {
@@ -1085,27 +1088,38 @@
 
     function renderSync() {
       const mono = performance.now();
+      const age = calibration ? Math.max(0, mono - calibration.mono) : 0;
+      const old = Boolean(calibration && age >= STALE_SYNC_AGE);
       ui.syncPanel.dataset.synced = String(Boolean(calibration));
+      ui.syncPanel.dataset.stale = String(old);
+      ui.syncPanel.dataset.warning = String(Boolean(calibration && (old || syncFailure || clockContinuityUncertain)));
       ui.syncButton.disabled = syncing;
       setText(ui.syncButton, syncing ? "Measuring..." : "Sync now");
-      setText(ui.syncStatus, calibration
-        ? syncing ? `Measuring ${syncProgress}/${SAMPLE_COUNT} / API calibration active` : "Synchronized / TimeAPI.io"
-        : syncFailure ? "TIME API UNAVAILABLE / timing paused" : `Waiting for API time / ${syncProgress}/${SAMPLE_COUNT}`);
+      const retry = syncing
+        ? `Refreshing (${syncProgress}/${SAMPLE_COUNT}).`
+        : `Retry in ${Math.max(0, Math.ceil((nextSyncAt - mono) / 1000))}s or press Sync now.`;
       if (calibration) {
+        setText(ui.syncStatus, old
+          ? "SYNC OLD (10m+) / using previous sync"
+          : clockContinuityUncertain ? "Using previous sync / refresh recommended"
+            : syncFailure ? "Synchronized / using previous sync"
+              : syncing ? "Refreshing / previous API sync active" : "Synchronized / TimeAPI.io");
         const correction = calibration.correction === null ? null : Math.round(calibration.correction);
-        const age = Math.max(0, mono - calibration.mono);
         const uncertainty = Math.ceil(calibration.uncertainty + age * ASSUMED_DRIFT);
         setText(ui.syncOffset, correction === null ? "--" : `${correction >= 0 ? "+" : ""}${correction} ms`);
-        setText(ui.syncUncertainty, `est. +/-${uncertainty} ms`);
+        setText(ui.syncUncertainty, clockContinuityUncertain ? "unknown after pause" : `est. +/-${uncertainty} ms`);
         setText(ui.syncRtt, `${Math.round(calibration.rtt)} ms`);
-        setText(ui.syncDetail, `${calibration.samples}/${SAMPLE_COUNT} samples / updated ${Math.floor(age / 1000)}s ago / network estimate; source clock error unknown.`);
+        const ageText = `${Math.floor(age / 60000)}m ${Math.floor(age / 1000) % 60}s`;
+        const detail = clockContinuityUncertain
+          ? "Browser may have slept; timing uncertainty is unknown."
+          : "Network estimate; source clock error unknown.";
+        setText(ui.syncDetail, `${calibration.samples}/${SAMPLE_COUNT} samples / synced ${ageText} ago / ${detail}` +
+          (syncFailure ? ` ${syncFailure} ${retry}` : old ? ` ${retry}` : ""));
       } else {
+        setText(ui.syncStatus, syncFailure ? "TIME API UNAVAILABLE / timing paused" : `Waiting for API time / ${syncProgress}/${SAMPLE_COUNT}`);
         setText(ui.syncOffset, "--");
         setText(ui.syncUncertainty, "unknown");
         setText(ui.syncRtt, "--");
-        const retry = syncing
-          ? `Requesting API time (${syncProgress}/${SAMPLE_COUNT}).`
-          : `Retry in ${Math.max(0, Math.ceil((nextSyncAt - mono) / 1000))}s or press Sync now.`;
         setText(ui.syncDetail, `${syncFailure || "No verified API time yet."} ${retry} Device time is never used.`);
       }
     }
@@ -1113,12 +1127,10 @@
     function maintainClock() {
       const mono = performance.now();
       if (mono - lastClockCheck > 15000) {
-        interruptSync("A browser pause was detected. Fresh API synchronization is required.");
+        clockContinuityUncertain = true;
+        interruptSync("A browser pause was detected.");
       }
       lastClockCheck = mono;
-      if (calibration && mono - calibration.mono > MAX_CALIBRATION_AGE) {
-        interruptSync("Calibration expired.");
-      }
       if (!document.hidden && !syncing && mono >= nextSyncAt) void synchronize();
       renderTabTitle(clockNow());
       renderSync();
@@ -1182,8 +1194,9 @@
     ui.syncButton.addEventListener("click", synchronize);
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) return;
-      // Some browsers pause performance.now() during sleep; require fresh time on return.
-      interruptSync("The page returned from the background; refreshing API time.");
+      // Some browsers pause performance.now() during sleep; retain time but flag uncertain continuity.
+      clockContinuityUncertain = true;
+      interruptSync("Returned from the background.");
       lastClockCheck = performance.now();
       maintainClock();
     });
@@ -1197,7 +1210,8 @@
     });
     window.addEventListener("pageshow", event => {
       if (event.persisted) {
-        interruptSync("Page restored; refreshing calibration.");
+        clockContinuityUncertain = true;
+        interruptSync("Page restored.");
         maintainClock();
       }
     });
